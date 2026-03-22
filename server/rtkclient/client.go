@@ -64,7 +64,7 @@ func (c *client) CreateMeeting(preset string) (*Meeting, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateMeeting request failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("CreateMeeting: unexpected status %d", resp.StatusCode)
@@ -92,7 +92,7 @@ func (c *client) GenerateToken(meetingID, userID, preset string) (*Token, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "GenerateToken request failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("GenerateToken: unexpected status %d", resp.StatusCode)
@@ -112,7 +112,7 @@ func (c *client) EndMeeting(meetingID string) error {
 	if err != nil {
 		return errors.Wrap(err, "EndMeeting request failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("EndMeeting: unexpected status %d", resp.StatusCode)

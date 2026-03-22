@@ -22,8 +22,8 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 	t.Helper()
 	api := &plugintest.API{}
 	// Allow any logging calls without asserting on them (arg counts vary: 1+2k pattern).
-	anyArgs := func(n int) []interface{} {
-		args := make([]interface{}, n)
+	anyArgs := func(n int) []any {
+		args := make([]any, n)
 		for i := range args {
 			args[i] = mock.Anything
 		}
@@ -304,4 +304,3 @@ func TestEndCall_AlreadyEnded(t *testing.T) {
 	err := p.EndCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
-

@@ -12,5 +12,5 @@ var (
 	// ErrUnauthorized is returned when the user is not authorized to perform the action.
 	ErrUnauthorized = errors.New("only the call creator can perform this action")
 	// ErrRTKNotConfigured is returned when Cloudflare RTK credentials are not configured.
-	ErrRTKNotConfigured = errors.New("Cloudflare RTK credentials are not configured")
+	ErrRTKNotConfigured = errors.New("cloudflare RTK credentials are not configured")
 )

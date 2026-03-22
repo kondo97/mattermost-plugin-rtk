@@ -104,4 +104,3 @@ func (kv Client) GetVoIPToken(userID string) (string, error) {
 	}
 	return token, nil
 }
-

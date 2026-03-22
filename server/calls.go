@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,13 +12,13 @@ import (
 )
 
 const (
-	wsEventCallStarted           = "custom_cf_call_started"
-	wsEventUserJoined            = "custom_cf_user_joined"
-	wsEventUserLeft              = "custom_cf_user_left"
-	wsEventCallEnded             = "custom_cf_call_ended"
-	callPostType                 = "custom_cf_call"
-	rtkPresetHost                = "group_call_host"
-	rtkPresetParticipant         = "group_call_participant"
+	wsEventCallStarted   = "custom_cf_call_started"
+	wsEventUserJoined    = "custom_cf_user_joined"
+	wsEventUserLeft      = "custom_cf_user_left"
+	wsEventCallEnded     = "custom_cf_call_ended"
+	callPostType         = "custom_cf_call"
+	rtkPresetHost        = "group_call_host"
+	rtkPresetParticipant = "group_call_participant"
 )
 
 // nowMs returns the current time as Unix milliseconds.
@@ -27,12 +28,7 @@ func nowMs() int64 {
 
 // containsUser returns true if userID is in participants.
 func containsUser(participants []string, userID string) bool {
-	for _, p := range participants {
-		if p == userID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(participants, userID)
 }
 
 // removeUser returns participants with userID removed (all occurrences).
@@ -280,4 +276,3 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 
 	return nil
 }
-
