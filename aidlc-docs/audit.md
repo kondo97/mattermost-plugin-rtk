@@ -56,6 +56,30 @@
 
 ---
 
+## Unit 1 Functional Design - Design Review Decisions
+**Timestamp**: 2026-03-22T00:30:00Z
+**User Input**: "ロールバックなし、初期タイムスタンプを打つことにします。新しいトークンを返しつつ participants は変わらないという挙動で問題は生じますか？" → A（リスク許容）
+**AI Response**: Updated business-logic-model.md and business-rules.md: (1) no rollback on CreatePost failure, (2) SetHeartbeat on JoinCall immediately, (3) re-join duplicate risk accepted.
+**Context**: Unit 1 Functional Design review — three design points clarified.
+
+---
+
+## Units Generation - User Approval
+**Timestamp**: 2026-03-22T00:10:00Z
+**User Input**: "Approve & Continue"
+**AI Response**: Units Generation approved. Proceeding to CONSTRUCTION PHASE, Unit 1: RTK Integration.
+**Context**: INCEPTION PHASE complete. Transitioning to CONSTRUCTION PHASE Per-Unit Loop.
+
+---
+
+## Units Generation - User Confirmation (per unit)
+**Timestamp**: 2026-03-22T00:00:00Z
+**User Input**: "A" (x6 — one per unit, confirmed Unit 1 through Unit 6 individually)
+**AI Response**: All 6 units approved as proposed. Generated unit-of-work.md, unit-of-work-dependency.md, unit-of-work-story-map.md.
+**Context**: Units Generation Part 1 (Planning) and Part 2 (Generation) complete.
+
+---
+
 ## Requirements Analysis - Questions Answered & Requirements Generated
 **Timestamp**: 2026-03-19T00:20:00Z
 **User Input**: "このプラグインは、MattermostでCloudflare RealtimeKitを提供するためのものです。..."
@@ -93,6 +117,23 @@
 **User Input**: (N/A - automated, continuing from Workflow Planning approval)
 **AI Response**: Created user-stories-assessment.md (decision: Execute — high priority, multi-persona, complex). Created story-generation-plan.md with 7 planning questions covering breakdown approach, granularity, Mattermost Calls comparison format, mobile persona, acceptance criteria format, admin persona, and edge case story coverage. Awaiting user answers.
 **Context**: User Stories PART 1 - Planning. Steps 1-7 complete. Awaiting user to fill in [Answer]: tags in story-generation-plan.md.
+
+---
+
+## Application Design - Complete
+
+**Timestamp**: 2026-03-22T10:00:00Z
+**User Input**: Q1=B (floating widget), Q2=A (flat), Q3=A (Redux), Q4=B (token+session), Q5=C (sendBeacon+heartbeat 60s)
+**AI Response**: Generated all 5 application design artifacts: components.md, component-methods.md, services.md, component-dependency.md, application-design.md. All plan checkboxes marked complete. aidlc-state.md updated to Units Generation (NEXT).
+**Context**: INCEPTION - Application Design COMPLETE. Awaiting user approval to proceed to Units Generation.
+
+---
+
+## Application Design - Plan Created
+**Timestamp**: 2026-03-22T00:00:00Z
+**User Input**: "続きから再開します"
+**AI Response**: Resumed from User Stories COMPLETE. Started Application Design stage. Analyzed requirements, user stories, and reverse engineering artifacts. Created application-design-plan.md with 5 clarifying questions (Q1: floating widget contradiction, Q2: backend service layer, Q3: frontend state management, Q4: standalone call page auth, Q5: leave-on-tab-close detection). Awaiting user answers.
+**Context**: INCEPTION - Application Design PART 1. Awaiting user to fill in [Answer]: tags in application-design-plan.md.
 
 ---
 
