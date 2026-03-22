@@ -120,6 +120,58 @@ func (c *client) EndMeeting(meetingID string) error {
 	return nil
 }
 
+// registerWebhookRequest is the request body for registering a webhook.
+type registerWebhookRequest struct {
+	TargetURL string   `json:"targetUrl"`
+	Events    []string `json:"events"`
+}
+
+// registerWebhookResponse is the response body from registering a webhook.
+type registerWebhookResponse struct {
+	ID     string `json:"id"`
+	Secret string `json:"secret"`
+}
+
+// RegisterWebhook registers a webhook endpoint with RTK for the given events.
+func (c *client) RegisterWebhook(url string, events []string) (id, secret string, err error) {
+	reqURL := fmt.Sprintf("%s/apps/%s/webhooks", c.baseURL, c.orgID)
+	body, err := json.Marshal(registerWebhookRequest{TargetURL: url, Events: events})
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to marshal RegisterWebhook request")
+	}
+
+	resp, err := c.doRequest(http.MethodPost, reqURL, body)
+	if err != nil {
+		return "", "", errors.Wrap(err, "RegisterWebhook request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", "", fmt.Errorf("RegisterWebhook: unexpected status %d", resp.StatusCode)
+	}
+
+	var result registerWebhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", "", errors.Wrap(err, "failed to decode RegisterWebhook response")
+	}
+	return result.ID, result.Secret, nil
+}
+
+// DeleteWebhook removes a previously registered RTK webhook by ID.
+func (c *client) DeleteWebhook(webhookID string) error {
+	url := fmt.Sprintf("%s/apps/%s/webhooks/%s", c.baseURL, c.orgID, webhookID)
+	resp, err := c.doRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "DeleteWebhook request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("DeleteWebhook: unexpected status %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // doRequest executes an authenticated HTTP request.
 func (c *client) doRequest(method, url string, body []byte) (*http.Response, error) {
 	var bodyReader io.Reader

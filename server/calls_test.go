@@ -129,9 +129,10 @@ func TestJoinCall_Success(t *testing.T) {
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	tok, err := p.JoinCall(callID, userID)
+	sess, tok, err := p.JoinCall(callID, userID)
 	require.NoError(t, err)
 	assert.Equal(t, "tok", tok)
+	assert.Equal(t, callID, sess.ID)
 }
 
 func TestJoinCall_CallNotFound(t *testing.T) {
@@ -142,7 +143,7 @@ func TestJoinCall_CallNotFound(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
 
-	_, err := p.JoinCall("call1", "user1")
+	_, _, err := p.JoinCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -155,7 +156,7 @@ func TestJoinCall_AlreadyEnded(t *testing.T) {
 	session := &kvstore.CallSession{ID: "call1", EndAt: 1000}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
-	_, err := p.JoinCall("call1", "user1")
+	_, _, err := p.JoinCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -179,7 +180,7 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	_, err := p.JoinCall(callID, userID)
+	_, _, err := p.JoinCall(callID, userID)
 	require.NoError(t, err)
 }
 

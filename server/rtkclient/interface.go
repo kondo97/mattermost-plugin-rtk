@@ -8,6 +8,11 @@ type RTKClient interface {
 	GenerateToken(meetingID, userID, preset string) (*Token, error)
 	// EndMeeting terminates an RTK meeting.
 	EndMeeting(meetingID string) error
+	// RegisterWebhook registers a webhook endpoint with RTK for the given events.
+	// Returns the webhook ID and signing secret on success.
+	RegisterWebhook(url string, events []string) (id, secret string, err error)
+	// DeleteWebhook removes a previously registered RTK webhook by ID.
+	DeleteWebhook(webhookID string) error
 }
 
 // Meeting represents an RTK meeting returned by the Cloudflare API.

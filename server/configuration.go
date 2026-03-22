@@ -4,6 +4,8 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+
+	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 )
 
 // configuration captures the plugin's external configuration as exposed in the Mattermost server
@@ -84,6 +86,8 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 
 // OnConfigurationChange is invoked when configuration changes may have been made.
 func (p *Plugin) OnConfigurationChange() error {
+	prev := p.getConfiguration()
+
 	configuration := new(configuration)
 
 	// Load the public configuration fields from the Mattermost server configuration.
@@ -92,6 +96,20 @@ func (p *Plugin) OnConfigurationChange() error {
 	}
 
 	p.setConfiguration(configuration)
+
+	credentialsChanged := prev.CloudflareOrgID != configuration.CloudflareOrgID ||
+		prev.CloudflareAPIKey != configuration.CloudflareAPIKey
+
+	if credentialsChanged {
+		if configuration.CloudflareOrgID != "" && configuration.CloudflareAPIKey != "" {
+			p.rtkClient = rtkclient.NewClient(configuration.GetEffectiveOrgID(), configuration.GetEffectiveAPIKey())
+			if p.kvStore != nil {
+				p.reRegisterWebhook()
+			}
+		} else {
+			p.rtkClient = nil
+		}
+	}
 
 	return nil
 }

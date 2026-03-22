@@ -9,7 +9,9 @@ type KVStore interface {
 	GetCallByChannel(channelID string) (*CallSession, error)
 	// GetCallByID returns the call with the given ID, or nil if not found.
 	GetCallByID(callID string) (*CallSession, error)
-	// SaveCall persists a call session (creates or updates).
+	// GetCallByMeetingID returns the call with the given RTK meeting ID, or nil if not found.
+	GetCallByMeetingID(meetingID string) (*CallSession, error)
+	// SaveCall persists a call session (creates or updates). Also writes the meeting ID index.
 	SaveCall(session *CallSession) error
 	// UpdateCallParticipants updates the participants list for a call.
 	UpdateCallParticipants(callID string, participants []string) error
@@ -20,4 +22,13 @@ type KVStore interface {
 	StoreVoIPToken(userID, token string) error
 	// GetVoIPToken retrieves the VoIP device token for a user.
 	GetVoIPToken(userID string) (string, error)
+
+	// StoreWebhookID persists the registered RTK webhook ID.
+	StoreWebhookID(id string) error
+	// GetWebhookID retrieves the registered RTK webhook ID, or empty string if not set.
+	GetWebhookID() (string, error)
+	// StoreWebhookSecret persists the RTK webhook signing secret.
+	StoreWebhookSecret(secret string) error
+	// GetWebhookSecret retrieves the RTK webhook signing secret.
+	GetWebhookSecret() (string, error)
 }

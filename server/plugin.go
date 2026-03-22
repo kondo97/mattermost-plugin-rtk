@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -34,6 +35,9 @@ type Plugin struct {
 	// router is the HTTP router for handling API requests.
 	router *mux.Router
 
+	// callMu guards call state mutations (CreateCall, JoinCall, LeaveCall, EndCall).
+	callMu sync.Mutex
+
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
 
@@ -41,6 +45,9 @@ type Plugin struct {
 	// setConfiguration for usage.
 	configuration *configuration
 }
+
+// rtkWebhookEvents are the RTK webhook events this plugin subscribes to.
+var rtkWebhookEvents = []string{"meeting.participantLeft", "meeting.ended"}
 
 // OnActivate is invoked when the plugin is activated. If an error is returned, the plugin will be deactivated.
 func (p *Plugin) OnActivate() error {
@@ -53,11 +60,74 @@ func (p *Plugin) OnActivate() error {
 	cfg := p.getConfiguration()
 	if cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != "" {
 		p.rtkClient = rtkclient.NewClient(cfg.GetEffectiveOrgID(), cfg.GetEffectiveAPIKey())
+		p.registerWebhookIfNeeded()
 	}
 
 	p.router = p.initRouter()
 
 	return nil
+}
+
+// registerWebhookIfNeeded registers the RTK webhook if one is not already registered.
+// Both the webhook ID and the signing secret must be present; if either is missing the
+// webhook is (re-)registered so that signature verification can succeed.
+// This is best-effort: errors are logged but not returned to avoid blocking activation.
+func (p *Plugin) registerWebhookIfNeeded() {
+	existingID, err := p.kvStore.GetWebhookID()
+	if err != nil {
+		p.API.LogWarn("Failed to check existing webhook ID", "error", err.Error())
+	}
+	existingSecret, err := p.kvStore.GetWebhookSecret()
+	if err != nil {
+		p.API.LogWarn("Failed to check existing webhook secret", "error", err.Error())
+	}
+	if existingID != "" && existingSecret != "" {
+		return
+	}
+
+	siteURL := ""
+	if cfg := p.API.GetConfig(); cfg != nil && cfg.ServiceSettings.SiteURL != nil {
+		siteURL = *cfg.ServiceSettings.SiteURL
+	}
+	if siteURL == "" {
+		p.API.LogWarn("SiteURL not configured; skipping RTK webhook registration")
+		return
+	}
+
+	webhookURL := fmt.Sprintf("%s/plugins/%s/api/v1/webhook/rtk", siteURL, manifest.Id)
+	id, secret, err := p.rtkClient.RegisterWebhook(webhookURL, rtkWebhookEvents)
+	if err != nil {
+		p.API.LogWarn("Failed to register RTK webhook", "error", err.Error())
+		return
+	}
+
+	if err := p.kvStore.StoreWebhookID(id); err != nil {
+		p.API.LogWarn("Failed to store RTK webhook ID", "error", err.Error())
+	}
+	if err := p.kvStore.StoreWebhookSecret(secret); err != nil {
+		p.API.LogWarn("Failed to store RTK webhook secret", "error", err.Error())
+	}
+}
+
+// reRegisterWebhook deletes the existing RTK webhook (if any) and registers a fresh one.
+// Called when credentials change. Best-effort: errors are logged but not returned.
+func (p *Plugin) reRegisterWebhook() {
+	existingID, err := p.kvStore.GetWebhookID()
+	if err != nil {
+		p.API.LogWarn("Failed to get existing webhook ID for re-registration", "error", err.Error())
+	}
+	if existingID != "" {
+		if err := p.rtkClient.DeleteWebhook(existingID); err != nil {
+			p.API.LogWarn("Failed to delete old RTK webhook", "webhookID", existingID, "error", err.Error())
+		}
+		if err := p.kvStore.StoreWebhookID(""); err != nil {
+			p.API.LogWarn("Failed to clear RTK webhook ID", "error", err.Error())
+		}
+		if err := p.kvStore.StoreWebhookSecret(""); err != nil {
+			p.API.LogWarn("Failed to clear RTK webhook secret", "error", err.Error())
+		}
+	}
+	p.registerWebhookIfNeeded()
 }
 
 // OnDeactivate is invoked when the plugin is deactivated.
