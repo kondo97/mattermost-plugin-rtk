@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	keyCallChannel = "call:channel:%s"
-	keyCallID      = "call:id:%s"
-	keyCallMeeting = "call:meeting:%s"
-	keyVoIPToken   = "voip:%s"
+	keyCallChannel   = "call:channel:%s"
+	keyCallID        = "call:id:%s"
+	keyCallMeeting   = "call:meeting:%s"
+	keyVoIPToken     = "voip:%s"
 	keyWebhookID     = "webhook:id"
 	keyWebhookSecret = "webhook:secret"
 )

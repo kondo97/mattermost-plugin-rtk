@@ -11,8 +11,8 @@ import (
 
 // rtkWebhookEvent is the top-level RTK webhook payload.
 type rtkWebhookEvent struct {
-	Event   string             `json:"event"`
-	Meeting rtkWebhookMeeting  `json:"meeting"`
+	Event       string                `json:"event"`
+	Meeting     rtkWebhookMeeting     `json:"meeting"`
 	Participant rtkWebhookParticipant `json:"participant"`
 }
 
@@ -104,8 +104,19 @@ func (p *Plugin) handleWebhookMeetingEnded(event rtkWebhookEvent) {
 	p.callMu.Lock()
 	defer p.callMu.Unlock()
 
-	if err := p.endCallInternal(session); err != nil {
-		p.API.LogError("handleWebhookMeetingEnded: endCallInternal failed", "call_id", session.ID, "error", err.Error())
+	// Re-read inside the lock to prevent TOCTOU: another path (EndCall/LeaveCall)
+	// may have ended the call between the check above and acquiring the lock.
+	fresh, err := p.kvStore.GetCallByID(session.ID)
+	if err != nil {
+		p.API.LogError("handleWebhookMeetingEnded: GetCallByID re-check failed", "call_id", session.ID, "error", err.Error())
+		return
+	}
+	if fresh == nil || fresh.EndAt != 0 {
+		return // already ended by another path
+	}
+
+	if err := p.endCallInternal(fresh); err != nil {
+		p.API.LogError("handleWebhookMeetingEnded: endCallInternal failed", "call_id", fresh.ID, "error", err.Error())
 	}
 }
 
