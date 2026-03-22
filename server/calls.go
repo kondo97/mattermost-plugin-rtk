@@ -117,9 +117,10 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 
 	// BR-04: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventCallStarted, map[string]any{
-		"call_id":      session.ID,
-		"channel_id":   channelID,
-		"creator_id":   userID,
+		"id":           session.ID,
+		"channelID":    channelID,
+		"owner_id":     userID,
+		"host_id":      userID,
 		"participants": session.Participants,
 		"start_at":     session.StartAt,
 		"post_id":      session.PostID,
@@ -165,7 +166,7 @@ func (p *Plugin) JoinCall(callID, userID string) (string, error) {
 	// BR-10: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
 		"call_id":      callID,
-		"channel_id":   session.ChannelID,
+		"channelID":    session.ChannelID,
 		"user_id":      userID,
 		"participants": session.Participants,
 	}, &model.WebsocketBroadcast{ChannelId: session.ChannelID})
@@ -198,7 +199,7 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 	// BR-12: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserLeft, map[string]any{
 		"call_id":      callID,
-		"channel_id":   session.ChannelID,
+		"channelID":    session.ChannelID,
 		"user_id":      userID,
 		"participants": updated,
 	}, &model.WebsocketBroadcast{ChannelId: session.ChannelID})
@@ -270,7 +271,7 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 	// BR-29: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventCallEnded, map[string]any{
 		"call_id":     session.ID,
-		"channel_id":  session.ChannelID,
+		"channelID":   session.ChannelID,
 		"end_at":      endAt,
 		"duration_ms": durationMs,
 	}, &model.WebsocketBroadcast{ChannelId: session.ChannelID})
