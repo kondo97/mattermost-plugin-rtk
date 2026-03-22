@@ -17,7 +17,22 @@ import (
 //
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
-type configuration struct{}
+type configuration struct {
+	// CloudflareOrgID is the Cloudflare Organization ID for the RealtimeKit integration.
+	CloudflareOrgID string `json:"CloudflareOrgID"`
+	// CloudflareAPIKey is the Cloudflare API Key for the RealtimeKit integration.
+	CloudflareAPIKey string `json:"CloudflareAPIKey"`
+}
+
+// GetEffectiveOrgID returns the configured Cloudflare Organization ID.
+func (c *configuration) GetEffectiveOrgID() string {
+	return c.CloudflareOrgID
+}
+
+// GetEffectiveAPIKey returns the configured Cloudflare API Key.
+func (c *configuration) GetEffectiveAPIKey() string {
+	return c.CloudflareAPIKey
+}
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
 // your configuration has reference types.
