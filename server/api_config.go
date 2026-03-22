@@ -10,7 +10,7 @@ import (
 // handleConfigStatus handles GET /api/v1/config/status.
 func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
-	enabled := cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != ""
+	enabled := cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != ""
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
@@ -27,7 +27,7 @@ func (p *Plugin) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
 	}
 
 	cfg := p.getConfiguration()
-	enabled := cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != ""
+	enabled := cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != ""
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
