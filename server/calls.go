@@ -255,6 +255,9 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 		if appErr != nil {
 			p.API.LogWarn("endCallInternal: GetPost failed (best effort)", "call_id", session.ID, "post_id", session.PostID, "err", appErr.Error())
 		} else {
+			if post.Props == nil {
+				post.Props = make(model.StringInterface)
+			}
 			post.Props["end_at"] = endAt
 			post.Props["duration_ms"] = durationMs
 			if _, appErr := p.API.UpdatePost(post); appErr != nil {
