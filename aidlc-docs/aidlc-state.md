@@ -3,7 +3,7 @@
 ## Project Information
 - **Project Type**: Brownfield
 - **Start Date**: 2026-03-19T00:00:00Z
-- **Current Stage**: CONSTRUCTION PHASE - Per-Unit Loop (NEXT)
+- **Current Stage**: CONSTRUCTION PHASE - Unit 1 Code Generation COMPLETE; Unit 2 Server API & WebSocket NEXT
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -39,12 +39,12 @@
 - [x] Units Generation - COMPLETE (2026-03-22)
 
 ### CONSTRUCTION PHASE
-- [ ] Unit 1: RTK Integration
+- [x] Unit 1: RTK Integration
   - [x] Functional Design
   - [x] NFR Requirements
   - [x] NFR Design
   - [-] Infrastructure Design (SKIP)
-  - [ ] Code Generation
+  - [x] Code Generation
 - [ ] Unit 2: Server API & WebSocket
   - [ ] Functional Design
   - [ ] NFR Requirements

@@ -12,16 +12,21 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/pkg/errors"
 
-	"github.com/mattermost/mattermost-plugin-starter-template/server/command"
-	"github.com/mattermost/mattermost-plugin-starter-template/server/store/kvstore"
+	"github.com/kondo97/mattermost-plugin-rtk/server/command"
+	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
 )
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
 	plugin.MattermostPlugin
 
-	// kvstore is the client used to read/write KV records for this plugin.
-	kvstore kvstore.KVStore
+	// kvStore is the client used to read/write KV records for this plugin.
+	kvStore kvstore.KVStore
+
+	// rtkClient is the Cloudflare RealtimeKit API client.
+	// May be nil if credentials are not yet configured.
+	rtkClient rtkclient.RTKClient
 
 	// client is the Mattermost server API client.
 	client *pluginapi.Client
@@ -46,16 +51,21 @@ type Plugin struct {
 func (p *Plugin) OnActivate() error {
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 
-	p.kvstore = kvstore.NewKVStore(p.client)
+	p.kvStore = kvstore.NewKVStore(p.client)
 
 	p.commandClient = command.NewCommandHandler(p.client)
+
+	cfg := p.getConfiguration()
+	if cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != "" {
+		p.rtkClient = rtkclient.NewClient(cfg.GetEffectiveOrgID(), cfg.GetEffectiveAPIKey())
+	}
 
 	p.router = p.initRouter()
 
 	job, err := cluster.Schedule(
 		p.API,
 		"BackgroundJob",
-		cluster.MakeWaitForRoundedInterval(1*time.Hour),
+		cluster.MakeWaitForRoundedInterval(30*time.Second),
 		p.runJob,
 	)
 	if err != nil {
@@ -77,7 +87,7 @@ func (p *Plugin) OnDeactivate() error {
 	return nil
 }
 
-// This will execute the commands that were registered in the NewCommandHandler function.
+// ExecuteCommand hook calls this method to execute the commands that were registered in the NewCommandHandler function.
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	response, err := p.commandClient.Handle(args)
 	if err != nil {
