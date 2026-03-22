@@ -56,7 +56,7 @@ func TestCreateCall_Success(t *testing.T) {
 	tokenStr := "jwt-token"
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting(rtkPresetHost).Return(&rtkclient.Meeting{ID: meetingID}, nil)
+	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, userID, rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 
@@ -102,7 +102,7 @@ func TestCreateCall_CreateMeetingFails(t *testing.T) {
 	p, _ := newTestPlugin(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting(rtkPresetHost).Return(nil, errors.New("RTK error"))
+	mockRTK.EXPECT().CreateMeeting().Return(nil, errors.New("RTK error"))
 
 	_, _, err := p.CreateCall("ch1", "user1")
 	require.Error(t, err)

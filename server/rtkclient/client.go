@@ -53,7 +53,7 @@ type addParticipantResponse struct {
 }
 
 // CreateMeeting creates a new RTK meeting and returns the meeting ID.
-func (c *client) CreateMeeting(preset string) (*Meeting, error) {
+func (c *client) CreateMeeting() (*Meeting, error) {
 	url := fmt.Sprintf("%s/apps/%s/meetings", c.baseURL, c.orgID)
 	body, err := json.Marshal(createMeetingRequest{Title: ""})
 	if err != nil {

@@ -69,11 +69,15 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 - `custom_cf_call_ended` — on EndCall / auto-end
 - `custom_cf_notification_dismissed` — on dismiss
 
+**Carry-over from Unit 1**:
+- Add a `sync.Mutex` (or `sync.RWMutex`) to the `Plugin` struct to guard concurrent KVStore read-modify-write operations (`UpdateCallParticipants`, `EndCall`). The Mattermost plugin runs as a single process, so a plugin-level mutex is the appropriate solution. Without this, concurrent Join/Leave requests on the same call can cause lost updates (last-write-wins race).
+
 **Success Criteria**:
 - All endpoints return correct HTTP status codes
 - Auth middleware rejects requests missing `Mattermost-User-ID` header (except `/call`, `/call.js`, `/worker.js`)
 - Admin-only endpoints verify admin role server-side
 - WebSocket events emitted for all state transitions
+- Concurrent Join/Leave requests on the same call do not cause lost participant updates
 - Unit tests for all handlers using mock Plugin interface
 
 ---

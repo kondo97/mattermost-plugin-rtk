@@ -2,8 +2,8 @@ package rtkclient
 
 // RTKClient defines the interface for interacting with the Cloudflare RealtimeKit API.
 type RTKClient interface {
-	// CreateMeeting creates a new RTK meeting with the given preset and returns the meeting.
-	CreateMeeting(preset string) (*Meeting, error)
+	// CreateMeeting creates a new RTK meeting and returns the meeting.
+	CreateMeeting() (*Meeting, error)
 	// GenerateToken adds a participant to a meeting and returns an auth token.
 	GenerateToken(meetingID, userID, preset string) (*Token, error)
 	// EndMeeting terminates an RTK meeting.

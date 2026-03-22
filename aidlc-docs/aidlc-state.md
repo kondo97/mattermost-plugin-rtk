@@ -77,5 +77,15 @@
   - [ ] Code Generation
 - [ ] Build and Test
 
+## Known Constraints
+
+See `aidlc-docs/known-constraints.md` for the full list.
+
+| ID | Summary | Status |
+|---|---|---|
+| KC-001 | JoinCall: orphaned RTK token if KVStore update fails — no fix available (RTK has no token invalidation API) | Accepted |
+
+---
+
 ### OPERATIONS PHASE
 - [ ] Operations (placeholder)
