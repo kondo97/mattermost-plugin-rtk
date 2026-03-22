@@ -113,7 +113,6 @@ func TestHandleJoinCall_Success(t *testing.T) {
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GenerateToken("mtg1", "user1", rtkPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, gomock.Any()).Return(nil)
-	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything).Return()
 
 	w := serveWithUser(t, p, http.MethodPost, "/api/v1/calls/"+callID+"/token", "user1", nil)

@@ -143,6 +143,8 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
+	// Re-read inside lock (TOCTOU guard)
+	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	// endCallInternal internals
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
@@ -152,6 +154,32 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	w := sendWebhook(t, p, body, signBody(body))
 
 	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, _ := newTestPlugin(t, nil, mockStore)
+	p.router = p.initRouter()
+
+	// Initial read sees active call, but re-read inside lock sees it already ended.
+	active := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 0}
+	ended := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 9999}
+
+	event := rtkWebhookEvent{
+		Event:   "meeting.ended",
+		Meeting: rtkWebhookMeeting{ID: "mtg1"},
+	}
+	body, _ := json.Marshal(event)
+
+	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
+	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(active, nil)
+	// Re-read inside lock returns already-ended session — no endCallInternal should run.
+	mockStore.EXPECT().GetCallByID("call1").Return(ended, nil)
+
+	w := sendWebhook(t, p, body, signBody(body))
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestHandleRTKWebhook_MeetingEnded_AlreadyEnded(t *testing.T) {

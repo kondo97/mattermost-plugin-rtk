@@ -29,7 +29,7 @@ func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, err.Error())
 		default:
 			p.API.LogError("handleCreateCall failed", "channel_id", req.ChannelID, "user_id", userID, "error", err.Error())
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
@@ -47,7 +47,7 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	callID := mux.Vars(r)["id"]
 
-	token, err := p.JoinCall(callID, userID)
+	session, token, err := p.JoinCall(callID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRTKNotConfigured):
@@ -56,15 +56,8 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, err.Error())
 		default:
 			p.API.LogError("handleJoinCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
-		return
-	}
-
-	session, err := p.kvStore.GetCallByID(callID)
-	if err != nil {
-		p.API.LogError("handleJoinCall: GetCallByID failed", "call_id", callID, "error", err.Error())
-		writeError(w, http.StatusInternalServerError, "failed to fetch call")
 		return
 	}
 
@@ -82,7 +75,7 @@ func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
 
 	if err := p.LeaveCall(callID, userID); err != nil {
 		p.API.LogError("handleLeaveCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
@@ -102,7 +95,7 @@ func (p *Plugin) handleEndCall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, err.Error())
 		default:
 			p.API.LogError("handleEndCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}

@@ -69,13 +69,19 @@ func (p *Plugin) OnActivate() error {
 }
 
 // registerWebhookIfNeeded registers the RTK webhook if one is not already registered.
+// Both the webhook ID and the signing secret must be present; if either is missing the
+// webhook is (re-)registered so that signature verification can succeed.
 // This is best-effort: errors are logged but not returned to avoid blocking activation.
 func (p *Plugin) registerWebhookIfNeeded() {
 	existingID, err := p.kvStore.GetWebhookID()
 	if err != nil {
 		p.API.LogWarn("Failed to check existing webhook ID", "error", err.Error())
 	}
-	if existingID != "" {
+	existingSecret, err := p.kvStore.GetWebhookSecret()
+	if err != nil {
+		p.API.LogWarn("Failed to check existing webhook secret", "error", err.Error())
+	}
+	if existingID != "" && existingSecret != "" {
 		return
 	}
 
@@ -116,6 +122,9 @@ func (p *Plugin) reRegisterWebhook() {
 		}
 		if err := p.kvStore.StoreWebhookID(""); err != nil {
 			p.API.LogWarn("Failed to clear RTK webhook ID", "error", err.Error())
+		}
+		if err := p.kvStore.StoreWebhookSecret(""); err != nil {
+			p.API.LogWarn("Failed to clear RTK webhook secret", "error", err.Error())
 		}
 	}
 	p.registerWebhookIfNeeded()

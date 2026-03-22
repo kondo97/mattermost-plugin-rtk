@@ -129,30 +129,30 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 	return session, token.Token, nil
 }
 
-// JoinCall adds a user to an existing call and returns an RTK auth token.
-func (p *Plugin) JoinCall(callID, userID string) (string, error) {
+// JoinCall adds a user to an existing call and returns the updated session and an RTK auth token.
+func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, error) {
 	p.callMu.Lock()
 	defer p.callMu.Unlock()
 
 	if p.rtkClient == nil {
-		return "", ErrRTKNotConfigured
+		return nil, "", ErrRTKNotConfigured
 	}
 
 	// BR-06: call must be active
 	session, err := p.kvStore.GetCallByID(callID)
 	if err != nil {
 		p.API.LogError("JoinCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
-		return "", fmt.Errorf("failed to get call: %w", err)
+		return nil, "", fmt.Errorf("failed to get call: %w", err)
 	}
 	if session == nil || session.EndAt != 0 {
-		return "", ErrCallNotFound
+		return nil, "", ErrCallNotFound
 	}
 
 	// BR-08: generate participant token
 	token, err := p.rtkClient.GenerateToken(session.MeetingID, userID, rtkPresetParticipant)
 	if err != nil {
 		p.API.LogError("JoinCall: GenerateToken failed", "call_id", callID, "user_id", userID, "err", err.Error())
-		return "", fmt.Errorf("failed to generate token: %w", err)
+		return nil, "", fmt.Errorf("failed to generate token: %w", err)
 	}
 
 	// BR-09: add userID deduplicated
@@ -161,7 +161,7 @@ func (p *Plugin) JoinCall(callID, userID string) (string, error) {
 	}
 	if err := p.kvStore.UpdateCallParticipants(callID, session.Participants); err != nil {
 		p.API.LogError("JoinCall: UpdateCallParticipants failed", "call_id", callID, "user_id", userID, "err", err.Error())
-		return "", fmt.Errorf("failed to update participants: %w", err)
+		return nil, "", fmt.Errorf("failed to update participants: %w", err)
 	}
 
 	// BR-10: emit WebSocket event
@@ -174,7 +174,7 @@ func (p *Plugin) JoinCall(callID, userID string) (string, error) {
 
 	p.API.LogInfo("user joined call", "call_id", callID, "user_id", userID, "channel_id", session.ChannelID)
 
-	return token.Token, nil
+	return session, token.Token, nil
 }
 
 // LeaveCall removes a user from a call. If the last participant leaves, the call is ended.
