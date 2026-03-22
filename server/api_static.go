@@ -17,10 +17,11 @@ var workerJS []byte
 // serveCallHTML serves the call page with HTTP security headers.
 func (p *Plugin) serveCallHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src *")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	_, _ = w.Write(callHTML)
 }
 
