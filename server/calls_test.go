@@ -126,7 +126,6 @@ func TestJoinCall_Success(t *testing.T) {
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GenerateToken("mtg1", userID, rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user1", userID}).Return(nil)
-	mockStore.EXPECT().SetHeartbeat(callID, userID, gomock.Any()).Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
@@ -177,7 +176,6 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 	mockRTK.EXPECT().GenerateToken("mtg1", userID, rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	// participants list unchanged since userID already present
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{userID}).Return(nil)
-	mockStore.EXPECT().SetHeartbeat(callID, userID, gomock.Any()).Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
@@ -307,93 +305,3 @@ func TestEndCall_AlreadyEnded(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
-// --- HeartbeatCall ---
-
-func TestHeartbeatCall_Success(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
-
-	session := &kvstore.CallSession{ID: "call1", Participants: []string{"user1"}, EndAt: 0}
-	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
-	mockStore.EXPECT().SetHeartbeat("call1", "user1", gomock.Any()).Return(nil)
-
-	err := p.HeartbeatCall("call1", "user1")
-	require.NoError(t, err)
-}
-
-func TestHeartbeatCall_NotParticipant(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
-
-	session := &kvstore.CallSession{ID: "call1", Participants: []string{"user1"}, EndAt: 0}
-	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
-
-	err := p.HeartbeatCall("call1", "user2")
-	assert.ErrorIs(t, err, ErrNotParticipant)
-}
-
-func TestHeartbeatCall_CallNotFound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
-
-	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
-
-	err := p.HeartbeatCall("call1", "user1")
-	assert.ErrorIs(t, err, ErrCallNotFound)
-}
-
-// --- CleanupStaleParticipants ---
-
-func TestCleanupStaleParticipants_RemovesStale(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
-
-	callID := "call1"
-	activeSession := &kvstore.CallSession{
-		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
-		Participants: []string{"user1"}, StartAt: 1000, EndAt: 0,
-	}
-	// LeaveCall internally does another GetCallByID
-	leaveSession := &kvstore.CallSession{
-		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
-		Participants: []string{"user1"}, StartAt: 1000, EndAt: 0,
-	}
-
-	mockStore.EXPECT().GetAllActiveCalls().Return([]*kvstore.CallSession{activeSession}, nil)
-	mockStore.EXPECT().GetHeartbeat(callID, "user1").Return(int64(0), nil) // stale
-	// LeaveCall internals — last participant → auto-end
-	mockStore.EXPECT().GetCallByID(callID).Return(leaveSession, nil)
-	mockStore.EXPECT().UpdateCallParticipants(callID, []string{}).Return(nil)
-	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserLeft,
-		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-	api.On("PublishWebSocketEvent", wsEventCallEnded,
-		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-
-	p.CleanupStaleParticipants()
-}
-
-func TestCleanupStaleParticipants_SkipsFreshHeartbeat(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
-
-	session := &kvstore.CallSession{
-		ID: "call1", Participants: []string{"user1"}, EndAt: 0,
-	}
-	mockStore.EXPECT().GetAllActiveCalls().Return([]*kvstore.CallSession{session}, nil)
-	// Fresh heartbeat — no LeaveCall expected
-	mockStore.EXPECT().GetHeartbeat("call1", "user1").Return(nowMs(), nil)
-
-	p.CleanupStaleParticipants()
-}

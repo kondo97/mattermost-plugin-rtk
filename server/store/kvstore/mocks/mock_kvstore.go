@@ -54,21 +54,6 @@ func (mr *MockKVStoreMockRecorder) EndCall(callID, endAt any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndCall", reflect.TypeOf((*MockKVStore)(nil).EndCall), callID, endAt)
 }
 
-// GetAllActiveCalls mocks base method.
-func (m *MockKVStore) GetAllActiveCalls() ([]*kvstore.CallSession, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllActiveCalls")
-	ret0, _ := ret[0].([]*kvstore.CallSession)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllActiveCalls indicates an expected call of GetAllActiveCalls.
-func (mr *MockKVStoreMockRecorder) GetAllActiveCalls() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllActiveCalls", reflect.TypeOf((*MockKVStore)(nil).GetAllActiveCalls))
-}
-
 // GetCallByChannel mocks base method.
 func (m *MockKVStore) GetCallByChannel(channelID string) (*kvstore.CallSession, error) {
 	m.ctrl.T.Helper()
@@ -97,21 +82,6 @@ func (m *MockKVStore) GetCallByID(callID string) (*kvstore.CallSession, error) {
 func (mr *MockKVStoreMockRecorder) GetCallByID(callID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByID", reflect.TypeOf((*MockKVStore)(nil).GetCallByID), callID)
-}
-
-// GetHeartbeat mocks base method.
-func (m *MockKVStore) GetHeartbeat(callID, userID string) (int64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHeartbeat", callID, userID)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHeartbeat indicates an expected call of GetHeartbeat.
-func (mr *MockKVStoreMockRecorder) GetHeartbeat(callID, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeartbeat", reflect.TypeOf((*MockKVStore)(nil).GetHeartbeat), callID, userID)
 }
 
 // GetTemplateData mocks base method.
@@ -156,20 +126,6 @@ func (m *MockKVStore) SaveCall(session *kvstore.CallSession) error {
 func (mr *MockKVStoreMockRecorder) SaveCall(session any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveCall", reflect.TypeOf((*MockKVStore)(nil).SaveCall), session)
-}
-
-// SetHeartbeat mocks base method.
-func (m *MockKVStore) SetHeartbeat(callID, userID string, ts int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetHeartbeat", callID, userID, ts)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetHeartbeat indicates an expected call of SetHeartbeat.
-func (mr *MockKVStoreMockRecorder) SetHeartbeat(callID, userID, ts any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHeartbeat", reflect.TypeOf((*MockKVStore)(nil).SetHeartbeat), callID, userID, ts)
 }
 
 // StoreVoIPToken mocks base method.

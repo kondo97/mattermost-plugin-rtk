@@ -162,11 +162,6 @@ func (p *Plugin) JoinCall(callID, userID string) (string, error) {
 		return "", fmt.Errorf("failed to update participants: %w", err)
 	}
 
-	// BR-09a: set initial heartbeat immediately
-	if err := p.kvStore.SetHeartbeat(callID, userID, nowMs()); err != nil {
-		p.API.LogWarn("JoinCall: SetHeartbeat failed (best effort)", "call_id", callID, "user_id", userID, "err", err.Error())
-	}
-
 	// BR-10: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
 		"call_id":      callID,
@@ -285,28 +280,3 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 	return nil
 }
 
-// HeartbeatCall updates the heartbeat timestamp for a participant.
-func (p *Plugin) HeartbeatCall(callID, userID string) error {
-	// BR-19: call must be active
-	session, err := p.kvStore.GetCallByID(callID)
-	if err != nil {
-		p.API.LogError("HeartbeatCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
-		return fmt.Errorf("failed to get call: %w", err)
-	}
-	if session == nil || session.EndAt != 0 {
-		return ErrCallNotFound
-	}
-
-	// BR-20: user must be a participant
-	if !containsUser(session.Participants, userID) {
-		return ErrNotParticipant
-	}
-
-	// BR-21: update heartbeat
-	if err := p.kvStore.SetHeartbeat(callID, userID, nowMs()); err != nil {
-		p.API.LogError("HeartbeatCall: SetHeartbeat failed", "call_id", callID, "user_id", userID, "err", err.Error())
-		return fmt.Errorf("failed to set heartbeat: %w", err)
-	}
-
-	return nil
-}

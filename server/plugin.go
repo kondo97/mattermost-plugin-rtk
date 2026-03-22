@@ -3,14 +3,11 @@ package main
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
-	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
-	"github.com/pkg/errors"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/command"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
@@ -37,8 +34,6 @@ type Plugin struct {
 	// router is the HTTP router for handling API requests.
 	router *mux.Router
 
-	backgroundJob *cluster.Job
-
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
 
@@ -62,28 +57,11 @@ func (p *Plugin) OnActivate() error {
 
 	p.router = p.initRouter()
 
-	job, err := cluster.Schedule(
-		p.API,
-		"BackgroundJob",
-		cluster.MakeWaitForRoundedInterval(30*time.Second),
-		p.runJob,
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to schedule background job")
-	}
-
-	p.backgroundJob = job
-
 	return nil
 }
 
 // OnDeactivate is invoked when the plugin is deactivated.
 func (p *Plugin) OnDeactivate() error {
-	if p.backgroundJob != nil {
-		if err := p.backgroundJob.Close(); err != nil {
-			p.API.LogError("Failed to close background job", "err", err)
-		}
-	}
 	return nil
 }
 

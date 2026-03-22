@@ -1,18 +1,15 @@
 package kvstore
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	keyCallChannel        = "call:channel:%s"
-	keyCallID             = "call:id:%s"
-	keyHeartbeat          = "heartbeat:%s:%s"
-	keyVoIPToken          = "voip:%s"
-	keyActiveChannelIndex = "calls:index:active_channels"
+	keyCallChannel = "call:channel:%s"
+	keyCallID      = "call:id:%s"
+	keyVoIPToken   = "voip:%s"
 )
 
 // GetCallByChannel returns the active call for a channel, or nil if none exists.
@@ -41,37 +38,13 @@ func (kv Client) GetCallByID(callID string) (*CallSession, error) {
 	return &session, nil
 }
 
-// GetAllActiveCalls returns all currently active calls (EndAt == 0).
-// Uses an index key to track active channel IDs.
-func (kv Client) GetAllActiveCalls() ([]*CallSession, error) {
-	channelIDs, err := kv.getActiveChannelIndex()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get active channel index")
-	}
-
-	sessions := make([]*CallSession, 0, len(channelIDs))
-	for _, channelID := range channelIDs {
-		session, err := kv.GetCallByChannel(channelID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get call for channel %s", channelID)
-		}
-		if session != nil && session.EndAt == 0 {
-			sessions = append(sessions, session)
-		}
-	}
-	return sessions, nil
-}
-
-// SaveCall persists a call session under both the channel and ID keys, and updates the active index.
+// SaveCall persists a call session under both the channel and ID keys.
 func (kv Client) SaveCall(session *CallSession) error {
 	if _, err := kv.client.KV.Set(fmt.Sprintf(keyCallChannel, session.ChannelID), session); err != nil {
 		return errors.Wrap(err, "failed to save call by channel")
 	}
 	if _, err := kv.client.KV.Set(fmt.Sprintf(keyCallID, session.ID), session); err != nil {
 		return errors.Wrap(err, "failed to save call by ID")
-	}
-	if err := kv.addToActiveChannelIndex(session.ChannelID); err != nil {
-		return errors.Wrap(err, "failed to update active channel index")
 	}
 	return nil
 }
@@ -111,28 +84,7 @@ func (kv Client) EndCall(callID string, endAt int64) error {
 	if _, err := kv.client.KV.Set(fmt.Sprintf(keyCallID, callID), session); err != nil {
 		return errors.Wrap(err, "failed to end call by ID")
 	}
-	if err := kv.removeFromActiveChannelIndex(session.ChannelID); err != nil {
-		return errors.Wrap(err, "failed to remove from active channel index")
-	}
 	return nil
-}
-
-// SetHeartbeat records a heartbeat timestamp for a participant in a call.
-func (kv Client) SetHeartbeat(callID, userID string, ts int64) error {
-	if _, err := kv.client.KV.Set(fmt.Sprintf(keyHeartbeat, callID, userID), ts); err != nil {
-		return errors.Wrap(err, "failed to set heartbeat")
-	}
-	return nil
-}
-
-// GetHeartbeat returns the last heartbeat timestamp for a participant, or 0 if not found.
-func (kv Client) GetHeartbeat(callID, userID string) (int64, error) {
-	var ts int64
-	err := kv.client.KV.Get(fmt.Sprintf(keyHeartbeat, callID, userID), &ts)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to get heartbeat")
-	}
-	return ts, nil
 }
 
 // StoreVoIPToken stores a VoIP device token for a user.
@@ -153,54 +105,3 @@ func (kv Client) GetVoIPToken(userID string) (string, error) {
 	return token, nil
 }
 
-// --- Active Channel Index Helpers ---
-
-func (kv Client) getActiveChannelIndex() ([]string, error) {
-	var raw []byte
-	err := kv.client.KV.Get(keyActiveChannelIndex, &raw)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read active channel index")
-	}
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var channelIDs []string
-	if err := json.Unmarshal(raw, &channelIDs); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal active channel index")
-	}
-	return channelIDs, nil
-}
-
-func (kv Client) addToActiveChannelIndex(channelID string) error {
-	channelIDs, err := kv.getActiveChannelIndex()
-	if err != nil {
-		return err
-	}
-	for _, id := range channelIDs {
-		if id == channelID {
-			return nil // already in index
-		}
-	}
-	channelIDs = append(channelIDs, channelID)
-	if _, err := kv.client.KV.Set(keyActiveChannelIndex, channelIDs); err != nil {
-		return errors.Wrap(err, "failed to write active channel index")
-	}
-	return nil
-}
-
-func (kv Client) removeFromActiveChannelIndex(channelID string) error {
-	channelIDs, err := kv.getActiveChannelIndex()
-	if err != nil {
-		return err
-	}
-	updated := make([]string, 0, len(channelIDs))
-	for _, id := range channelIDs {
-		if id != channelID {
-			updated = append(updated, id)
-		}
-	}
-	if _, err := kv.client.KV.Set(keyActiveChannelIndex, updated); err != nil {
-		return errors.Wrap(err, "failed to write active channel index")
-	}
-	return nil
-}
