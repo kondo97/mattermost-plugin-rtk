@@ -12,14 +12,14 @@ const (
 	keyVoIPToken   = "voip:%s"
 )
 
-// GetCallByChannel returns the active call for a channel, or nil if none exists.
+// GetCallByChannel returns the active call for a channel, or nil if none exists or the call has ended.
 func (kv Client) GetCallByChannel(channelID string) (*CallSession, error) {
 	var session CallSession
 	err := kv.client.KV.Get(fmt.Sprintf(keyCallChannel, channelID), &session)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get call by channel")
 	}
-	if session.ID == "" {
+	if session.ID == "" || session.EndAt != 0 {
 		return nil, nil
 	}
 	return &session, nil
@@ -40,6 +40,15 @@ func (kv Client) GetCallByID(callID string) (*CallSession, error) {
 
 // SaveCall persists a call session under both the channel and ID keys.
 func (kv Client) SaveCall(session *CallSession) error {
+	if session == nil {
+		return errors.New("session must not be nil")
+	}
+	if session.ID == "" {
+		return errors.New("session.ID must not be empty")
+	}
+	if session.ChannelID == "" {
+		return errors.New("session.ChannelID must not be empty")
+	}
 	if _, err := kv.client.KV.Set(fmt.Sprintf(keyCallChannel, session.ChannelID), session); err != nil {
 		return errors.Wrap(err, "failed to save call by channel")
 	}

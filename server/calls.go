@@ -55,7 +55,7 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		p.API.LogError("CreateCall: failed to check existing call", "channel_id", channelID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to check existing call: %w", err)
 	}
-	if existing != nil && existing.EndAt == 0 {
+	if existing != nil {
 		return nil, "", ErrCallAlreadyActive
 	}
 
