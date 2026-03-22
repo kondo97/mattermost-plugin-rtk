@@ -55,6 +55,20 @@ func (mr *MockRTKClientMockRecorder) CreateMeeting() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMeeting", reflect.TypeOf((*MockRTKClient)(nil).CreateMeeting))
 }
 
+// DeleteWebhook mocks base method.
+func (m *MockRTKClient) DeleteWebhook(webhookID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWebhook", webhookID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteWebhook indicates an expected call of DeleteWebhook.
+func (mr *MockRTKClientMockRecorder) DeleteWebhook(webhookID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWebhook", reflect.TypeOf((*MockRTKClient)(nil).DeleteWebhook), webhookID)
+}
+
 // EndMeeting mocks base method.
 func (m *MockRTKClient) EndMeeting(meetingID string) error {
 	m.ctrl.T.Helper()
@@ -67,6 +81,22 @@ func (m *MockRTKClient) EndMeeting(meetingID string) error {
 func (mr *MockRTKClientMockRecorder) EndMeeting(meetingID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndMeeting", reflect.TypeOf((*MockRTKClient)(nil).EndMeeting), meetingID)
+}
+
+// RegisterWebhook mocks base method.
+func (m *MockRTKClient) RegisterWebhook(url string, events []string) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterWebhook", url, events)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// RegisterWebhook indicates an expected call of RegisterWebhook.
+func (mr *MockRTKClientMockRecorder) RegisterWebhook(url, events any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWebhook", reflect.TypeOf((*MockRTKClient)(nil).RegisterWebhook), url, events)
 }
 
 // GenerateToken mocks base method.

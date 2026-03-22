@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -11,22 +12,40 @@ import (
 func (p *Plugin) initRouter() *mux.Router {
 	router := mux.NewRouter()
 
-	// Middleware to require that the user is logged in
-	router.Use(p.MattermostAuthorizationRequired)
+	// Static asset routes (no Mattermost auth required)
+	router.HandleFunc("/call", p.serveCallHTML).Methods(http.MethodGet)
+	router.HandleFunc("/call.js", p.serveCallJS).Methods(http.MethodGet)
+	router.HandleFunc("/worker.js", p.serveWorkerJS).Methods(http.MethodGet)
 
+	// RTK webhook route (RTK signature auth, not Mattermost auth)
+	router.HandleFunc("/api/v1/webhook/rtk", p.handleRTKWebhook).Methods(http.MethodPost)
+
+	// Authenticated API routes
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
+	apiRouter.Use(p.MattermostAuthorizationRequired)
 
-	apiRouter.HandleFunc("/hello", p.HelloWorld).Methods(http.MethodGet)
+	// Call management
+	apiRouter.HandleFunc("/calls", p.handleCreateCall).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/calls/{id}/token", p.handleJoinCall).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/calls/{id}/leave", p.handleLeaveCall).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/calls/{id}", p.handleEndCall).Methods(http.MethodDelete)
+
+	// Config status
+	apiRouter.HandleFunc("/config/status", p.handleConfigStatus).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/config/admin-status", p.handleAdminConfigStatus).Methods(http.MethodGet)
+
+	// Mobile
+	apiRouter.HandleFunc("/calls/{id}/dismiss", p.handleDismiss).Methods(http.MethodPost)
 
 	return router
 }
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
-// The root URL is currently <siteUrl>/plugins/com.mattermost.plugin-starter-template/api/v1/. Replace com.mattermost.plugin-starter-template with the plugin ID.
+// ServeHTTP implements the plugin HTTP interface.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	p.router.ServeHTTP(w, r)
 }
 
+// MattermostAuthorizationRequired is middleware that rejects unauthenticated requests.
 func (p *Plugin) MattermostAuthorizationRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Header.Get("Mattermost-User-ID")
@@ -39,9 +58,9 @@ func (p *Plugin) MattermostAuthorizationRequired(next http.Handler) http.Handler
 	})
 }
 
-func (p *Plugin) HelloWorld(w http.ResponseWriter, r *http.Request) {
-	if _, err := w.Write([]byte("Hello, world!")); err != nil {
-		p.API.LogError("Failed to write response", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+// writeError writes a JSON error response.
+func writeError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }

@@ -54,6 +54,21 @@ func (mr *MockKVStoreMockRecorder) EndCall(callID, endAt any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndCall", reflect.TypeOf((*MockKVStore)(nil).EndCall), callID, endAt)
 }
 
+// GetCallByMeetingID mocks base method.
+func (m *MockKVStore) GetCallByMeetingID(meetingID string) (*kvstore.CallSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCallByMeetingID", meetingID)
+	ret0, _ := ret[0].(*kvstore.CallSession)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCallByMeetingID indicates an expected call of GetCallByMeetingID.
+func (mr *MockKVStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByMeetingID", reflect.TypeOf((*MockKVStore)(nil).GetCallByMeetingID), meetingID)
+}
+
 // GetCallByChannel mocks base method.
 func (m *MockKVStore) GetCallByChannel(channelID string) (*kvstore.CallSession, error) {
 	m.ctrl.T.Helper()
@@ -82,6 +97,36 @@ func (m *MockKVStore) GetCallByID(callID string) (*kvstore.CallSession, error) {
 func (mr *MockKVStoreMockRecorder) GetCallByID(callID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByID", reflect.TypeOf((*MockKVStore)(nil).GetCallByID), callID)
+}
+
+// GetWebhookID mocks base method.
+func (m *MockKVStore) GetWebhookID() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookID")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWebhookID indicates an expected call of GetWebhookID.
+func (mr *MockKVStoreMockRecorder) GetWebhookID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookID", reflect.TypeOf((*MockKVStore)(nil).GetWebhookID))
+}
+
+// GetWebhookSecret mocks base method.
+func (m *MockKVStore) GetWebhookSecret() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookSecret")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWebhookSecret indicates an expected call of GetWebhookSecret.
+func (mr *MockKVStoreMockRecorder) GetWebhookSecret() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookSecret", reflect.TypeOf((*MockKVStore)(nil).GetWebhookSecret))
 }
 
 // GetTemplateData mocks base method.
@@ -140,6 +185,34 @@ func (m *MockKVStore) StoreVoIPToken(userID, token string) error {
 func (mr *MockKVStoreMockRecorder) StoreVoIPToken(userID, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreVoIPToken", reflect.TypeOf((*MockKVStore)(nil).StoreVoIPToken), userID, token)
+}
+
+// StoreWebhookID mocks base method.
+func (m *MockKVStore) StoreWebhookID(id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreWebhookID", id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StoreWebhookID indicates an expected call of StoreWebhookID.
+func (mr *MockKVStoreMockRecorder) StoreWebhookID(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWebhookID", reflect.TypeOf((*MockKVStore)(nil).StoreWebhookID), id)
+}
+
+// StoreWebhookSecret mocks base method.
+func (m *MockKVStore) StoreWebhookSecret(secret string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreWebhookSecret", secret)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StoreWebhookSecret indicates an expected call of StoreWebhookSecret.
+func (mr *MockKVStoreMockRecorder) StoreWebhookSecret(secret any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWebhookSecret", reflect.TypeOf((*MockKVStore)(nil).StoreWebhookSecret), secret)
 }
 
 // UpdateCallParticipants mocks base method.

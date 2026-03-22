@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,22 +8,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestServeHTTP(t *testing.T) {
-	assert := assert.New(t)
+func TestServeHTTP_UnknownRoute(t *testing.T) {
 	plugin := Plugin{}
 	plugin.router = plugin.initRouter()
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/api/v1/hello", nil)
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/unknown", nil)
 	r.Header.Set("Mattermost-User-ID", "test-user-id")
 
 	plugin.ServeHTTP(nil, w, r)
 
-	result := w.Result()
-	assert.NotNil(result)
-	defer func() { _ = result.Body.Close() }()
-	bodyBytes, err := io.ReadAll(result.Body)
-	assert.Nil(err)
-	bodyString := string(bodyBytes)
+	assert.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+}
 
-	assert.Equal("Hello, world!", bodyString)
+func TestServeHTTP_NoAuth(t *testing.T) {
+	plugin := Plugin{}
+	plugin.router = plugin.initRouter()
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/api/v1/config/status", nil)
+
+	plugin.ServeHTTP(nil, w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
 }

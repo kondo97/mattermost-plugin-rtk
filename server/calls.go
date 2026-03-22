@@ -45,6 +45,9 @@ func removeUser(participants []string, userID string) []string {
 // CreateCall creates a new call in the given channel for the user.
 // Returns the CallSession, the RTK auth token, and any error.
 func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, string, error) {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
 	if p.rtkClient == nil {
 		return nil, "", ErrRTKNotConfigured
 	}
@@ -128,6 +131,9 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 
 // JoinCall adds a user to an existing call and returns an RTK auth token.
 func (p *Plugin) JoinCall(callID, userID string) (string, error) {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
 	if p.rtkClient == nil {
 		return "", ErrRTKNotConfigured
 	}
@@ -173,6 +179,9 @@ func (p *Plugin) JoinCall(callID, userID string) (string, error) {
 
 // LeaveCall removes a user from a call. If the last participant leaves, the call is ended.
 func (p *Plugin) LeaveCall(callID, userID string) error {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
 	// BR-11: idempotent — if call not found or already ended, no-op
 	session, err := p.kvStore.GetCallByID(callID)
 	if err != nil {
@@ -214,6 +223,9 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 
 // EndCall ends a call. Only the call creator may end the call.
 func (p *Plugin) EndCall(callID, requestingUserID string) error {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
 	session, err := p.kvStore.GetCallByID(callID)
 	if err != nil {
 		p.API.LogError("EndCall: GetCallByID failed", "call_id", callID, "user_id", requestingUserID, "err", err.Error())

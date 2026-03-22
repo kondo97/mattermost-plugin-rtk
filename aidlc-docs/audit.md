@@ -1,5 +1,93 @@
 # AI-DLC Audit Log
 
+## Code Generation - Unit 2 Complete
+**Timestamp**: 2026-03-22T14:30:00Z
+**User Input**: (N/A - automated, continuing from context resumption)
+**AI Response**: Unit 2 code generation complete. All 20 steps executed. Build: OK. Tests: OK (server package).
+**Context**: All files created/modified per plan. Code generation plan checkboxes all marked [x]. aidlc-state.md updated: Unit 2 COMPLETE, Unit 3 NEXT.
+
+---
+
+## Code Generation - Unit 2 User Approval
+**Timestamp**: 2026-03-22T13:45:00Z
+**User Input**: "はい"
+**AI Response**: Proceeding with Unit 2 code generation per approved plan (20 steps).
+**Context**: Webhook-based design. Starting Part A: KVStore Extensions.
+
+---
+
+## Design Change - Webhook Approach Confirmed
+**Timestamp**: 2026-03-22T13:30:00Z
+**User Input**: "A" (OnActivate自動登録)
+**AI Response**: RTK webhook調査完了。meeting.participantLeft / meeting.ended イベントがサポートされていることを確認。heartbeat polling廃止、RTK webhook方式に変更。Unit 2設計ドキュメントおよびコード生成プランを更新。
+**Context**: 重大な設計変更 — heartbeat/CleanupStaleParticipants削除、webhook受信エンドポイント追加、RTKClientにwebhookメソッド追加、KVStoreにMeetingIDインデックス追加
+
+---
+
+## Code Generation Plan - Unit 2 Approval Prompt
+**Timestamp**: 2026-03-22T13:15:00Z
+**User Input**: (pending)
+**AI Response**: Code generation plan presented for Unit 2. Awaiting user approval.
+**Context**: Plan includes 19 steps across 6 parts: Unit 1 carry-overs, concurrency mutex, router, handlers, tests, docs.
+
+---
+
+## NFR Design - Unit 2 User Approval
+**Timestamp**: 2026-03-22T13:10:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Proceeding to Code Generation for Unit 2.
+**Context**: NFR Design approved.
+
+---
+
+## NFR Design - Unit 2 Complete
+**Timestamp**: 2026-03-22T13:05:00Z
+**User Input**: (N/A — no questions needed, all decisions derived from NFR requirements)
+**AI Response**: NFR Design artifacts generated: nfr-design-patterns.md, logical-components.md
+**Context**: 6 patterns defined: Auth Middleware, HTTP Security Headers, Mutex, go:embed, Error Response Helper, Admin Role Guard
+
+---
+
+## NFR Requirements - Unit 2 User Approval
+**Timestamp**: 2026-03-22T12:55:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Proceeding to NFR Design for Unit 2.
+**Context**: NFR Requirements approved.
+
+---
+
+## NFR Requirements - Unit 2 Complete
+**Timestamp**: 2026-03-22T12:50:00Z
+**User Input**: (Q&A session — 4 questions answered interactively)
+**AI Response**: NFR Requirements artifacts generated: nfr-requirements.md, tech-stack-decisions.md
+**Context**: Key decisions: CSP connect-src *, handler overhead <100ms, no body size limit in plugin, httptest+existing mocks for testing
+
+---
+
+## Functional Design - Unit 2 User Approval
+**Timestamp**: 2026-03-22T12:35:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Proceeding to NFR Requirements for Unit 2.
+**Context**: Functional Design approved. aidlc-state.md updated.
+
+---
+
+## Functional Design - Unit 2 Complete
+**Timestamp**: 2026-03-22T12:30:00Z
+**User Input**: (Q&A session — 10 questions answered interactively)
+**AI Response**: Functional Design artifacts generated for Unit 2: domain-entities.md, business-logic-model.md, business-rules.md
+**Context**: Key decisions: full CallSession+token response, single callMu Mutex, dismiss is user-scoped idempotent, POST /mobile/voip-token removed from scope, error format {"error":"msg"}
+
+---
+
+## Session Resume - Unit 2 Start
+**Timestamp**: 2026-03-22T12:00:00Z
+**User Input**: "unit2を開始してください。"
+**AI Response**: Resuming workflow. Unit 1 complete. Starting Unit 2: Server API & WebSocket — Functional Design phase.
+**Context**: Construction Phase, Unit 2 start. Loading Unit 1 artifacts and existing code for context.
+
+---
+
 ## Code Generation - Unit 1 Complete
 **Timestamp**: 2026-03-22T11:00:00Z
 **User Input**: (N/A - automated)
