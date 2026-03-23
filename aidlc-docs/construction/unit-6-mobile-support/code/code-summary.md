@@ -7,7 +7,7 @@
 | `server/push/interface.go` | `PushSender` interface with `SendIncomingCall` and `SendCallEnded` |
 | `server/push/push.go` | `Sender` struct + `sendToMembers` helper + both method implementations |
 | `server/push/mocks/mock_push.go` | mockgen-generated `MockPushSender` (go.uber.org/mock/gomock) |
-| `server/push/push_test.go` | 8 unit tests using `plugintest.API` |
+| `server/push/push_test.go` | 7 unit tests using `plugintest.API` |
 
 ## Files Modified
 

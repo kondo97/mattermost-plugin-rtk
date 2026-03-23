@@ -32,7 +32,7 @@ Please fill in the `[Answer]:` tags below and return the file.
 
 ### Q1: Push notification delivery — best-effort or blocking?
 
-[Answer]: B — Blocking
+[Answer]: A — Best-effort (aligns with Mattermost Calls plugin; push errors logged as warnings, do not fail the operation)
 
 ---
 
@@ -44,7 +44,7 @@ Please fill in the `[Answer]:` tags below and return the file.
 
 ### Q3: Large channel handling — pagination
 
-[Answer]: A — Paginate with page size 200
+[Answer]: C — Single call `GetChannelMembers(page=0, perPage=8)`; no pagination (aligns with Mattermost Calls plugin limit of 8 members)
 
 ---
 
