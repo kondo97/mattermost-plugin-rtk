@@ -25,10 +25,19 @@ export default defineConfig({
     plugins: [react()],
 
     resolve: {
-        alias: {
-            // Allow imports relative to src/ root (matches webpack resolve.modules config)
-            src: path.resolve(__dirname, 'src'),
-        },
+        alias: [
+            // Resolve src-rooted bare imports, replicating webpack's resolve.modules: ['src'].
+            // e.g. 'redux/calls_slice' → src/redux/calls_slice.ts
+            //      'components/switch_call_modal' → src/components/switch_call_modal/index.tsx
+            {
+                find: /^(redux|components|utils|call_page)\/(.+)$/,
+                replacement: `${path.resolve(__dirname, 'src')}/$1/$2`,
+            },
+            {find: 'client', replacement: path.resolve(__dirname, 'src/client')},
+            {find: 'manifest', replacement: path.resolve(__dirname, 'src/manifest')},
+            // Keep the 'src' alias for explicit src/... imports
+            {find: 'src', replacement: path.resolve(__dirname, 'src')},
+        ],
     },
 
     define: {

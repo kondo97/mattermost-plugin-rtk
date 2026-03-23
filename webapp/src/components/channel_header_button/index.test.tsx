@@ -41,12 +41,13 @@ const setSelectors = ({
     activeCall = undefined as object | undefined,
     myActiveCall = null as object | null,
     isParticipant = false,
+    channelDisplayName = 'general',
 } = {}) => {
     (useSelector as jest.Mock).mockImplementation((selector: (s: unknown) => unknown) => {
-        // We identify selectors by call order within each render cycle (4 selectors per render).
-        // Use modulo so re-renders (calls 4-7, 8-11, …) return the same values.
+        // We identify selectors by call order within each render cycle (5 selectors per render).
+        // Use modulo so re-renders (calls 5-9, 10-14, …) return the same values.
         const callCount = (useSelector as jest.Mock).mock.calls.length;
-        const idx = (callCount - 1) % 4;
+        const idx = (callCount - 1) % 5;
         if (idx === 0) {
             return pluginEnabled;
         }
@@ -58,6 +59,9 @@ const setSelectors = ({
         }
         if (idx === 3) {
             return isParticipant;
+        }
+        if (idx === 4) {
+            return channelDisplayName;
         }
         return undefined;
     });
