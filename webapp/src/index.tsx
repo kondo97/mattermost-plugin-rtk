@@ -1,14 +1,10 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React from 'react';
 import type {Store} from 'redux';
-
-import type {GlobalState} from '@mattermost/types/store';
-
-import manifest from 'manifest';
-import type {PluginRegistry} from 'types/mattermost-webapp';
-
 import {callsReducer, setPluginEnabled} from 'redux/calls_slice';
 import {
     handleCallEnded,
@@ -17,13 +13,16 @@ import {
     handleUserJoined,
     handleUserLeft,
 } from 'redux/websocket_handlers';
-import {pluginFetch} from 'client';
 
-import ChannelHeaderButton from 'components/channel_header_button';
+import type {GlobalState} from '@mattermost/types/store';
+
 import CallPost from 'components/call_post';
+import ChannelHeaderButton from 'components/channel_header_button';
 import FloatingWidget from 'components/floating_widget';
 import IncomingCallNotification from 'components/incoming_call_notification';
 import ToastBar from 'components/toast_bar';
+
+import type {PluginRegistry} from 'types/mattermost-webapp';
 
 import enTranslations from '../i18n/en.json';
 import jaTranslations from '../i18n/ja.json';
@@ -52,8 +51,8 @@ export default class Plugin {
 
         // 3. Get current user ID for WS handlers
         const state = store.getState();
-        const currentUserId = (state as unknown as {entities: {users: {currentUserId: string}}})
-            .entities?.users?.currentUserId ?? '';
+        const currentUserId = (state as unknown as {entities: {users: {currentUserId: string}}}).
+            entities?.users?.currentUserId ?? '';
 
         // 4. Register WebSocket event handlers
         registry.registerWebSocketEventHandler(
@@ -84,6 +83,7 @@ export default class Plugin {
 
         // 6. Register UI components
         registry.registerCallButtonAction(
+
             // button: component that reads Redux and renders the appropriate state
             () => {
                 const channelId = (store.getState() as unknown as {
@@ -97,8 +97,10 @@ export default class Plugin {
                     />
                 );
             },
+
             // dropdownButton: same component for dropdown context
             () => null,
+
             // fn: click handler (logic is inside ChannelHeaderButton itself)
             () => { /* no-op — click handled inside ChannelHeaderButton */ },
         );
@@ -116,11 +118,11 @@ export default class Plugin {
         });
 
         registry.registerGlobalComponent(() => (
-            <FloatingWidget />
+            <FloatingWidget/>
         ));
 
         registry.registerGlobalComponent(() => (
-            <IncomingCallNotification currentUserId={currentUserId} />
+            <IncomingCallNotification currentUserId={currentUserId}/>
         ));
 
         // 7. Register custom post type renderer

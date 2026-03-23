@@ -1,17 +1,16 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-
-import type {GlobalState} from '@mattermost/types/store';
-
-import {pluginFetch} from 'client';
 import {clearMyActiveCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-import manifest from 'manifest';
+
+import type {GlobalState} from '@mattermost/types/store';
 
 const FloatingWidget = () => {
     const intl = useIntl();
@@ -21,9 +20,9 @@ const FloatingWidget = () => {
         myActiveCall ? selectCallByChannel(myActiveCall.channelId) : () => undefined,
     );
     const channelDisplayName = useSelector(
-        (state: GlobalState) => myActiveCall
-            ? getChannelDisplayName(state, myActiveCall.channelId)
-            : '',
+        (state: GlobalState) => (myActiveCall ?
+            getChannelDisplayName(state, myActiveCall.channelId) :
+            ''),
     );
 
     const [elapsedSeconds, setElapsedSeconds] = useState(0);

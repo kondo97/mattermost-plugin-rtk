@@ -1,6 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import type {CallsPluginState} from './calls_slice';
 import {
     selectPluginEnabled,
     selectCallByChannel,
@@ -8,8 +9,6 @@ import {
     selectIncomingCall,
     selectIsCurrentUserParticipant,
 } from './selectors';
-
-import type {CallsPluginState} from './calls_slice';
 
 const PLUGIN_KEY = 'plugins-com.mattermost.plugin-rtk';
 

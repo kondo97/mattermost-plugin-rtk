@@ -1,14 +1,11 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-
-import type {Channel} from '@mattermost/types/channels';
-import type {GlobalState} from '@mattermost/types/store';
-
-import {pluginFetch} from 'client';
 import {setMyActiveCall} from 'redux/calls_slice';
 import {
     selectCallByChannel,
@@ -17,7 +14,9 @@ import {
     selectPluginEnabled,
 } from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-import manifest from 'manifest';
+
+import type {Channel} from '@mattermost/types/channels';
+import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 

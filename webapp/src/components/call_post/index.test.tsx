@@ -1,9 +1,9 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {shallow, mount} from 'enzyme';
 import React from 'react';
 import {act} from 'react-dom/test-utils';
-import {shallow, mount} from 'enzyme';
 import {useSelector, useDispatch} from 'react-redux';
 
 import CallPost from './index';
@@ -43,8 +43,12 @@ const setSelectors = (liveCall: object | undefined, myActiveCall: object | null,
     (useSelector as jest.Mock).mockImplementation(() => {
         // Use modulo so re-renders (calls 3-5, 6-8, …) return the same values.
         const idx = (useSelector as jest.Mock).mock.calls.length % 3;
-        if (idx === 1) { return liveCall; }
-        if (idx === 2) { return myActiveCall; }
+        if (idx === 1) {
+            return liveCall;
+        }
+        if (idx === 2) {
+            return myActiveCall;
+        }
         return channelName;
     });
 };
@@ -57,8 +61,9 @@ beforeEach(() => {
 describe('CallPost', () => {
     it('renders active state when end_at is 0 and no live Redux data', () => {
         setSelectors(undefined, null);
-        const wrapper = shallow(<CallPost post={makePost()} />);
+        const wrapper = shallow(<CallPost post={makePost()}/>);
         expect(wrapper.find('[data-testid="call-post"]').exists()).toBe(true);
+
         // CallPostActive should be rendered (not CallPostEnded)
         expect(wrapper.find('CallPostActive').exists()).toBe(true);
         expect(wrapper.find('CallPostEnded').exists()).toBe(false);
@@ -66,38 +71,42 @@ describe('CallPost', () => {
 
     it('renders ended state when end_at > 0', () => {
         setSelectors(undefined, null);
-        const wrapper = shallow(<CallPost post={makePost({end_at: 2000000})} />);
+        const wrapper = shallow(<CallPost post={makePost({end_at: 2000000})}/>);
         expect(wrapper.find('CallPostEnded').exists()).toBe(true);
         expect(wrapper.find('CallPostActive').exists()).toBe(false);
     });
 
     it('renders ended state when live Redux call has endAt > 0', () => {
         const liveCall = {
-            id: 'call1', channelId: 'channel1', creatorId: 'user1',
-            participants: ['user1'], startAt: 1000000, endAt: 2000000,
+            id: 'call1',
+            channelId: 'channel1',
+            creatorId: 'user1',
+            participants: ['user1'],
+            startAt: 1000000,
+            endAt: 2000000,
         };
         setSelectors(liveCall, null);
-        const wrapper = shallow(<CallPost post={makePost()} />);
+        const wrapper = shallow(<CallPost post={makePost()}/>);
         expect(wrapper.find('CallPostEnded').exists()).toBe(true);
     });
 
     it('passes isAlreadyInCall=true to CallPostActive when myActiveCall matches', () => {
         setSelectors(undefined, {callId: 'call1', channelId: 'channel1', token: 'tok'});
-        const wrapper = shallow(<CallPost post={makePost()} />);
+        const wrapper = shallow(<CallPost post={makePost()}/>);
         const active = wrapper.find('CallPostActive');
         expect(active.prop('isAlreadyInCall')).toBe(true);
     });
 
     it('passes isAlreadyInCall=false when myActiveCall is null', () => {
         setSelectors(undefined, null);
-        const wrapper = shallow(<CallPost post={makePost()} />);
+        const wrapper = shallow(<CallPost post={makePost()}/>);
         const active = wrapper.find('CallPostActive');
         expect(active.prop('isAlreadyInCall')).toBe(false);
     });
 
     it('passes isAlreadyInCall=false when myActiveCall is a different call', () => {
         setSelectors(undefined, {callId: 'call99', channelId: 'channel99', token: 'tok'});
-        const wrapper = shallow(<CallPost post={makePost()} />);
+        const wrapper = shallow(<CallPost post={makePost()}/>);
         const active = wrapper.find('CallPostActive');
         expect(active.prop('isAlreadyInCall')).toBe(false);
     });
@@ -110,7 +119,7 @@ describe('CallPost', () => {
         // Use mount (not shallow) so React hook state updates flush correctly after async events
         let wrapper: ReturnType<typeof mount>;
         await act(async () => {
-            wrapper = mount(<CallPost post={makePost()} />);
+            wrapper = mount(<CallPost post={makePost()}/>);
         });
 
         // Trigger onJoin via the CallPostActive prop
@@ -125,11 +134,14 @@ describe('CallPost', () => {
 
     it('uses live Redux participants over post.props participants', () => {
         const liveCall = {
-            id: 'call1', channelId: 'channel1', creatorId: 'user1',
-            participants: ['user1', 'user2', 'user3'], startAt: 1000000,
+            id: 'call1',
+            channelId: 'channel1',
+            creatorId: 'user1',
+            participants: ['user1', 'user2', 'user3'],
+            startAt: 1000000,
         };
         setSelectors(liveCall, null);
-        const wrapper = shallow(<CallPost post={makePost({participants: ['user1']})} />);
+        const wrapper = shallow(<CallPost post={makePost({participants: ['user1']})}/>);
         const active = wrapper.find('CallPostActive');
         expect((active.prop('participants') as string[]).length).toBe(3);
     });

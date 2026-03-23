@@ -94,9 +94,9 @@ const CallPostActive = ({participants, startAt, isAlreadyInCall, onJoin}: Props)
                 className='btn btn-primary btn-sm'
                 style={{marginTop: '8px'}}
                 disabled={isAlreadyInCall}
-                title={isAlreadyInCall
-                    ? intl.formatMessage({id: 'plugin.rtk.call_post.tooltip_already_in_call'})
-                    : undefined}
+                title={isAlreadyInCall ?
+                    intl.formatMessage({id: 'plugin.rtk.call_post.tooltip_already_in_call'}) :
+                    undefined}
                 onClick={isAlreadyInCall ? undefined : onJoin}
                 data-testid='call-post-join-button'
             >

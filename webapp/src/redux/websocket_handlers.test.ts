@@ -2,14 +2,6 @@
 // See LICENSE.txt for license information.
 
 import {
-    handleCallStarted,
-    handleUserJoined,
-    handleUserLeft,
-    handleCallEnded,
-    handleNotifDismissed,
-} from './websocket_handlers';
-
-import {
     upsertCall,
     removeCall,
     setMyActiveCall,
@@ -17,6 +9,13 @@ import {
     setIncomingCall,
     clearIncomingCall,
 } from './calls_slice';
+import {
+    handleCallStarted,
+    handleUserJoined,
+    handleUserLeft,
+    handleCallEnded,
+    handleNotifDismissed,
+} from './websocket_handlers';
 
 // Minimal mock store
 const makeStore = (state: object) => {

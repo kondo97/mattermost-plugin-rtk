@@ -11,7 +11,6 @@ import {
     setIncomingCall,
     clearIncomingCall,
 } from './calls_slice';
-
 import type {CallsPluginState} from './calls_slice';
 
 const initialState: CallsPluginState = {

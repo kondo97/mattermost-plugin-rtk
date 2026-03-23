@@ -1,13 +1,11 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-
-import type {GlobalState} from '@mattermost/types/store';
-
-import {pluginFetch} from 'client';
 import {setMyActiveCall} from 'redux/calls_slice';
 import {
     selectCallByChannel,
@@ -15,7 +13,8 @@ import {
     selectMyActiveCall,
 } from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-import manifest from 'manifest';
+
+import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 
@@ -67,6 +66,7 @@ const ToastBar = ({currentChannelId, currentUserId}: Props) => {
             channelId: data.call.channel_id,
             token: data.token,
         }));
+
         // Token intentionally not logged — SEC-U3-01
         window.open(
             buildCallTabUrl(manifest.id, data.token, data.call.id, channelDisplayName),
