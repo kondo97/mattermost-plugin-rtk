@@ -48,7 +48,8 @@ func TestGetEffectiveAPIKey_NoEnv(t *testing.T) {
 }
 
 // --- Feature Flag Tests ---
-// Each flag is tested for: env "true", env "false", nil (default ON), explicit &false.
+// Each flag is tested for: env "true", env "TRUE" (case-insensitive), env "false",
+// env "1" (non-"true" value treated as false), nil (default ON), explicit &false, explicit &true.
 
 func testFeatureFlag(t *testing.T, envVar string, getFn func(*configuration) bool, field **bool) {
 	t.Helper()
