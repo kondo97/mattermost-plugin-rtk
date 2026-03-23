@@ -72,7 +72,7 @@ The `PushSender` interface is defined in `server/push/interface.go`.
 The `Sender` struct and methods are in `server/push/push.go`.
 
 **Rationale**: Consistent with `server/rtkclient` package pattern.
-Enables mock generation via `mockery`.
+Enables mock generation via `mockgen` (`go.uber.org/mock/mockgen`).
 
 ---
 

@@ -13,7 +13,7 @@
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Mock tool | `mockery` | Consistent with `server/rtkclient/mocks/` and `server/store/kvstore/mocks/` |
+| Mock tool | `mockgen` (`go.uber.org/mock/mockgen`) | Consistent with `server/rtkclient/mocks/` and `server/store/kvstore/mocks/` which use GoMock |
 | Mock output | `server/push/mocks/mock_push.go` | Standard location pattern |
 | Interface | `PushSender` in `server/push/interface.go` | Consistent with `RTKClient` interface pattern |
 
