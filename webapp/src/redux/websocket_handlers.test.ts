@@ -119,7 +119,7 @@ describe('handleCallStarted', () => {
         }));
         const incomingAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (a: any) => a.type === setIncomingCall({callId: '', channelId: '', creatorId: ''}).type,
+            (a: any) => a.type === setIncomingCall({callId: '', channelId: '', creatorId: '', startAt: 0}).type,
         );
         expect(incomingAction).toBeDefined();
     });

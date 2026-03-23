@@ -44,7 +44,7 @@ async function fetchConfigStatus(store: Store<GlobalState>) {
 export default class Plugin {
     public async initialize(registry: PluginRegistry, store: Store<GlobalState>) {
         // 1. Register Redux reducer
-        registry.registerReducer(callsReducer);
+        registry.registerReducer(callsReducer as never);
 
         // 2. Fetch initial config status
         await fetchConfigStatus(store);

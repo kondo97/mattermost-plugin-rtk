@@ -18,6 +18,7 @@ const sampleCall = {
     creatorId: 'user1',
     participants: ['user1', 'user2'],
     startAt: 1000000,
+    postId: '',
 };
 
 const buildState = (pluginState: Partial<CallsPluginState> = {}) => ({
@@ -87,7 +88,7 @@ describe('selectIncomingCall', () => {
     });
 
     it('returns the incoming call when present', () => {
-        const incoming = {callId: 'call1', channelId: 'dm1', creatorId: 'otherUser'};
+        const incoming = {callId: 'call1', channelId: 'dm1', creatorId: 'otherUser', startAt: 0};
         const state = buildState({incomingCall: incoming});
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         expect(selectIncomingCall(state as any)).toEqual(incoming);

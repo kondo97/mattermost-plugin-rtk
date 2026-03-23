@@ -159,14 +159,14 @@ describe('callsReducer', () => {
 
     describe('SET_INCOMING_CALL', () => {
         it('sets incomingCall', () => {
-            const incoming = {callId: 'call1', channelId: 'channel1', creatorId: 'user2'};
+            const incoming = {callId: 'call1', channelId: 'channel1', creatorId: 'user2', startAt: 0};
             const state = callsReducer(initialState, setIncomingCall(incoming));
             expect(state.incomingCall).toEqual(incoming);
         });
 
         it('replaces an existing incomingCall', () => {
-            const incoming1 = {callId: 'call1', channelId: 'channel1', creatorId: 'user2'};
-            const incoming2 = {callId: 'call2', channelId: 'channel2', creatorId: 'user3'};
+            const incoming1 = {callId: 'call1', channelId: 'channel1', creatorId: 'user2', startAt: 0};
+            const incoming2 = {callId: 'call2', channelId: 'channel2', creatorId: 'user3', startAt: 0};
             const prevState: CallsPluginState = {...initialState, incomingCall: incoming1};
             const state = callsReducer(prevState, setIncomingCall(incoming2));
             expect(state.incomingCall).toEqual(incoming2);
@@ -175,7 +175,7 @@ describe('callsReducer', () => {
 
     describe('CLEAR_INCOMING_CALL', () => {
         it('clears incomingCall to null', () => {
-            const incoming = {callId: 'call1', channelId: 'channel1', creatorId: 'user2'};
+            const incoming = {callId: 'call1', channelId: 'channel1', creatorId: 'user2', startAt: 0};
             const prevState: CallsPluginState = {...initialState, incomingCall: incoming};
             const state = callsReducer(prevState, clearIncomingCall());
             expect(state.incomingCall).toBeNull();

@@ -43,10 +43,10 @@ const setSelectors = ({
     isParticipant = false,
     channelDisplayName = 'general',
 } = {}) => {
-    (useSelector as jest.Mock).mockImplementation(() => {
+    (useSelector as unknown as jest.Mock).mockImplementation(() => {
         // We identify selectors by call order within each render cycle (5 selectors per render).
         // Use modulo so re-renders (calls 5-9, 10-14, …) return the same values.
-        const callCount = (useSelector as jest.Mock).mock.calls.length;
+        const callCount = (useSelector as unknown as jest.Mock).mock.calls.length;
         const idx = (callCount - 1) % 5;
         if (idx === 0) {
             return pluginEnabled;
@@ -69,7 +69,7 @@ const setSelectors = ({
 
 beforeEach(() => {
     jest.clearAllMocks();
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+    (useDispatch as unknown as jest.Mock).mockReturnValue(mockDispatch);
 });
 
 describe('ChannelHeaderButton visual states', () => {

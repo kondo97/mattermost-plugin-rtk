@@ -40,9 +40,9 @@ const makePost = (overrides: object = {}) => ({
 });
 
 const setSelectors = (liveCall: object | undefined, myActiveCall: object | null, channelName = 'general') => {
-    (useSelector as jest.Mock).mockImplementation(() => {
+    (useSelector as unknown as jest.Mock).mockImplementation(() => {
         // Use modulo so re-renders (calls 3-5, 6-8, …) return the same values.
-        const idx = (useSelector as jest.Mock).mock.calls.length % 3;
+        const idx = (useSelector as unknown as jest.Mock).mock.calls.length % 3;
         if (idx === 1) {
             return liveCall;
         }
@@ -55,7 +55,7 @@ const setSelectors = (liveCall: object | undefined, myActiveCall: object | null,
 
 beforeEach(() => {
     jest.clearAllMocks();
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+    (useDispatch as unknown as jest.Mock).mockReturnValue(mockDispatch);
 });
 
 describe('CallPost', () => {
@@ -125,7 +125,7 @@ describe('CallPost', () => {
         // Trigger onJoin via the CallPostActive prop
         const active = wrapper!.find('CallPostActive');
         await act(async () => {
-            active.prop('onJoin')?.();
+            (active.prop('onJoin') as (() => void) | undefined)?.();
         });
 
         wrapper!.update();
