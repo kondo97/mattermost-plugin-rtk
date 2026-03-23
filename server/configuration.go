@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -24,16 +26,99 @@ type configuration struct {
 	CloudflareOrgID string `json:"CloudflareOrgID"`
 	// CloudflareAPIKey is the Cloudflare API Key for the RealtimeKit integration.
 	CloudflareAPIKey string `json:"CloudflareAPIKey"`
+
+	// Feature flags — all default to enabled (nil means not configured, treated as true).
+	// Override via environment variables (e.g. RTK_RECORDING_ENABLED=false).
+	RecordingEnabled     *bool `json:"RecordingEnabled"`
+	ScreenShareEnabled   *bool `json:"ScreenShareEnabled"`
+	PollsEnabled         *bool `json:"PollsEnabled"`
+	TranscriptionEnabled *bool `json:"TranscriptionEnabled"`
+	WaitingRoomEnabled   *bool `json:"WaitingRoomEnabled"`
+	VideoEnabled         *bool `json:"VideoEnabled"`
+	ChatEnabled          *bool `json:"ChatEnabled"`
+	PluginsEnabled       *bool `json:"PluginsEnabled"`
+	ParticipantsEnabled  *bool `json:"ParticipantsEnabled"`
+	RaiseHandEnabled     *bool `json:"RaiseHandEnabled"`
 }
 
-// GetEffectiveOrgID returns the configured Cloudflare Organization ID.
+// GetEffectiveOrgID returns the Cloudflare Organization ID.
+// Environment variable RTK_ORG_ID takes strict precedence over the stored config value.
 func (c *configuration) GetEffectiveOrgID() string {
+	if val, ok := os.LookupEnv("RTK_ORG_ID"); ok {
+		return val
+	}
 	return c.CloudflareOrgID
 }
 
-// GetEffectiveAPIKey returns the configured Cloudflare API Key.
+// GetEffectiveAPIKey returns the Cloudflare API Key.
+// Environment variable RTK_API_KEY takes strict precedence over the stored config value.
 func (c *configuration) GetEffectiveAPIKey() string {
+	if val, ok := os.LookupEnv("RTK_API_KEY"); ok {
+		return val
+	}
 	return c.CloudflareAPIKey
+}
+
+// isFeatureFlagEnabled is the shared logic for all Is*Enabled() methods.
+// It checks the env var first, then the *bool field, defaulting to true if nil.
+func isFeatureFlagEnabled(envVar string, field *bool) bool {
+	if val, ok := os.LookupEnv(envVar); ok {
+		return strings.EqualFold(val, "true")
+	}
+	if field == nil {
+		return true // default ON
+	}
+	return *field
+}
+
+// IsRecordingEnabled reports whether the recording feature is enabled.
+func (c *configuration) IsRecordingEnabled() bool {
+	return isFeatureFlagEnabled("RTK_RECORDING_ENABLED", c.RecordingEnabled)
+}
+
+// IsScreenShareEnabled reports whether the screen share feature is enabled.
+func (c *configuration) IsScreenShareEnabled() bool {
+	return isFeatureFlagEnabled("RTK_SCREEN_SHARE_ENABLED", c.ScreenShareEnabled)
+}
+
+// IsPollsEnabled reports whether the polls feature is enabled.
+func (c *configuration) IsPollsEnabled() bool {
+	return isFeatureFlagEnabled("RTK_POLLS_ENABLED", c.PollsEnabled)
+}
+
+// IsTranscriptionEnabled reports whether the transcription feature is enabled.
+func (c *configuration) IsTranscriptionEnabled() bool {
+	return isFeatureFlagEnabled("RTK_TRANSCRIPTION_ENABLED", c.TranscriptionEnabled)
+}
+
+// IsWaitingRoomEnabled reports whether the waiting room feature is enabled.
+func (c *configuration) IsWaitingRoomEnabled() bool {
+	return isFeatureFlagEnabled("RTK_WAITING_ROOM_ENABLED", c.WaitingRoomEnabled)
+}
+
+// IsVideoEnabled reports whether the video feature is enabled.
+func (c *configuration) IsVideoEnabled() bool {
+	return isFeatureFlagEnabled("RTK_VIDEO_ENABLED", c.VideoEnabled)
+}
+
+// IsChatEnabled reports whether the in-call chat feature is enabled.
+func (c *configuration) IsChatEnabled() bool {
+	return isFeatureFlagEnabled("RTK_CHAT_ENABLED", c.ChatEnabled)
+}
+
+// IsPluginsEnabled reports whether the plugins feature is enabled.
+func (c *configuration) IsPluginsEnabled() bool {
+	return isFeatureFlagEnabled("RTK_PLUGINS_ENABLED", c.PluginsEnabled)
+}
+
+// IsParticipantsEnabled reports whether the participants panel feature is enabled.
+func (c *configuration) IsParticipantsEnabled() bool {
+	return isFeatureFlagEnabled("RTK_PARTICIPANTS_ENABLED", c.ParticipantsEnabled)
+}
+
+// IsRaiseHandEnabled reports whether the raise hand feature is enabled.
+func (c *configuration) IsRaiseHandEnabled() bool {
+	return isFeatureFlagEnabled("RTK_RAISE_HAND_ENABLED", c.RaiseHandEnabled)
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -97,11 +182,11 @@ func (p *Plugin) OnConfigurationChange() error {
 
 	p.setConfiguration(configuration)
 
-	credentialsChanged := prev.CloudflareOrgID != configuration.CloudflareOrgID ||
-		prev.CloudflareAPIKey != configuration.CloudflareAPIKey
+	credentialsChanged := prev.GetEffectiveOrgID() != configuration.GetEffectiveOrgID() ||
+		prev.GetEffectiveAPIKey() != configuration.GetEffectiveAPIKey()
 
 	if credentialsChanged {
-		if configuration.CloudflareOrgID != "" && configuration.CloudflareAPIKey != "" {
+		if configuration.GetEffectiveOrgID() != "" && configuration.GetEffectiveAPIKey() != "" {
 			p.rtkClient = rtkclient.NewClient(configuration.GetEffectiveOrgID(), configuration.GetEffectiveAPIKey())
 			if p.kvStore != nil {
 				p.reRegisterWebhook()

@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// allFlagsTrue asserts that feature_flags is present and all 10 flags are true.
+func allFlagsTrue(t *testing.T, resp map[string]any) {
+	t.Helper()
+	flags, ok := resp["feature_flags"].(map[string]any)
+	require.True(t, ok, "feature_flags should be a map")
+	for _, key := range []string{"recording", "screenShare", "polls", "transcription", "waitingRoom", "video", "chat", "plugins", "participants", "raiseHand"} {
+		assert.Equal(t, true, flags[key], "feature flag %q should be true by default", key)
+	}
+}
+
 func TestHandleConfigStatus_Enabled(t *testing.T) {
 	p, _ := newTestPlugin(t, nil, nil)
 	p.setConfiguration(&configuration{
@@ -25,6 +35,7 @@ func TestHandleConfigStatus_Enabled(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, true, resp["enabled"])
+	allFlagsTrue(t, resp)
 }
 
 func TestHandleConfigStatus_Disabled(t *testing.T) {
@@ -38,6 +49,27 @@ func TestHandleConfigStatus_Disabled(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, false, resp["enabled"])
+	allFlagsTrue(t, resp) // flags default ON even when plugin disabled
+}
+
+func TestHandleConfigStatus_FeatureFlagDisabled(t *testing.T) {
+	p, _ := newTestPlugin(t, nil, nil)
+	p.setConfiguration(&configuration{
+		CloudflareOrgID:  "org1",
+		CloudflareAPIKey: "key1",
+		RecordingEnabled: boolPtr(false),
+	})
+	p.router = p.initRouter()
+
+	w := serveWithUser(t, p, http.MethodGet, "/api/v1/config/status", "user1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	flags, ok := resp["feature_flags"].(map[string]any)
+	require.True(t, ok, "feature_flags should be a map")
+	assert.Equal(t, false, flags["recording"])
+	assert.Equal(t, true, flags["video"]) // other flags still ON
 }
 
 func TestHandleAdminConfigStatus_Admin(t *testing.T) {
@@ -56,6 +88,8 @@ func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, true, resp["enabled"])
 	assert.Equal(t, "org1", resp["cloudflare_org_id"])
+	assert.Nil(t, resp["cloudflare_api_key"], "API key must never be returned")
+	allFlagsTrue(t, resp)
 }
 
 func TestHandleAdminConfigStatus_Forbidden(t *testing.T) {

@@ -7,6 +7,23 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
+// configFeatureFlags builds the feature flags map from the current configuration.
+// Credentials are never included in this map (SEC-03).
+func configFeatureFlags(cfg *configuration) map[string]bool {
+	return map[string]bool{
+		"recording":     cfg.IsRecordingEnabled(),
+		"screenShare":   cfg.IsScreenShareEnabled(),
+		"polls":         cfg.IsPollsEnabled(),
+		"transcription": cfg.IsTranscriptionEnabled(),
+		"waitingRoom":   cfg.IsWaitingRoomEnabled(),
+		"video":         cfg.IsVideoEnabled(),
+		"chat":          cfg.IsChatEnabled(),
+		"plugins":       cfg.IsPluginsEnabled(),
+		"participants":  cfg.IsParticipantsEnabled(),
+		"raiseHand":     cfg.IsRaiseHandEnabled(),
+	}
+}
+
 // handleConfigStatus handles GET /api/v1/config/status.
 func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
@@ -14,7 +31,8 @@ func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"enabled": enabled,
+		"enabled":       enabled,
+		"feature_flags": configFeatureFlags(cfg),
 	})
 }
 
@@ -33,5 +51,6 @@ func (p *Plugin) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"enabled":           enabled,
 		"cloudflare_org_id": cfg.CloudflareOrgID,
+		"feature_flags":     configFeatureFlags(cfg),
 	})
 }
