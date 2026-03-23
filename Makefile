@@ -273,9 +273,18 @@ endif
 
 	@echo plugin built at: dist/$(BUNDLE_NAME)
 
+## Copies the Vite-built call.js bundle to server/assets/ for go:embed.
+## Must run after webapp build and before server build.
+.PHONY: copy-call-js
+copy-call-js:
+ifneq ($(HAS_WEBAPP),)
+	cp webapp/dist/call.js server/assets/call.js
+endif
+
 ## Builds and bundles the plugin.
+## Order: webapp must complete before copy-call-js, which must complete before server.
 .PHONY: dist
-dist: apply server webapp bundle
+dist: apply webapp copy-call-js server bundle
 ifeq ($(PLUGIN_ID),com.mattermost.plugin-starter-template)
 	$(warning WARNING)
 	$(warning You are building with the default plugin ID "com.mattermost.plugin-starter-template".)
