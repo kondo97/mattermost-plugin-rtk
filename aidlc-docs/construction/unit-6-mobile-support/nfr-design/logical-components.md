@@ -8,7 +8,7 @@ server/
     interface.go        <- PushSender interface
     push.go             <- Sender struct + SendIncomingCall + SendCallEnded
     mocks/
-      mock_push.go      <- mockery-generated mock (PushSender)
+      mock_push.go      <- mockgen-generated mock (PushSender), package mocks
   plugin.go             <- pushSender field + OnActivate init
   calls.go              <- SendIncomingCall call in CreateCall
                            SendCallEnded call in endCallInternal
