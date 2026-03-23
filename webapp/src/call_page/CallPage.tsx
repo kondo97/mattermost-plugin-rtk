@@ -4,9 +4,9 @@
 // Standalone call page component. No Mattermost framework dependencies.
 // No i18n — this bundle runs outside the Mattermost React tree (MAINT-U4-02).
 
-import React, {useEffect, useState} from 'react';
-import {useDyteClient, DyteProvider} from '@cloudflare/realtimekit-react';
+import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
 import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
+import React, {useEffect, useState} from 'react';
 
 const PLUGIN_ID = 'com.mattermost.plugin-rtk';
 
@@ -16,7 +16,7 @@ interface Props {
 }
 
 const CallPage = ({token, callId}: Props) => {
-    const [meeting, initMeeting] = useDyteClient();
+    const [meeting, initMeeting] = useRealtimeKitClient();
     const [initError, setInitError] = useState<string | null>(null);
 
     // Initialize RTK SDK (Pattern U4-5)
@@ -29,7 +29,7 @@ const CallPage = ({token, callId}: Props) => {
             defaults: {audio: false, video: false},
         }).catch((err: Error) => {
             // Token intentionally not logged — SEC-U4-01
-            console.error('[rtk-plugin] RTK init error:', err.message);
+            console.error('[rtk-plugin] RTK init error:', err.message); // eslint-disable-line no-console
             setInitError('Failed to connect to the call. Please close this tab and try again.');
         });
     }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -103,7 +103,7 @@ const CallPage = ({token, callId}: Props) => {
     }
 
     return (
-        <DyteProvider
+        <RealtimeKitProvider
             value={meeting}
             fallback={<div data-testid='call-page-loading'>{'Loading...'}</div>}
         >
@@ -112,7 +112,7 @@ const CallPage = ({token, callId}: Props) => {
                 data-testid='call-page-meeting'
                 style={{height: '100vh', width: '100vw'}}
             />
-        </DyteProvider>
+        </RealtimeKitProvider>
     );
 };
 

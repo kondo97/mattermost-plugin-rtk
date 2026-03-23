@@ -25,14 +25,14 @@ export async function pluginFetch<T>(
 
         if (!resp.ok) {
             // Log status/path only — no response body that might contain sensitive data
-            console.error(`[rtk-plugin] API error ${resp.status} on ${path}`);
+            console.error(`[rtk-plugin] API error ${resp.status} on ${path}`); // eslint-disable-line no-console
             return {error: 'An error occurred. Please try again.'};
         }
 
         const data = await resp.json() as T;
         return {data};
     } catch (err) {
-        console.error('[rtk-plugin] network error on', path, err);
+        console.error('[rtk-plugin] network error on', path, err); // eslint-disable-line no-console
         return {error: 'A network error occurred. Please try again.'};
     }
 }

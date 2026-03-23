@@ -1,17 +1,19 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+/* eslint-disable react/prop-types */
+
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-
-import type {GlobalState} from '@mattermost/types/store';
-
-import manifest from 'manifest';
-import {pluginFetch} from 'client';
 import {setMyActiveCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
+
+import type {GlobalState} from '@mattermost/types/store';
+
 import SwitchCallModal from 'components/switch_call_modal';
 
 import CallPostActive from './CallPostActive';
@@ -62,9 +64,9 @@ const CallPost = ({post}: Props) => {
     // Merge: Redux wins if available, post.props as fallback (pattern U4-4)
     const participants = liveCall?.participants ?? props.participants ?? [];
     const startAt = liveCall?.startAt ?? props.start_at;
-    const endAt = liveCall
-        ? ((liveCall as unknown as {endAt?: number}).endAt ?? 0)
-        : props.end_at;
+    const endAt = liveCall ?
+        ((liveCall as unknown as {endAt?: number}).endAt ?? 0) :
+        props.end_at;
     const isEnded = endAt > 0;
 
     const isAlreadyInCall = myActiveCall?.callId === props.call_id;
@@ -83,6 +85,7 @@ const CallPost = ({post}: Props) => {
             channelId: data.call.channel_id,
             token: data.token,
         }));
+
         // Token intentionally not logged — SEC-U4-01
         window.open(
             buildCallTabUrl(manifest.id, data.token, data.call.id, channelName),

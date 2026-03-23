@@ -126,8 +126,8 @@ function getChannelType(store: Store<GlobalState>, channelId: string): string {
     const state = store.getState();
 
     // mattermost-redux stores channels at state.entities.channels.channels
-    const channels = (state as unknown as {entities: {channels: {channels: Record<string, Channel>}}})
-        .entities?.channels?.channels;
+    const channels = (state as unknown as {entities: {channels: {channels: Record<string, Channel>}}}).
+        entities?.channels?.channels;
     return channels?.[channelId]?.type ?? '';
 }
 
@@ -147,7 +147,7 @@ export function handleCallStarted(store: Store<GlobalState>, currentUserId: stri
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isCallStartedPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_call_started payload', data);
+            console.error('[rtk-plugin] invalid custom_cf_call_started payload', data); // eslint-disable-line no-console
             return;
         }
 
@@ -178,13 +178,13 @@ export function handleUserJoined(store: Store<GlobalState>, currentUserId: strin
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isUserJoinedPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_user_joined payload', data);
+            console.error('[rtk-plugin] invalid custom_cf_user_joined payload', data); // eslint-disable-line no-console
             return;
         }
 
         const state = store.getState();
         const existing = (state as unknown as {[key: string]: {callsByChannel: Record<string, {id: string; creatorId: string; startAt: number; postId: string}>}})
-            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id];
+            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id]; // eslint-disable-line no-unexpected-multiline
 
         if (existing) {
             store.dispatch(upsertCall({
@@ -210,13 +210,13 @@ export function handleUserLeft(store: Store<GlobalState>, currentUserId: string)
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isUserLeftPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_user_left payload', data);
+            console.error('[rtk-plugin] invalid custom_cf_user_left payload', data); // eslint-disable-line no-console
             return;
         }
 
         const state = store.getState();
         const existing = (state as unknown as {[key: string]: {callsByChannel: Record<string, {id: string; creatorId: string; startAt: number; postId: string}>}})
-            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id];
+            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id]; // eslint-disable-line no-unexpected-multiline
 
         if (existing) {
             store.dispatch(upsertCall({
@@ -236,7 +236,7 @@ export function handleCallEnded(store: Store<GlobalState>, currentUserId: string
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isCallEndedPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_call_ended payload', data);
+            console.error('[rtk-plugin] invalid custom_cf_call_ended payload', data); // eslint-disable-line no-console
             return;
         }
 
@@ -253,7 +253,7 @@ export function handleCallEnded(store: Store<GlobalState>, currentUserId: string
         }
 
         // suppress unused parameter warning
-        void currentUserId;
+        void currentUserId; // eslint-disable-line no-void
     };
 }
 
@@ -261,7 +261,7 @@ export function handleNotifDismissed(store: Store<GlobalState>, currentUserId: s
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isNotifDismissedPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_notification_dismissed payload', data);
+            console.error('[rtk-plugin] invalid custom_cf_notification_dismissed payload', data); // eslint-disable-line no-console
             return;
         }
 

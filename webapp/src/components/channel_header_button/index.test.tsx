@@ -1,9 +1,9 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {shallow, mount} from 'enzyme';
 import React from 'react';
 import {act} from 'react-dom/test-utils';
-import {shallow, mount} from 'enzyme';
 import {useSelector, useDispatch} from 'react-redux';
 
 import ChannelHeaderButton from './index';
@@ -43,7 +43,7 @@ const setSelectors = ({
     isParticipant = false,
     channelDisplayName = 'general',
 } = {}) => {
-    (useSelector as jest.Mock).mockImplementation((selector: (s: unknown) => unknown) => {
+    (useSelector as jest.Mock).mockImplementation(() => {
         // We identify selectors by call order within each render cycle (5 selectors per render).
         // Use modulo so re-renders (calls 5-9, 10-14, …) return the same values.
         const callCount = (useSelector as jest.Mock).mock.calls.length;

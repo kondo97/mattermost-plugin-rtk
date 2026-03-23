@@ -113,7 +113,7 @@ export function callsReducer(
         };
 
     case REMOVE_CALL: {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/naming-convention
         const {[action.payload]: _removed, ...remaining} = state.callsByChannel;
         return {...state, callsByChannel: remaining};
     }

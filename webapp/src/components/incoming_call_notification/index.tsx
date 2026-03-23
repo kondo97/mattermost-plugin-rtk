@@ -1,17 +1,16 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-
-import type {GlobalState} from '@mattermost/types/store';
-
-import {pluginFetch} from 'client';
 import {clearIncomingCall, setMyActiveCall} from 'redux/calls_slice';
 import {selectIncomingCall, selectMyActiveCall} from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-import manifest from 'manifest';
+
+import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 
@@ -23,19 +22,20 @@ interface CallResponse {
 }
 
 interface Props {
-    currentUserId: string;
+    currentUserId?: string;
 }
 
-const IncomingCallNotification = ({currentUserId}: Props) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const IncomingCallNotification = ({currentUserId: _currentUserId}: Props) => {
     const intl = useIntl();
     const dispatch = useDispatch();
 
     const incomingCall = useSelector(selectIncomingCall);
     const myActiveCall = useSelector(selectMyActiveCall);
     const channelDisplayName = useSelector(
-        (state: GlobalState) => incomingCall
-            ? getChannelDisplayName(state, incomingCall.channelId)
-            : '',
+        (state: GlobalState) => (incomingCall ?
+            getChannelDisplayName(state, incomingCall.channelId) :
+            ''),
     );
 
     const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -74,6 +74,7 @@ const IncomingCallNotification = ({currentUserId}: Props) => {
             channelId: data.call.channel_id,
             token: data.token,
         }));
+
         // Token intentionally not logged — SEC-U3-01
         window.open(
             buildCallTabUrl(manifest.id, data.token, data.call.id, channelDisplayName),

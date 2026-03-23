@@ -1,7 +1,7 @@
 import path from 'path';
 
-import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
+import {defineConfig} from 'vite';
 
 // Mattermost host provides these as browser globals.
 // Applied to the 'main' entry only — the 'call' entry is a standalone bundle
@@ -11,6 +11,7 @@ const MATTERMOST_EXTERNALS: Record<string, string> = {
     'react-dom': 'ReactDOM',
     redux: 'Redux',
     'react-redux': 'ReactRedux',
+    'react-intl': 'ReactIntl',
     'prop-types': 'PropTypes',
     'react-bootstrap': 'ReactBootstrap',
     'react-router-dom': 'ReactRouterDom',
@@ -18,7 +19,7 @@ const MATTERMOST_EXTERNALS: Record<string, string> = {
 
 // Set VITE_BUILD_TARGET=call to build the standalone call page bundle.
 // Default (no env var) builds the Mattermost plugin main bundle.
-const buildTarget = process.env.VITE_BUILD_TARGET ?? 'main';
+const buildTarget = process.env.VITE_BUILD_TARGET ?? 'main'; // eslint-disable-line no-process-env
 const isCallBuild = buildTarget === 'call';
 
 export default defineConfig({
@@ -26,6 +27,7 @@ export default defineConfig({
 
     resolve: {
         alias: [
+
             // Resolve src-rooted bare imports, replicating webpack's resolve.modules: ['src'].
             // e.g. 'redux/calls_slice' → src/redux/calls_slice.ts
             //      'components/switch_call_modal' → src/components/switch_call_modal/index.tsx
@@ -35,14 +37,16 @@ export default defineConfig({
             },
             {find: 'client', replacement: path.resolve(__dirname, 'src/client')},
             {find: 'manifest', replacement: path.resolve(__dirname, 'src/manifest')},
+
             // Keep the 'src' alias for explicit src/... imports
             {find: 'src', replacement: path.resolve(__dirname, 'src')},
         ],
     },
 
     define: {
+
         // Ensure process.env.NODE_ENV is defined for third-party packages
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'), // eslint-disable-line no-process-env
     },
 
     build: {
@@ -52,9 +56,9 @@ export default defineConfig({
         emptyOutDir: !isCallBuild,
 
         rollupOptions: {
-            input: isCallBuild
-                ? {call: path.resolve(__dirname, 'src/call_page/main.tsx')}
-                : {main: path.resolve(__dirname, 'src/index.tsx')},
+            input: isCallBuild ?
+                {call: path.resolve(__dirname, 'src/call_page/main.tsx')} :
+                {main: path.resolve(__dirname, 'src/index.tsx')},
 
             output: {
                 entryFileNames: '[name].js',
