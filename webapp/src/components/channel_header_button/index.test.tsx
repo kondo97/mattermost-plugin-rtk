@@ -2,7 +2,8 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import {shallow} from 'enzyme';
+import {act} from 'react-dom/test-utils';
+import {shallow, mount} from 'enzyme';
 import {useSelector, useDispatch} from 'react-redux';
 
 import ChannelHeaderButton from './index';
@@ -42,11 +43,10 @@ const setSelectors = ({
     isParticipant = false,
 } = {}) => {
     (useSelector as jest.Mock).mockImplementation((selector: (s: unknown) => unknown) => {
-        // We identify selectors by calling them with a recognizable state shape
-        // and checking what they select. Since selectors are curried functions,
-        // we use call order instead.
+        // We identify selectors by call order within each render cycle (4 selectors per render).
+        // Use modulo so re-renders (calls 4-7, 8-11, …) return the same values.
         const callCount = (useSelector as jest.Mock).mock.calls.length;
-        const idx = callCount - 1;
+        const idx = (callCount - 1) % 4;
         if (idx === 0) {
             return pluginEnabled;
         }
@@ -136,20 +136,25 @@ describe('ChannelHeaderButton visual states', () => {
         pluginFetch.mockResolvedValueOnce({error: 'Something went wrong'});
 
         setSelectors({pluginEnabled: true, activeCall: undefined, isParticipant: false});
-        const wrapper = shallow(
-            <ChannelHeaderButton
-                channel={channel}
-                currentUserId={currentUserId}
-            />,
-        );
 
-        // Simulate click to trigger the error path
-        const btn = wrapper.find('[data-testid="channel-header-call-button"]');
-        await btn.prop('onClick')?.({} as React.MouseEvent);
+        // Use mount (not shallow) so React hook state updates flush correctly after async events
+        let wrapper: ReturnType<typeof mount>;
+        await act(async () => {
+            wrapper = mount(
+                <ChannelHeaderButton
+                    channel={channel}
+                    currentUserId={currentUserId}
+                />,
+            );
+        });
 
-        // Re-render to pick up state change
-        wrapper.update();
-        const errorModal = wrapper.find('[data-testid="call-error-modal"]');
+        const btn = wrapper!.find('[data-testid="channel-header-call-button"]');
+        await act(async () => {
+            btn.prop('onClick')?.({} as React.MouseEvent);
+        });
+
+        wrapper!.update();
+        const errorModal = wrapper!.find('[data-testid="call-error-modal"]');
         expect(errorModal.exists()).toBe(true);
     });
 });

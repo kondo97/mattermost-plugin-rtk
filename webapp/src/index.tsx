@@ -103,7 +103,7 @@ export default class Plugin {
             () => { /* no-op — click handled inside ChannelHeaderButton */ },
         );
 
-        registry.registerChannelToastComponent(() => {
+        registry.registerRootComponent(() => {
             const channelId = (store.getState() as unknown as {
                 entities: {channels: {currentChannelId: string}};
             }).entities?.channels?.currentChannelId ?? '';

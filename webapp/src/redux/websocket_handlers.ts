@@ -135,9 +135,17 @@ function getChannelType(store: Store<GlobalState>, channelId: string): string {
 // WS event handlers
 // ---------------------------------------------------------------------------
 
+function parseEventData(msg: {data: unknown}): unknown {
+    try {
+        return typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+    } catch {
+        return undefined;
+    }
+}
+
 export function handleCallStarted(store: Store<GlobalState>, currentUserId: string) {
     return (msg: {data: unknown}) => {
-        const {data} = msg;
+        const data = parseEventData(msg);
         if (!isCallStartedPayload(data)) {
             console.error('[rtk-plugin] invalid custom_cf_call_started payload', data);
             return;
@@ -168,7 +176,7 @@ export function handleCallStarted(store: Store<GlobalState>, currentUserId: stri
 
 export function handleUserJoined(store: Store<GlobalState>, currentUserId: string) {
     return (msg: {data: unknown}) => {
-        const {data} = msg;
+        const data = parseEventData(msg);
         if (!isUserJoinedPayload(data)) {
             console.error('[rtk-plugin] invalid custom_cf_user_joined payload', data);
             return;
@@ -200,7 +208,7 @@ export function handleUserJoined(store: Store<GlobalState>, currentUserId: strin
 
 export function handleUserLeft(store: Store<GlobalState>, currentUserId: string) {
     return (msg: {data: unknown}) => {
-        const {data} = msg;
+        const data = parseEventData(msg);
         if (!isUserLeftPayload(data)) {
             console.error('[rtk-plugin] invalid custom_cf_user_left payload', data);
             return;
@@ -226,7 +234,7 @@ export function handleUserLeft(store: Store<GlobalState>, currentUserId: string)
 
 export function handleCallEnded(store: Store<GlobalState>, currentUserId: string) {
     return (msg: {data: unknown}) => {
-        const {data} = msg;
+        const data = parseEventData(msg);
         if (!isCallEndedPayload(data)) {
             console.error('[rtk-plugin] invalid custom_cf_call_ended payload', data);
             return;
@@ -251,7 +259,7 @@ export function handleCallEnded(store: Store<GlobalState>, currentUserId: string
 
 export function handleNotifDismissed(store: Store<GlobalState>, currentUserId: string) {
     return (msg: {data: unknown}) => {
-        const {data} = msg;
+        const data = parseEventData(msg);
         if (!isNotifDismissedPayload(data)) {
             console.error('[rtk-plugin] invalid custom_cf_notification_dismissed payload', data);
             return;
