@@ -17,7 +17,8 @@ var workerJS []byte
 // serveCallHTML serves the call page with HTTP security headers.
 func (p *Plugin) serveCallHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src *")
+	// style-src 'unsafe-inline' is required for the Cloudflare RTK UI Kit (CSS-in-JS) — SEC-U4-02
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src *; style-src 'self' 'unsafe-inline'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")

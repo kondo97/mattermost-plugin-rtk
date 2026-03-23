@@ -1,5 +1,250 @@
 # AI-DLC Audit Log
 
+## Unit 3 - NFR Design Approved
+**Timestamp**: 2026-03-23T05:20:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Design approved. Proceeding to Code Generation Part 1 (plan creation).
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Design complete. Starting Code Generation.
+
+---
+
+## Unit 3 - NFR Design Complete
+**Timestamp**: 2026-03-23T05:15:00Z
+**User Input**: (N/A — derived from Functional Design changes)
+**AI Response**: NFR Design reviewed and updated. Fixed: Pattern U3-7 (token reuse), ToastBar registration (registerRootComponent), LC-U3-4 endpoint list.
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Design complete. Presenting for approval.
+
+---
+
+## Unit 3 - NFR Requirements Approved
+**Timestamp**: 2026-03-23T05:10:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Requirements approved. Proceeding to NFR Design.
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Requirements complete. Starting NFR Design.
+
+---
+
+## Unit 3 - Functional Design Approved
+**Timestamp**: 2026-03-23T05:00:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Functional Design approved. Changes confirmed: FloatingWidget+Leave button, token reuse, ToastBar→registerRootComponent, ChannelHeaderButton→Redux-only (no props). Proceeding to NFR Requirements.
+**Context**: CONSTRUCTION PHASE - Unit 3 Functional Design complete. Starting NFR Requirements.
+
+---
+
+## Unit 4 - Code Generation Plan Created
+**Timestamp**: 2026-03-23T02:30:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Code generation plan created (20 steps, 8 parts). Parts: A=Build System (Vite migration+Makefile), B=Shared Utility (buildCallTabUrl), C=CallPost, D=Call Page Bundle, E=i18n+Registration+Server, F=Unit 3 URL updates, G=Tests, H=Docs. Awaiting approval.
+**Context**: CONSTRUCTION PHASE - Unit 4 Code Generation PART 1 complete. Awaiting user approval to proceed to PART 2.
+
+---
+
+## Unit 4 - Code Generation COMPLETE
+**Timestamp**: 2026-03-23T03:00:00Z
+**User Input**: "承認します"
+**AI Response**: Executed all 20 steps of Unit 4 Code Generation Plan. Files created/modified: vite.config.ts, package.json, Makefile, call_tab.ts, call_post/index.tsx, CallPostActive.tsx, CallPostEnded.tsx, call_page/main.tsx, CallPage.tsx, en.json, ja.json, index.tsx, api_static.go, 4x Unit 3 URL updates, 2x test files, code-summary.md. All plan checkboxes marked [x]. aidlc-state.md updated: Unit 4 [x] complete.
+**Context**: CONSTRUCTION PHASE - Unit 4 Code Generation PART 2 complete. All 6 units complete. Next: Build and Test.
+
+---
+
+## Unit 4 - NFR Design Complete
+**Timestamp**: 2026-03-23T02:20:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Design artifacts generated: nfr-design-patterns.md (6 patterns), logical-components.md (6 logical components). Patterns: U4-1 Dual Vite build, U4-2 URL param parser, U4-3 lifecycle effects, U4-4 post+Redux merge, U4-5 RTK SDK init, U4-6 CSP update. aidlc-state.md updated.
+**Context**: CONSTRUCTION PHASE - Unit 4 NFR Design COMPLETE. Awaiting approval.
+
+---
+
+## Unit 4 - NFR Requirements Complete
+**Timestamp**: 2026-03-23T02:10:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Requirements generated: nfr-requirements.md, tech-stack-decisions.md. Key: Vite replaces webpack (TSD-U4-01), RTK UI Kit (TSD-U4-02), CSP update needed for style-src 'unsafe-inline' (SEC-U4-02), sendBeacon reliability (REL-U4-02), heartbeat best-effort (REL-U4-01).
+**Context**: CONSTRUCTION PHASE - Unit 4 NFR Requirements COMPLETE. Awaiting approval.
+
+---
+
+## Unit 4 - Functional Design Complete
+**Timestamp**: 2026-03-23T02:00:00Z
+**User Input**: Q1=B, Q2=A, Q3=C, Q4=C, Q5=A, Q6=A, Q7=A, Q8=A (answered one at a time)
+**AI Response**: Functional Design artifacts generated: domain-entities.md, business-logic-model.md, business-rules.md, frontend-components.md. Key decisions: Vite dual-bundle (B), UI Kit (A), no feature flags (C), props+Redux (C), selectMyActiveCall (A), channel_name URL param (A), call_id URL param (A), main.js externalizes React/Redux (A).
+**Context**: CONSTRUCTION PHASE - Unit 4 Functional Design COMPLETE. Awaiting approval.
+
+---
+
+## Unit 6 - Code Generation COMPLETE
+**Timestamp**: 2026-03-23T01:30:00Z
+**User Input**: (N/A — automated execution)
+**AI Response**: All 8 steps complete. Build: OK. Tests: OK (server + server/push). Created server/push package (interface, implementation, mock, tests). Modified plugin.go, calls.go, calls_test.go.
+**Context**: CONSTRUCTION PHASE - Unit 6 Code Generation COMPLETE. aidlc-state.md updated.
+
+---
+
+## Unit 6 - Code Generation Plan Approved
+**Timestamp**: 2026-03-23T01:20:00Z
+**User Input**: "はい"
+**AI Response**: Proceeding with Unit 6 code generation (8 steps).
+**Context**: CONSTRUCTION PHASE - Unit 6 Code Generation PART 2 starting.
+
+---
+
+## Unit 6 - NFR Design Approved / Code Generation Plan Approval Prompt
+**Timestamp**: 2026-03-23T01:15:00Z
+**User Input**: "Continue to Next Stage" (NFR Design)
+**AI Response**: Code generation plan created (8 steps). Awaiting user approval.
+**Context**: CONSTRUCTION PHASE - Unit 6 Code Generation PART 1 Planning complete.
+
+---
+
+## Unit 5 - Code Generation Plan Approval Prompt
+**Timestamp**: 2026-03-23T00:00:00Z
+**User Input**: (pending)
+**AI Response**: Code generation plan presented for Unit 5 (8 steps). Awaiting user approval.
+**Context**: CONSTRUCTION PHASE - Unit 5 Code Generation PART 1 Planning complete.
+
+---
+
+## Unit 5 - NFR Design Approved
+**Timestamp**: 2026-03-23T00:00:00Z
+**User Input**: "はい" (x6 — one per pattern)
+**AI Response**: All 6 NFR design patterns confirmed. Proceeding to Code Generation.
+**Context**: CONSTRUCTION PHASE - Unit 5 NFR Design COMPLETE.
+
+---
+
+## Unit 6 - NFR Requirements Approved / NFR Design Complete
+**Timestamp**: 2026-03-23T01:10:00Z
+**User Input**: "Continue to Next Stage" (NFR Requirements)
+**AI Response**: NFR Design artifacts generated: nfr-design-patterns.md, logical-components.md. 5 patterns: Best-Effort, Channel Type Guard, Dependency Injection, Interface Segregation, Structured Logging. Internal sendToMembers helper to avoid duplication.
+**Context**: CONSTRUCTION PHASE - Unit 6 NFR Design COMPLETE.
+
+---
+
+## Unit 6 - Functional Design Approved / NFR Requirements Complete
+**Timestamp**: 2026-03-23T01:00:00Z
+**User Input**: "Continue to Next Stage" → design change: best-effort, DM/GM only, max 8 members (align with Calls plugin)
+**AI Response**: Functional Design updated (Q1:A, DM/GM only, max 8). NFR Requirements generated: nfr-requirements.md, tech-stack-decisions.md. Q-NFR-1:A (sequential), Q-NFR-2:A (plugintest.API).
+**Context**: CONSTRUCTION PHASE - Unit 6 NFR Requirements COMPLETE.
+
+---
+
+## Unit 3 - Code Generation Plan Approved
+**Timestamp**: 2026-03-23T00:40:00Z
+**User Input**: "承認します"
+**AI Response**: Code generation plan approved (17 steps). Starting Part 2 - Generation.
+**Context**: CONSTRUCTION PHASE - Unit 3 Code Generation starting. Part A: State Layer first.
+
+---
+
+## Unit 3 - Code Generation Approved / Unit 4 Starting
+**Timestamp**: 2026-03-23T01:35:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Unit 3 Code Generation approved. Proceeding to Unit 4: Webapp - Call Page & Post, Functional Design.
+**Context**: CONSTRUCTION PHASE - Unit 4 Functional Design beginning.
+
+---
+
+## Unit 3 - Code Generation COMPLETE
+**Timestamp**: 2026-03-23T01:30:00Z
+**User Input**: (context resumed — continuing from previous session)
+**AI Response**: Completed Steps 13-17. All 17 steps complete.
+- Step 13: webapp/src/redux/calls_slice.test.ts (reducer tests, all 7 actions)
+- Step 14: webapp/src/redux/websocket_handlers.test.ts (5 handler factories, mock store)
+- Step 15: webapp/src/redux/selectors.test.ts (5 selectors, channel scoping)
+- Step 16: webapp/src/components/channel_header_button/index.test.tsx (5 visual states, Enzyme)
+- Step 17: aidlc-docs/construction/unit-3-webapp-channel-ui/code/code-summary.md
+**Context**: CONSTRUCTION PHASE - Unit 3 Code Generation all 17 steps complete. Awaiting user approval.
+
+---
+
+## Unit 3 - NFR Design Approved / Code Generation Start
+**Timestamp**: 2026-03-23T00:35:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Design approved. Starting Code Generation Part 1 (Planning) for Unit 3.
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Design COMPLETE. Creating code generation plan (17 steps).
+
+---
+
+## Unit 6 - Functional Design Complete
+**Timestamp**: 2026-03-23T00:30:00Z
+**User Input**: Q1=B, Q2=A, Q3=A, Q4=A, Q5=C, Q6=A, Q7=B
+**AI Response**: Functional design artifacts generated: domain-entities.md, business-logic-model.md, business-rules.md. Key decisions: SendIncomingCall is blocking (Q1:B), recipients = all members except caller (Q2:A, Q6:A), paginate 200 (Q3:A), empty team_id for DM/GM (Q4:A), Username as sender_name (Q5:C), interface in separate file (Q7:B).
+**Context**: CONSTRUCTION PHASE - Unit 6 Functional Design complete.
+
+---
+
+## Unit 3 - NFR Requirements Approved
+**Timestamp**: 2026-03-23T00:20:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: NFR Requirements approved. Proceeding to NFR Design. No questions needed.
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Requirements COMPLETE. Starting NFR Design.
+
+---
+
+## Unit 5 - Functional Design Approved
+**Timestamp**: 2026-03-23T00:00:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Functional Design approved. Proceeding to NFR Requirements for Unit 5.
+**Context**: CONSTRUCTION PHASE - Unit 5 Functional Design COMPLETE.
+
+---
+
+## Unit 3 - NFR Requirements Questions Answered
+**Timestamp**: 2026-03-23T00:15:00Z
+**User Input**: "言語は、英語、日本語対応とするので、i18nが必要" (preceded by Q1 investigation: Mattermost/Calls use plain Redux, not RTK)
+**AI Response**: Q1=B(plain Redux, no @reduxjs/toolkit — confirmed neither Mattermost nor Calls plugin uses RTK), Q2=A(i18n required, en+ja locales, Mattermost FormattedMessage system). Generating NFR artifacts.
+**Context**: CONSTRUCTION PHASE - Unit 3 NFR Requirements, all decisions resolved.
+
+---
+
+## Unit 3 - Functional Design Approved
+**Timestamp**: 2026-03-23T00:10:00Z
+**User Input**: "Continue to Next Stage"
+**AI Response**: Functional Design approved. Proceeding to NFR Requirements for Unit 3.
+**Context**: CONSTRUCTION PHASE - Unit 3 Functional Design COMPLETE. Starting NFR Requirements.
+
+---
+
+## Unit 3 - Functional Design Clarifying Questions Answered
+**Timestamp**: 2026-03-23T00:05:00Z
+**User Input**: "Q1はB、Q2はB、Q3はA"
+**AI Response**: Answers recorded. Generating Functional Design artifacts. Q1(mute)=B(mute excluded from FloatingWidget, only in call tab Unit 4), Q2(sound)=B(Mattermost desktop notification hook), Q3(loading state)=A(local component state).
+**Context**: CONSTRUCTION PHASE - Unit 3 Functional Design, all questions resolved. Proceeding to artifact generation.
+
+---
+
+## Unit 4 Start - Functional Design
+**Timestamp**: 2026-03-23T00:00:00Z
+**User Input**: "unit4を開始して"
+**AI Response**: Starting Unit 4: Webapp - Call Page & Post. Note: Unit 3, 5, 6 are parallel — per unit-of-work.md, Units 3-6 are independent and can execute in any order. Created functional design plan with 8 clarifying questions covering: Vite output target for call.js, RTK SDK selection (UI Kit vs Core), feature flags delivery to call page, CallPost data source, Join button disabled state, channel name for tab title, call_id availability, and Vite externals configuration.
+**Context**: CONSTRUCTION PHASE - Unit 4 Functional Design started. Plan saved to construction/plans/unit-4-webapp-call-page-post-functional-design-plan.md
+
+---
+
+## Unit 6 Start - Functional Design
+**Timestamp**: 2026-03-22T15:30:00Z
+**User Input**: "unit6を開始して"
+**AI Response**: Starting Unit 6: Mobile Support. Proceeding with Functional Design stage. Creating plan with clarifying questions.
+**Context**: CONSTRUCTION PHASE - Unit 6: Mobile Support, Functional Design stage beginning. User is skipping to Unit 6 directly.
+
+---
+
+## Unit 5 Start - Functional Design
+**Timestamp**: 2026-03-22T00:00:00Z
+**User Input**: "unit5を開始して"
+**AI Response**: Starting Unit 5: Admin & Config. Proceeding with Functional Design stage. Creating plan with clarifying questions.
+**Context**: CONSTRUCTION PHASE - Unit 5: Admin & Config, Functional Design stage beginning.
+
+---
+
+## Unit 3 Start - Functional Design
+**Timestamp**: 2026-03-22T15:00:00Z
+**User Input**: "unit3を開始して"
+**AI Response**: Starting Unit 3: Webapp - Channel UI. Proceeding with Functional Design stage. Creating plan with clarifying questions.
+**Context**: CONSTRUCTION PHASE - Unit 3: Webapp - Channel UI, Functional Design stage beginning.
+
+---
+
 ## Code Generation - Unit 2 Complete
 **Timestamp**: 2026-03-22T14:30:00Z
 **User Input**: (N/A - automated, continuing from context resumption)
