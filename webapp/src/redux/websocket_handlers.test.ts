@@ -63,6 +63,7 @@ describe('handleCallStarted', () => {
             creator_id: 'user1',
             participants: ['user1'],
             start_at: 1000000,
+            post_id: '',
             channel_type: 'O',
         }));
         expect(store.dispatched).toHaveLength(1);
@@ -72,6 +73,7 @@ describe('handleCallStarted', () => {
             creatorId: 'user1',
             participants: ['user1'],
             startAt: 1000000,
+            postId: '',
         }));
     });
 
@@ -84,6 +86,7 @@ describe('handleCallStarted', () => {
             creator_id: 'otherUser',
             participants: ['otherUser'],
             start_at: 1000000,
+            post_id: '',
             channel_type: 'D',
         }));
         expect(store.dispatched).toHaveLength(2);
@@ -93,11 +96,13 @@ describe('handleCallStarted', () => {
             creatorId: 'otherUser',
             participants: ['otherUser'],
             startAt: 1000000,
+            postId: '',
         }));
         expect(store.dispatched[1]).toEqual(setIncomingCall({
             callId: 'call1',
             channelId: 'dm1',
             creatorId: 'otherUser',
+            startAt: 1000000,
         }));
     });
 
@@ -110,6 +115,7 @@ describe('handleCallStarted', () => {
             creator_id: 'otherUser',
             participants: ['otherUser'],
             start_at: 1000000,
+            post_id: '',
             channel_type: 'G',
         }));
         const incomingAction = store.dispatched.find(
@@ -128,6 +134,7 @@ describe('handleCallStarted', () => {
             creator_id: 'otherUser',
             participants: ['otherUser'],
             start_at: 1000000,
+            post_id: '',
             channel_type: 'O',
         }));
         expect(store.dispatched).toHaveLength(1);
@@ -143,6 +150,7 @@ describe('handleCallStarted', () => {
             creator_id: currentUserId,
             participants: [currentUserId],
             start_at: 1000000,
+            post_id: '',
             channel_type: 'D',
         }));
         expect(store.dispatched).toHaveLength(1);
@@ -185,7 +193,7 @@ describe('handleUserJoined', () => {
     it('dispatches upsertCall with updated participants', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserJoined(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1', 'user2']}));
         expect(store.dispatched).toHaveLength(1);
         const action = store.dispatched[0] as ReturnType<typeof upsertCall>;
         expect(action.payload.participants).toContain('user2');
@@ -195,7 +203,7 @@ describe('handleUserJoined', () => {
     it('dispatches setMyActiveCall when joined user is current user', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserJoined(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1', participants: ['user1', currentUserId]}));
         expect(store.dispatched).toHaveLength(2);
         const setMyActiveAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -207,7 +215,7 @@ describe('handleUserJoined', () => {
     it('does NOT dispatch setMyActiveCall for other users', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserJoined(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1', 'user2']}));
         const setMyActiveAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === setMyActiveCall({callId: '', channelId: '', token: ''}).type,
@@ -244,7 +252,7 @@ describe('handleUserLeft', () => {
     it('dispatches upsertCall with participant removed', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserLeft(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1']}));
         expect(store.dispatched).toHaveLength(1);
         const action = store.dispatched[0] as ReturnType<typeof upsertCall>;
         expect(action.payload.participants).not.toContain('user2');
@@ -261,7 +269,7 @@ describe('handleUserLeft', () => {
         };
         const store = makeStore(stateWithMyCall);
         const handler = handleUserLeft(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1', participants: []}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === clearMyActiveCall().type,
@@ -272,7 +280,7 @@ describe('handleUserLeft', () => {
     it('does NOT dispatch clearMyActiveCall for other users', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserLeft(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1']}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === clearMyActiveCall().type,
@@ -310,7 +318,7 @@ describe('handleCallEnded', () => {
     it('dispatches removeCall', () => {
         const store = makeStore(stateWithCall);
         const handler = handleCallEnded(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const removeAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === removeCall('').type,
@@ -322,7 +330,7 @@ describe('handleCallEnded', () => {
     it('dispatches clearMyActiveCall when active call matches ended call', () => {
         const store = makeStore(stateWithCall);
         const handler = handleCallEnded(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === clearMyActiveCall().type,
@@ -340,7 +348,7 @@ describe('handleCallEnded', () => {
         };
         const store = makeStore(stateWithDifferentCall);
         const handler = handleCallEnded(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', channel_id: 'channel1'}));
+        handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (a: any) => a.type === clearMyActiveCall().type,
@@ -384,15 +392,11 @@ describe('handleNotifDismissed', () => {
         expect(store.dispatched).toHaveLength(0);
     });
 
-    it('dispatches clearIncomingCall for any user_id (dismiss is broadcast)', () => {
+    it('does NOT dispatch clearIncomingCall for other user_id (dismiss is user-scoped on server)', () => {
         const store = makeStore(stateWithIncoming);
         const handler = handleNotifDismissed(store, currentUserId);
         handler(makeEvent({call_id: 'call1', user_id: 'otherUser'}));
-        const clearAction = store.dispatched.find(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (a: any) => a.type === clearIncomingCall().type,
-        );
-        expect(clearAction).toBeDefined();
+        expect(store.dispatched).toHaveLength(0);
     });
 
     it('ignores invalid payload', () => {

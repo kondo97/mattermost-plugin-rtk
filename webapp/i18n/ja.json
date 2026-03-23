@@ -10,6 +10,7 @@
     "plugin.rtk.toast_bar.started_at": "{time} に開始",
     "plugin.rtk.toast_bar.participants": "{count}人が参加中",
     "plugin.rtk.floating_widget.open_in_tab": "新しいタブで開く",
+    "plugin.rtk.floating_widget.leave_call": "通話を退出",
     "plugin.rtk.floating_widget.participants": "{count}人が参加中",
     "plugin.rtk.switch_call_modal.title": "すでに通話中です",
     "plugin.rtk.switch_call_modal.body": "現在の通話を退出して、新しい通話に参加しますか？",

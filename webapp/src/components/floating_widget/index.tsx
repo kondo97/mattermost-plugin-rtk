@@ -3,22 +3,19 @@
 
 import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
-import {useSelector} from 'react-redux';
+import {useSelector, useDispatch} from 'react-redux';
 
 import type {GlobalState} from '@mattermost/types/store';
 
 import {pluginFetch} from 'client';
+import {clearMyActiveCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
 import manifest from 'manifest';
 
-interface CallResponse {
-    call: {id: string; channel_id: string};
-    token: string;
-}
-
 const FloatingWidget = () => {
     const intl = useIntl();
+    const dispatch = useDispatch();
     const myActiveCall = useSelector(selectMyActiveCall);
     const activeCall = useSelector(
         myActiveCall ? selectCallByChannel(myActiveCall.channelId) : () => undefined,
@@ -59,21 +56,19 @@ const FloatingWidget = () => {
         return `${pad(m)}:${pad(s)}`;
     };
 
-    const handleOpenInNewTab = async () => {
-        // Always fetch a fresh token (BR-011, Pattern U3-7)
-        const result = await pluginFetch<CallResponse>(
-            `/api/v1/calls/${myActiveCall.callId}/token`,
-            {method: 'POST'},
-        );
-        if ('error' in result) {
-            return;
-        }
+    const handleOpenInNewTab = () => {
+        // Reuse saved token (BR-011, Pattern U3-7) — no additional API call
         // Token intentionally not logged — SEC-U3-01
         window.open(
-            buildCallTabUrl(manifest.id, result.data.token, myActiveCall.callId, channelDisplayName),
+            buildCallTabUrl(manifest.id, myActiveCall.token, myActiveCall.callId, channelDisplayName),
             '_blank',
             'noopener,noreferrer',
         );
+    };
+
+    const handleLeaveCall = async () => {
+        await pluginFetch(`/api/v1/calls/${myActiveCall.callId}/leave`, {method: 'POST'});
+        dispatch(clearMyActiveCall());
     };
 
     const visibleParticipants = activeCall.participants.slice(0, 3);
@@ -142,15 +137,26 @@ const FloatingWidget = () => {
                     </span>
                 ))}
             </div>
-            <button
-                type='button'
-                className='btn btn-primary btn-sm'
-                style={{width: '100%'}}
-                onClick={handleOpenInNewTab}
-                data-testid='floating-widget-open-tab'
-            >
-                {intl.formatMessage({id: 'plugin.rtk.floating_widget.open_in_tab'})}
-            </button>
+            <div style={{display: 'flex', gap: '8px'}}>
+                <button
+                    type='button'
+                    className='btn btn-primary btn-sm'
+                    style={{flex: 1}}
+                    onClick={handleOpenInNewTab}
+                    data-testid='floating-widget-open-tab'
+                >
+                    {intl.formatMessage({id: 'plugin.rtk.floating_widget.open_in_tab'})}
+                </button>
+                <button
+                    type='button'
+                    className='btn btn-danger btn-sm'
+                    style={{flex: 1}}
+                    onClick={handleLeaveCall}
+                    data-testid='floating-widget-leave-call'
+                >
+                    {intl.formatMessage({id: 'plugin.rtk.floating_widget.leave_call'})}
+                </button>
+            </div>
         </div>
     );
 };

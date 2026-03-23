@@ -9,15 +9,11 @@ import "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
 type PushSender interface {
 	// SendIncomingCall sends a "message"/"calls" push notification to all
 	// DM/GM channel members (up to 8) except the call creator.
-	// Returns an error if required metadata (e.g., channel, user, or channel members)
-	// cannot be retrieved. Per-recipient push send failures are treated as best-effort:
-	// they are logged and skipped, but do not cause a non-nil error return.
+	// Returns an error if any API call fails; callers should treat this as best-effort.
 	SendIncomingCall(session *kvstore.CallSession) error
 
 	// SendCallEnded sends a "clear"/"calls_ended" push notification to dismiss
 	// any incoming call UI on DM/GM channel members (up to 8) except the call creator.
-	// Returns an error if required metadata (e.g., channel, user, or channel members)
-	// cannot be retrieved. Per-recipient push send failures are treated as best-effort:
-	// they are logged and skipped, but do not cause a non-nil error return.
+	// Returns an error if any API call fails; callers should treat this as best-effort.
 	SendCallEnded(session *kvstore.CallSession) error
 }

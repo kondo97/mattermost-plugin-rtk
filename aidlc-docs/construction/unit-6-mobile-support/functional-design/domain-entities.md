@@ -22,8 +22,8 @@ PushSender
 
 | Method | Trigger | Returns |
 |---|---|---|
-| `SendIncomingCall` | Called by `CreateCall` after KVStore save | `error` — non-nil only if metadata fetch fails; per-recipient send failures are logged and skipped (best-effort) |
-| `SendCallEnded` | Called by `endCallInternal` after KVStore end | `error` — non-nil only if metadata fetch fails; per-recipient send failures are logged and skipped (best-effort) |
+| `SendIncomingCall` | Called by `CreateCall` after KVStore save | `error` — non-nil on first delivery failure (blocking) |
+| `SendCallEnded` | Called by `endCallInternal` after KVStore end | `error` — logged as warning (best-effort in caller) |
 
 ---
 
@@ -47,7 +47,7 @@ Sender
 **Dependencies** (via `plugin.API`):
 - `GetChannel(channelID)` — fetch `TeamId` and `DisplayName`
 - `GetUser(userID)` — fetch caller `Username`
-- `GetChannelMembers(channelID, 0, 8)` — fetch up to 8 recipients (single call, no pagination)
+- `GetChannelMembers(channelID, page, perPage)` — paginate recipients
 - `SendPushNotification(notification, userID)` — dispatch to Mattermost push proxy
 
 ---

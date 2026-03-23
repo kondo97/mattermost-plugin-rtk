@@ -17,4 +17,4 @@ All NFR design decisions are directly derivable from the NFR requirements:
 | Error handling pattern | Best-effort (log warn, continue) | NFR requirements BR-P01 |
 | Concurrency pattern | Sequential loop | NFR Q-NFR-1:A |
 | Dependency pattern | Constructor injection | Existing codebase pattern |
-| Testability pattern | Interface + mockgen (go.uber.org/mock) | NFR Q-NFR-2:A, BR-P08 |
+| Testability pattern | Interface + mockery | NFR Q-NFR-2:A, BR-P08 |

@@ -48,13 +48,9 @@ func TestGetEffectiveAPIKey_NoEnv(t *testing.T) {
 }
 
 // --- Feature Flag Tests ---
-// Each flag is tested for: env "true", env "TRUE" (case-insensitive), env "false",
-// env "1" (non-"true" value treated as false), nil (default ON), explicit &false, explicit &true.
-//
-// getFn must call the method on the cfg argument passed to it (not a captured variable).
-// setField sets the flag field on the cfg passed to it, with no shared state between subtests.
+// Each flag is tested for: env "true", env "false", nil (default ON), explicit &false.
 
-func testFeatureFlag(t *testing.T, envVar string, getFn func(*configuration) bool, setField func(*configuration, *bool)) {
+func testFeatureFlag(t *testing.T, envVar string, getFn func(*configuration) bool, field **bool) {
 	t.Helper()
 
 	t.Run("env_true", func(t *testing.T) {
@@ -88,83 +84,65 @@ func testFeatureFlag(t *testing.T, envVar string, getFn func(*configuration) boo
 
 	t.Run("explicit_false", func(t *testing.T) {
 		cfg := &configuration{}
-		setField(cfg, boolPtr(false))
+		*field = boolPtr(false)
 		assert.False(t, getFn(cfg))
+		*field = nil // reset
 	})
 
 	t.Run("explicit_true", func(t *testing.T) {
 		cfg := &configuration{}
-		setField(cfg, boolPtr(true))
+		*field = boolPtr(true)
 		assert.True(t, getFn(cfg))
+		*field = nil // reset
 	})
 }
 
 func TestIsRecordingEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_RECORDING_ENABLED",
-		func(c *configuration) bool { return c.IsRecordingEnabled() },
-		func(c *configuration, v *bool) { c.RecordingEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_RECORDING_ENABLED", func(c *configuration) bool { return cfg.IsRecordingEnabled() }, &cfg.RecordingEnabled)
 }
 
 func TestIsScreenShareEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_SCREEN_SHARE_ENABLED",
-		func(c *configuration) bool { return c.IsScreenShareEnabled() },
-		func(c *configuration, v *bool) { c.ScreenShareEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_SCREEN_SHARE_ENABLED", func(c *configuration) bool { return cfg.IsScreenShareEnabled() }, &cfg.ScreenShareEnabled)
 }
 
 func TestIsPollsEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_POLLS_ENABLED",
-		func(c *configuration) bool { return c.IsPollsEnabled() },
-		func(c *configuration, v *bool) { c.PollsEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_POLLS_ENABLED", func(c *configuration) bool { return cfg.IsPollsEnabled() }, &cfg.PollsEnabled)
 }
 
 func TestIsTranscriptionEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_TRANSCRIPTION_ENABLED",
-		func(c *configuration) bool { return c.IsTranscriptionEnabled() },
-		func(c *configuration, v *bool) { c.TranscriptionEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_TRANSCRIPTION_ENABLED", func(c *configuration) bool { return cfg.IsTranscriptionEnabled() }, &cfg.TranscriptionEnabled)
 }
 
 func TestIsWaitingRoomEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_WAITING_ROOM_ENABLED",
-		func(c *configuration) bool { return c.IsWaitingRoomEnabled() },
-		func(c *configuration, v *bool) { c.WaitingRoomEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_WAITING_ROOM_ENABLED", func(c *configuration) bool { return cfg.IsWaitingRoomEnabled() }, &cfg.WaitingRoomEnabled)
 }
 
 func TestIsVideoEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_VIDEO_ENABLED",
-		func(c *configuration) bool { return c.IsVideoEnabled() },
-		func(c *configuration, v *bool) { c.VideoEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_VIDEO_ENABLED", func(c *configuration) bool { return cfg.IsVideoEnabled() }, &cfg.VideoEnabled)
 }
 
 func TestIsChatEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_CHAT_ENABLED",
-		func(c *configuration) bool { return c.IsChatEnabled() },
-		func(c *configuration, v *bool) { c.ChatEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_CHAT_ENABLED", func(c *configuration) bool { return cfg.IsChatEnabled() }, &cfg.ChatEnabled)
 }
 
 func TestIsPluginsEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_PLUGINS_ENABLED",
-		func(c *configuration) bool { return c.IsPluginsEnabled() },
-		func(c *configuration, v *bool) { c.PluginsEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_PLUGINS_ENABLED", func(c *configuration) bool { return cfg.IsPluginsEnabled() }, &cfg.PluginsEnabled)
 }
 
 func TestIsParticipantsEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_PARTICIPANTS_ENABLED",
-		func(c *configuration) bool { return c.IsParticipantsEnabled() },
-		func(c *configuration, v *bool) { c.ParticipantsEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_PARTICIPANTS_ENABLED", func(c *configuration) bool { return cfg.IsParticipantsEnabled() }, &cfg.ParticipantsEnabled)
 }
 
 func TestIsRaiseHandEnabled(t *testing.T) {
-	testFeatureFlag(t, "RTK_RAISE_HAND_ENABLED",
-		func(c *configuration) bool { return c.IsRaiseHandEnabled() },
-		func(c *configuration, v *bool) { c.RaiseHandEnabled = v },
-	)
+	cfg := &configuration{}
+	testFeatureFlag(t, "RTK_RAISE_HAND_ENABLED", func(c *configuration) bool { return cfg.IsRaiseHandEnabled() }, &cfg.RaiseHandEnabled)
 }

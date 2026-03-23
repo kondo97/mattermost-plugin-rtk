@@ -2,7 +2,8 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import {shallow} from 'enzyme';
+import {act} from 'react-dom/test-utils';
+import {shallow, mount} from 'enzyme';
 import {useSelector, useDispatch} from 'react-redux';
 
 import CallPost from './index';
@@ -39,11 +40,11 @@ const makePost = (overrides: object = {}) => ({
 });
 
 const setSelectors = (liveCall: object | undefined, myActiveCall: object | null, channelName = 'general') => {
-    let callCount = 0;
     (useSelector as jest.Mock).mockImplementation(() => {
-        const idx = callCount++;
-        if (idx === 0) { return liveCall; }
-        if (idx === 1) { return myActiveCall; }
+        // Use modulo so re-renders (calls 3-5, 6-8, …) return the same values.
+        const idx = (useSelector as jest.Mock).mock.calls.length % 3;
+        if (idx === 1) { return liveCall; }
+        if (idx === 2) { return myActiveCall; }
         return channelName;
     });
 };
@@ -105,14 +106,21 @@ describe('CallPost', () => {
         const {pluginFetch} = require('client');
         pluginFetch.mockResolvedValueOnce({error: 'Something went wrong'});
         setSelectors(undefined, null);
-        const wrapper = shallow(<CallPost post={makePost()} />);
 
-        // Trigger onJoin
-        const active = wrapper.find('CallPostActive');
-        await active.prop('onJoin')?.();
-        wrapper.update();
+        // Use mount (not shallow) so React hook state updates flush correctly after async events
+        let wrapper: ReturnType<typeof mount>;
+        await act(async () => {
+            wrapper = mount(<CallPost post={makePost()} />);
+        });
 
-        expect(wrapper.find('[data-testid="call-post-error-modal"]').exists()).toBe(true);
+        // Trigger onJoin via the CallPostActive prop
+        const active = wrapper!.find('CallPostActive');
+        await act(async () => {
+            active.prop('onJoin')?.();
+        });
+
+        wrapper!.update();
+        expect(wrapper!.find('[data-testid="call-post-error-modal"]').exists()).toBe(true);
     });
 
     it('uses live Redux participants over post.props participants', () => {

@@ -10,6 +10,7 @@
     "plugin.rtk.toast_bar.started_at": "Started {time}",
     "plugin.rtk.toast_bar.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.floating_widget.open_in_tab": "Open in new tab",
+    "plugin.rtk.floating_widget.leave_call": "Leave call",
     "plugin.rtk.floating_widget.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.switch_call_modal.title": "You are already in a call",
     "plugin.rtk.switch_call_modal.body": "Do you want to leave your current call and join the new one?",
