@@ -35,6 +35,76 @@
                 "secret": true,
                 "help_text": "Your Cloudflare API Key for the RealtimeKit integration.",
                 "placeholder": ""
+            },
+            {
+                "key": "RecordingEnabled",
+                "display_name": "Enable Recording",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to record calls."
+            },
+            {
+                "key": "ScreenShareEnabled",
+                "display_name": "Enable Screen Share",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to share their screen during calls."
+            },
+            {
+                "key": "PollsEnabled",
+                "display_name": "Enable Polls",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to create and respond to polls during calls."
+            },
+            {
+                "key": "TranscriptionEnabled",
+                "display_name": "Enable Transcription",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Enable real-time transcription for calls."
+            },
+            {
+                "key": "WaitingRoomEnabled",
+                "display_name": "Enable Waiting Room",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Require host approval before participants can join a call."
+            },
+            {
+                "key": "VideoEnabled",
+                "display_name": "Enable Video",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to enable their camera during calls."
+            },
+            {
+                "key": "ChatEnabled",
+                "display_name": "Enable In-Call Chat",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to send chat messages within a call."
+            },
+            {
+                "key": "PluginsEnabled",
+                "display_name": "Enable Plugins",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow third-party plugins within the call experience."
+            },
+            {
+                "key": "ParticipantsEnabled",
+                "display_name": "Enable Participants Panel",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Show the participants list panel during calls."
+            },
+            {
+                "key": "RaiseHandEnabled",
+                "display_name": "Enable Raise Hand",
+                "type": "bool",
+                "default": "true",
+                "help_text": "Allow participants to raise their hand during calls."
             }
         ]
     }
