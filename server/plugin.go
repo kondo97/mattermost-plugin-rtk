@@ -11,6 +11,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/command"
+	"github.com/kondo97/mattermost-plugin-rtk/server/push"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
 )
@@ -35,6 +36,9 @@ type Plugin struct {
 	// router is the HTTP router for handling API requests.
 	router *mux.Router
 
+	// pushSender dispatches mobile push notifications for call events.
+	pushSender push.PushSender
+
 	// callMu guards call state mutations (CreateCall, JoinCall, LeaveCall, EndCall).
 	callMu sync.Mutex
 
@@ -56,6 +60,8 @@ func (p *Plugin) OnActivate() error {
 	p.kvStore = kvstore.NewKVStore(p.client)
 
 	p.commandClient = command.NewCommandHandler(p.client)
+
+	p.pushSender = push.NewSender(p.API)
 
 	cfg := p.getConfiguration()
 	if cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != "" {
