@@ -7,7 +7,7 @@ import type {GlobalState} from '@mattermost/types/store';
  * Builds the URL for opening the standalone call tab.
  *
  * Includes call_id and channel_name as URL parameters so the call page
- * can run its heartbeat loop and display the correct browser tab title.
+ * can send a leave beacon on tab close and display the correct browser tab title.
  *
  * Token is JWT-safe and does not need additional encoding.
  * call_id and channel_name are encoded to prevent URL injection (BR-U4-019).

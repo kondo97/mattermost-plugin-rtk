@@ -9,7 +9,6 @@ import {useDyteClient, DyteProvider} from '@cloudflare/realtimekit-react';
 import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
 
 const PLUGIN_ID = 'com.mattermost.plugin-rtk';
-const HEARTBEAT_INTERVAL_MS = 15_000;
 
 interface Props {
     token: string;
@@ -35,18 +34,7 @@ const CallPage = ({token, callId}: Props) => {
         });
     }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Heartbeat loop — fire-and-forget every 15s (Pattern U4-3, BR-U4-010, REL-U4-01)
-    useEffect(() => {
-        if (!callId) {
-            return undefined;
-        }
-        const id = setInterval(() => {
-            fetch(`/plugins/${PLUGIN_ID}/api/v1/calls/${callId}/heartbeat`, {method: 'POST'});
-        }, HEARTBEAT_INTERVAL_MS);
-        return () => clearInterval(id); // REL-U4-03
-    }, [callId]);
-
-    // Leave on tab close via sendBeacon (Pattern U4-3, BR-U4-011, US-013)
+    // Leave on tab close via sendBeacon (BR-U4-011, US-013)
     useEffect(() => {
         if (!callId) {
             return undefined;

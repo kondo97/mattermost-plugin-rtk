@@ -20,8 +20,6 @@ jest.mock('@cloudflare/realtimekit-react-ui', () => ({
 import CallPage from './CallPage';
 
 const originalSendBeacon = navigator.sendBeacon;
-const originalAddEventListener = window.addEventListener;
-const originalRemoveEventListener = window.removeEventListener;
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -99,34 +97,6 @@ describe('CallPage', () => {
         expect(navigator.sendBeacon).toHaveBeenCalledWith(
             '/plugins/com.mattermost.plugin-rtk/api/v1/calls/call1/leave',
         );
-    });
-
-    it('starts heartbeat interval at 15 seconds', () => {
-        global.fetch = jest.fn().mockResolvedValue({ok: true});
-        mockInitMeeting.mockResolvedValue(undefined);
-        render(<CallPage token='valid-token' callId='call1' />);
-
-        // Fast-forward 15 seconds
-        act(() => {
-            jest.advanceTimersByTime(15_000);
-        });
-
-        expect(global.fetch).toHaveBeenCalledWith(
-            '/plugins/com.mattermost.plugin-rtk/api/v1/calls/call1/heartbeat',
-            {method: 'POST'},
-        );
-    });
-
-    it('sends heartbeat multiple times at 15s intervals', () => {
-        global.fetch = jest.fn().mockResolvedValue({ok: true});
-        mockInitMeeting.mockResolvedValue(undefined);
-        render(<CallPage token='valid-token' callId='call1' />);
-
-        act(() => {
-            jest.advanceTimersByTime(45_000); // 3 ticks
-        });
-
-        expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(3);
     });
 
     it('shows error screen on SDK initialization failure', async () => {
