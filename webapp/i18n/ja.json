@@ -7,6 +7,7 @@
     "plugin.rtk.channel_header.tooltip_join": "進行中の通話に参加する",
     "plugin.rtk.channel_header.tooltip_in_call": "この通話に参加しています",
     "plugin.rtk.toast_bar.join": "参加",
+    "plugin.rtk.toast_bar.dismiss": "閉じる",
     "plugin.rtk.toast_bar.started_at": "{time} に開始",
     "plugin.rtk.toast_bar.participants": "{count}人が参加中",
     "plugin.rtk.floating_widget.open_in_tab": "新しいタブで開く",

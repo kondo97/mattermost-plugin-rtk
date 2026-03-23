@@ -14,7 +14,7 @@ import CallPage from './CallPage';
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token') ?? '';
 const callId = params.get('call_id') ?? '';
-const channelName = decodeURIComponent(params.get('channel_name') ?? '');
+const channelName = params.get('channel_name') ?? '';
 
 // Set browser tab title (BR-U4-008, US-006)
 document.title = channelName ? `Call in #${channelName}` : 'RTK Call';

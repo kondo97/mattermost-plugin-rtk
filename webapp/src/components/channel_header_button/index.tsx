@@ -16,7 +16,7 @@ import {
     selectMyActiveCall,
     selectPluginEnabled,
 } from 'redux/selectors';
-import {buildCallTabUrl} from 'utils/call_tab';
+import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
 import manifest from 'manifest';
 
 import SwitchCallModal from 'components/switch_call_modal';
@@ -48,6 +48,7 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
     const activeCall = useSelector(selectCallByChannel(channel.id));
     const myActiveCall = useSelector(selectMyActiveCall);
     const isParticipant = useSelector(selectIsCurrentUserParticipant(channel.id, currentUserId));
+    const channelDisplayName = useSelector((state: GlobalState) => getChannelDisplayName(state, channel.id));
 
     const [loading, setLoading] = useState(false);
     const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -61,7 +62,7 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
     const openCallTab = (callId: string, token: string) => {
         // Token intentionally not logged — SEC-U3-01
         window.open(
-            buildCallTabUrl(manifest.id, token, callId, channel.display_name ?? ''),
+            buildCallTabUrl(manifest.id, token, callId, channelDisplayName),
             '_blank',
             'noopener,noreferrer',
         );
@@ -203,7 +204,7 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
                                     onClick={() => setErrorMsg(null)}
                                     data-testid='call-error-modal-close'
                                 >
-                                    {'OK'}
+                                    {intl.formatMessage({id: 'plugin.rtk.call_post.error_close'})}
                                 </button>
                             </div>
                         </div>

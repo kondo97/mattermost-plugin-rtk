@@ -96,7 +96,7 @@ const FloatingWidget = () => {
                 style={{fontWeight: 600, marginBottom: '4px'}}
                 data-testid='floating-widget-channel'
             >
-                {`#${myActiveCall.channelId}`}
+                {`#${channelDisplayName || myActiveCall.channelId}`}
             </div>
             <div
                 style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}

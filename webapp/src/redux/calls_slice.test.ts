@@ -27,6 +27,7 @@ const sampleCall = {
     creatorId: 'user1',
     participants: ['user1'],
     startAt: 1000000,
+    postId: 'post1',
 };
 
 describe('callsReducer', () => {

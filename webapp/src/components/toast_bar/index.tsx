@@ -144,7 +144,7 @@ const ToastBar = ({currentChannelId, currentUserId}: Props) => {
                     type='button'
                     className='style--none toast__dismiss'
                     onClick={() => setDismissed(true)}
-                    aria-label='Dismiss'
+                    aria-label={intl.formatMessage({id: 'plugin.rtk.toast_bar.dismiss'})}
                     data-testid='call-toast-bar-dismiss'
                 >
                     {'×'}

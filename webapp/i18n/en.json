@@ -7,6 +7,7 @@
     "plugin.rtk.channel_header.tooltip_join": "Join the active call",
     "plugin.rtk.channel_header.tooltip_in_call": "You are in this call",
     "plugin.rtk.toast_bar.join": "Join",
+    "plugin.rtk.toast_bar.dismiss": "Dismiss",
     "plugin.rtk.toast_bar.started_at": "Started {time}",
     "plugin.rtk.toast_bar.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.floating_widget.open_in_tab": "Open in new tab",
