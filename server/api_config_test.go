@@ -66,7 +66,8 @@ func TestHandleConfigStatus_FeatureFlagDisabled(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	flags := resp["feature_flags"].(map[string]any)
+	flags, ok := resp["feature_flags"].(map[string]any)
+	require.True(t, ok, "feature_flags should be a map")
 	assert.Equal(t, false, flags["recording"])
 	assert.Equal(t, true, flags["video"]) // other flags still ON
 }
