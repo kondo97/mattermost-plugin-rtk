@@ -41,6 +41,18 @@ type configuration struct {
 	RaiseHandEnabled     *bool `json:"RaiseHandEnabled"`
 }
 
+// OrgIDFromEnv reports whether RTK_ORG_ID is set as an environment variable.
+func (c *configuration) OrgIDFromEnv() bool {
+	_, ok := os.LookupEnv("RTK_ORG_ID")
+	return ok
+}
+
+// APIKeyFromEnv reports whether RTK_API_KEY is set as an environment variable.
+func (c *configuration) APIKeyFromEnv() bool {
+	_, ok := os.LookupEnv("RTK_API_KEY")
+	return ok
+}
+
 // GetEffectiveOrgID returns the Cloudflare Organization ID.
 // Environment variable RTK_ORG_ID takes strict precedence over the stored config value.
 func (c *configuration) GetEffectiveOrgID() string {
