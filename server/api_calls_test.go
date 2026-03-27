@@ -43,7 +43,7 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	tokenStr := "tok1"
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, "user1", rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted, mock.Anything, mock.Anything).Return()
@@ -111,7 +111,7 @@ func TestHandleJoinCall_Success(t *testing.T) {
 	tokenStr := "tok2"
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", "user1", rtkPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", "user1", gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, gomock.Any()).Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything).Return()
 

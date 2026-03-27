@@ -36,6 +36,12 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 		api.On("LogWarn", anyArgs(n)...).Maybe().Return()
 		api.On("LogError", anyArgs(n)...).Maybe().Return()
 	}
+	// Default GetUser mock for getUserDisplayName
+	api.On("GetUser", mock.Anything).Maybe().Return(&model.User{
+		Username:  "testuser",
+		FirstName: "Test",
+		LastName:  "User",
+	}, nil)
 	t.Cleanup(func() { api.AssertExpectations(t) })
 	p := &Plugin{}
 	p.SetAPI(api)
@@ -68,7 +74,7 @@ func TestCreateCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 
 	createdPost := &model.Post{Id: "post1"}
@@ -135,7 +141,7 @@ func TestJoinCall_Success(t *testing.T) {
 	}
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", userID, rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user1", userID}).Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
@@ -185,7 +191,7 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 	}
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", userID, rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	// participants list unchanged since userID already present
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{userID}).Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserJoined,
@@ -332,7 +338,7 @@ func TestCreateCall_InvokesPushSender(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted,
@@ -356,7 +362,7 @@ func TestCreateCall_PushSenderError_CallSucceeds(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted,

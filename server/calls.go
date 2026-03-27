@@ -12,14 +12,26 @@ import (
 )
 
 const (
-	wsEventCallStarted   = "custom_cf_call_started"
-	wsEventUserJoined    = "custom_cf_user_joined"
-	wsEventUserLeft      = "custom_cf_user_left"
-	wsEventCallEnded     = "custom_cf_call_ended"
+	wsEventCallStarted   = "call_started"
+	wsEventUserJoined    = "user_joined"
+	wsEventUserLeft      = "user_left"
+	wsEventCallEnded     = "call_ended"
 	callPostType         = "custom_cf_call"
 	rtkPresetHost        = "group_call_host"
 	rtkPresetParticipant = "group_call_participant"
 )
+
+// getUserDisplayName returns the display name for a Mattermost user.
+func (p *Plugin) getUserDisplayName(userID string) string {
+	user, appErr := p.API.GetUser(userID)
+	if appErr != nil || user == nil {
+		return "Someone"
+	}
+	if name := user.GetDisplayName(model.ShowFullName); name != "" {
+		return name
+	}
+	return "@" + user.Username
+}
 
 // nowMs returns the current time as Unix milliseconds.
 func nowMs() int64 {
@@ -69,7 +81,8 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		return nil, "", fmt.Errorf("failed to create meeting: %w", err)
 	}
 
-	token, err := p.rtkClient.GenerateToken(meeting.ID, userID, rtkPresetHost)
+	displayName := p.getUserDisplayName(userID)
+	token, err := p.rtkClient.GenerateToken(meeting.ID, userID, displayName, rtkPresetHost)
 	if err != nil {
 		p.API.LogError("CreateCall: GenerateToken failed", "channel_id", channelID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -152,12 +165,18 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 		p.API.LogError("JoinCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to get call: %w", err)
 	}
-	if session == nil || session.EndAt != 0 {
+	if session == nil {
+		p.API.LogError("JoinCall: call not found in KV store", "call_id", callID, "user_id", userID)
+		return nil, "", ErrCallNotFound
+	}
+	if session.EndAt != 0 {
+		p.API.LogError("JoinCall: call already ended", "call_id", callID, "user_id", userID, "end_at", session.EndAt)
 		return nil, "", ErrCallNotFound
 	}
 
 	// BR-08: generate participant token
-	token, err := p.rtkClient.GenerateToken(session.MeetingID, userID, rtkPresetParticipant)
+	displayName := p.getUserDisplayName(userID)
+	token, err := p.rtkClient.GenerateToken(session.MeetingID, userID, displayName, rtkPresetParticipant)
 	if err != nil {
 		p.API.LogError("JoinCall: GenerateToken failed", "call_id", callID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -227,6 +246,40 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 	}
 
 	return nil
+}
+
+// ForceEndCallByChannel forcibly ends the active call in a channel (admin use only).
+func (p *Plugin) ForceEndCallByChannel(channelID string) error {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
+	session, err := p.kvStore.GetCallByChannel(channelID)
+	if err != nil {
+		p.API.LogError("ForceEndCallByChannel: GetCallByChannel failed", "channel_id", channelID, "err", err.Error())
+		return fmt.Errorf("failed to get call: %w", err)
+	}
+	if session == nil {
+		return ErrCallNotFound
+	}
+
+	return p.endCallInternal(session)
+}
+
+// ForceEndCall forcibly ends a call regardless of who the creator is (admin use only).
+func (p *Plugin) ForceEndCall(callID string) error {
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
+	session, err := p.kvStore.GetCallByID(callID)
+	if err != nil {
+		p.API.LogError("ForceEndCall: GetCallByID failed", "call_id", callID, "err", err.Error())
+		return fmt.Errorf("failed to get call: %w", err)
+	}
+	if session == nil || session.EndAt != 0 {
+		return ErrCallNotFound
+	}
+
+	return p.endCallInternal(session)
 }
 
 // EndCall ends a call. Only the call creator may end the call.

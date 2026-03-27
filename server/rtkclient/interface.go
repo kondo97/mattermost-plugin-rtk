@@ -5,7 +5,7 @@ type RTKClient interface {
 	// CreateMeeting creates a new RTK meeting and returns the meeting.
 	CreateMeeting() (*Meeting, error)
 	// GenerateToken adds a participant to a meeting and returns an auth token.
-	GenerateToken(meetingID, userID, preset string) (*Token, error)
+	GenerateToken(meetingID, userID, displayName, preset string) (*Token, error)
 	// EndMeeting terminates an RTK meeting.
 	EndMeeting(meetingID string) error
 	// RegisterWebhook registers a webhook endpoint with RTK for the given events.
@@ -13,6 +13,8 @@ type RTKClient interface {
 	RegisterWebhook(url string, events []string) (id, secret string, err error)
 	// DeleteWebhook removes a previously registered RTK webhook by ID.
 	DeleteWebhook(webhookID string) error
+	// EnsurePreset creates a preset if it does not already exist.
+	EnsurePreset(presetName string) error
 }
 
 // Meeting represents an RTK meeting returned by the Cloudflare API.
