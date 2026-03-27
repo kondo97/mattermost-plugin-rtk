@@ -4,7 +4,6 @@
 import {
     upsertCall,
     removeCall,
-    setMyActiveCall,
     clearMyActiveCall,
     setIncomingCall,
     clearIncomingCall,
@@ -40,7 +39,7 @@ const baseState = {
             },
         },
     },
-    'plugins-com.mattermost.plugin-rtk': {
+    'plugins-com.kondo97.mattermost-plugin-rtk': {
         callsByChannel: {},
         myActiveCall: null,
         incomingCall: null,
@@ -175,8 +174,8 @@ describe('handleUserJoined', () => {
     const currentUserId = 'currentUser';
     const stateWithCall = {
         ...baseState,
-        'plugins-com.mattermost.plugin-rtk': {
-            ...baseState['plugins-com.mattermost.plugin-rtk'],
+        'plugins-com.kondo97.mattermost-plugin-rtk': {
+            ...baseState['plugins-com.kondo97.mattermost-plugin-rtk'],
             callsByChannel: {
                 channel1: {
                     id: 'call1',
@@ -199,27 +198,12 @@ describe('handleUserJoined', () => {
         expect(action.payload.participants).toContain('user1');
     });
 
-    it('dispatches setMyActiveCall when joined user is current user', () => {
+    it('does NOT dispatch setMyActiveCall when joined user is current user (token only from API)', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserJoined(store, currentUserId);
         handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1', participants: ['user1', currentUserId]}));
-        expect(store.dispatched).toHaveLength(2);
-        const setMyActiveAction = store.dispatched.find(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (a: any) => a.type === setMyActiveCall({callId: '', channelId: '', token: ''}).type,
-        );
-        expect(setMyActiveAction).toBeDefined();
-    });
-
-    it('does NOT dispatch setMyActiveCall for other users', () => {
-        const store = makeStore(stateWithCall);
-        const handler = handleUserJoined(store, currentUserId);
-        handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1', 'user2']}));
-        const setMyActiveAction = store.dispatched.find(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (a: any) => a.type === setMyActiveCall({callId: '', channelId: '', token: ''}).type,
-        );
-        expect(setMyActiveAction).toBeUndefined();
+        expect(store.dispatched).toHaveLength(1);
+        expect(store.dispatched[0]).toEqual(upsertCall(expect.anything()));
     });
 
     it('ignores invalid payload', () => {
@@ -234,8 +218,8 @@ describe('handleUserLeft', () => {
     const currentUserId = 'currentUser';
     const stateWithCall = {
         ...baseState,
-        'plugins-com.mattermost.plugin-rtk': {
-            ...baseState['plugins-com.mattermost.plugin-rtk'],
+        'plugins-com.kondo97.mattermost-plugin-rtk': {
+            ...baseState['plugins-com.kondo97.mattermost-plugin-rtk'],
             callsByChannel: {
                 channel1: {
                     id: 'call1',
@@ -261,8 +245,8 @@ describe('handleUserLeft', () => {
     it('dispatches clearMyActiveCall when leaving user is current user', () => {
         const stateWithMyCall = {
             ...stateWithCall,
-            'plugins-com.mattermost.plugin-rtk': {
-                ...stateWithCall['plugins-com.mattermost.plugin-rtk'],
+            'plugins-com.kondo97.mattermost-plugin-rtk': {
+                ...stateWithCall['plugins-com.kondo97.mattermost-plugin-rtk'],
                 myActiveCall: {callId: 'call1', channelId: 'channel1', token: 'tok1'},
             },
         };
@@ -299,8 +283,8 @@ describe('handleCallEnded', () => {
     const currentUserId = 'currentUser';
     const stateWithCall = {
         ...baseState,
-        'plugins-com.mattermost.plugin-rtk': {
-            ...baseState['plugins-com.mattermost.plugin-rtk'],
+        'plugins-com.kondo97.mattermost-plugin-rtk': {
+            ...baseState['plugins-com.kondo97.mattermost-plugin-rtk'],
             callsByChannel: {
                 channel1: {
                     id: 'call1',
@@ -340,8 +324,8 @@ describe('handleCallEnded', () => {
     it('does NOT dispatch clearMyActiveCall when active call is different', () => {
         const stateWithDifferentCall = {
             ...stateWithCall,
-            'plugins-com.mattermost.plugin-rtk': {
-                ...stateWithCall['plugins-com.mattermost.plugin-rtk'],
+            'plugins-com.kondo97.mattermost-plugin-rtk': {
+                ...stateWithCall['plugins-com.kondo97.mattermost-plugin-rtk'],
                 myActiveCall: {callId: 'call99', channelId: 'channel99', token: 'tok99'},
             },
         };
@@ -367,8 +351,8 @@ describe('handleNotifDismissed', () => {
     const currentUserId = 'currentUser';
     const stateWithIncoming = {
         ...baseState,
-        'plugins-com.mattermost.plugin-rtk': {
-            ...baseState['plugins-com.mattermost.plugin-rtk'],
+        'plugins-com.kondo97.mattermost-plugin-rtk': {
+            ...baseState['plugins-com.kondo97.mattermost-plugin-rtk'],
             incomingCall: {callId: 'call1', channelId: 'dm1', creatorId: 'otherUser'},
         },
     };

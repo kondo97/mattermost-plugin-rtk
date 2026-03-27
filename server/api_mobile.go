@@ -7,7 +7,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
-const wsEventNotificationDismissed = "custom_cf_notification_dismissed"
+const wsEventNotificationDismissed = "notification_dismissed"
 
 // handleDismiss handles POST /api/v1/calls/{id}/dismiss.
 // Emits a WebSocket event to the requesting user only, then returns 200 OK.

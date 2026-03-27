@@ -1,6 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import manifest from 'manifest';
+
 import type {GlobalState} from '@mattermost/types/store';
 
 import type {ActiveCall, CallsPluginState, IncomingCall, MyActiveCall} from './calls_slice';
@@ -9,7 +11,7 @@ import type {ActiveCall, CallsPluginState, IncomingCall, MyActiveCall} from './c
 // Plugin state accessor
 // ---------------------------------------------------------------------------
 
-const PLUGIN_STATE_KEY = 'plugins-com.mattermost.plugin-rtk';
+const PLUGIN_STATE_KEY = `plugins-${manifest.id}`;
 
 function selectPluginState(state: GlobalState): CallsPluginState {
     return (state as unknown as Record<string, CallsPluginState>)[PLUGIN_STATE_KEY] ?? {

@@ -10,7 +10,7 @@ import {
     selectIsCurrentUserParticipant,
 } from './selectors';
 
-const PLUGIN_KEY = 'plugins-com.mattermost.plugin-rtk';
+const PLUGIN_KEY = 'plugins-com.kondo97.mattermost-plugin-rtk';
 
 const sampleCall = {
     id: 'call1',
