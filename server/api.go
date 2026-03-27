@@ -29,6 +29,8 @@ func (p *Plugin) initRouter() *mux.Router {
 	apiRouter.HandleFunc("/calls/{id}/token", p.handleJoinCall).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/calls/{id}/leave", p.handleLeaveCall).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/calls/{id}", p.handleEndCall).Methods(http.MethodDelete)
+	apiRouter.HandleFunc("/calls/{id}/force", p.handleForceEndCall).Methods(http.MethodDelete)
+	apiRouter.HandleFunc("/channels/{channelId}/calls/force", p.handleForceEndCallByChannel).Methods(http.MethodDelete)
 
 	// Config status
 	apiRouter.HandleFunc("/config/status", p.handleConfigStatus).Methods(http.MethodGet)
