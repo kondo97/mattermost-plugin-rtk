@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/mattermost/mattermost/server/public/model"
 )
 
 // handleCreateCall handles POST /api/v1/calls.
@@ -89,58 +88,6 @@ func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-}
-
-// handleForceEndCall handles DELETE /api/v1/calls/{id}/force.
-// System admin only — forcibly ends a call regardless of creator.
-func (p *Plugin) handleForceEndCall(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if !p.API.HasPermissionTo(userID, model.PermissionManageSystem) {
-		writeError(w, http.StatusForbidden, "system admin permission required")
-		return
-	}
-
-	callID := mux.Vars(r)["id"]
-
-	if err := p.ForceEndCall(callID); err != nil {
-		switch {
-		case errors.Is(err, ErrCallNotFound):
-			writeError(w, http.StatusNotFound, err.Error())
-		default:
-			p.API.LogError("handleForceEndCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
-			writeError(w, http.StatusInternalServerError, "internal error")
-		}
-		return
-	}
-
-	p.API.LogWarn("call force-ended by admin", "call_id", callID, "admin_user_id", userID)
-	w.WriteHeader(http.StatusOK)
-}
-
-// handleForceEndCallByChannel handles DELETE /api/v1/channels/{channelId}/calls/force.
-// System admin only — forcibly ends the active call in a channel.
-func (p *Plugin) handleForceEndCallByChannel(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if !p.API.HasPermissionTo(userID, model.PermissionManageSystem) {
-		writeError(w, http.StatusForbidden, "system admin permission required")
-		return
-	}
-
-	channelID := mux.Vars(r)["channelId"]
-
-	if err := p.ForceEndCallByChannel(channelID); err != nil {
-		switch {
-		case errors.Is(err, ErrCallNotFound):
-			writeError(w, http.StatusNotFound, err.Error())
-		default:
-			p.API.LogError("handleForceEndCallByChannel failed", "channel_id", channelID, "user_id", userID, "error", err.Error())
-			writeError(w, http.StatusInternalServerError, "internal error")
-		}
-		return
-	}
-
-	p.API.LogWarn("call force-ended by admin (channel)", "channel_id", channelID, "admin_user_id", userID)
 	w.WriteHeader(http.StatusOK)
 }
 

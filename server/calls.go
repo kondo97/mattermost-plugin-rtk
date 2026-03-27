@@ -248,40 +248,6 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 	return nil
 }
 
-// ForceEndCallByChannel forcibly ends the active call in a channel (admin use only).
-func (p *Plugin) ForceEndCallByChannel(channelID string) error {
-	p.callMu.Lock()
-	defer p.callMu.Unlock()
-
-	session, err := p.kvStore.GetCallByChannel(channelID)
-	if err != nil {
-		p.API.LogError("ForceEndCallByChannel: GetCallByChannel failed", "channel_id", channelID, "err", err.Error())
-		return fmt.Errorf("failed to get call: %w", err)
-	}
-	if session == nil {
-		return ErrCallNotFound
-	}
-
-	return p.endCallInternal(session)
-}
-
-// ForceEndCall forcibly ends a call regardless of who the creator is (admin use only).
-func (p *Plugin) ForceEndCall(callID string) error {
-	p.callMu.Lock()
-	defer p.callMu.Unlock()
-
-	session, err := p.kvStore.GetCallByID(callID)
-	if err != nil {
-		p.API.LogError("ForceEndCall: GetCallByID failed", "call_id", callID, "err", err.Error())
-		return fmt.Errorf("failed to get call: %w", err)
-	}
-	if session == nil || session.EndAt != 0 {
-		return ErrCallNotFound
-	}
-
-	return p.endCallInternal(session)
-}
-
 // EndCall ends a call. Only the call creator may end the call.
 func (p *Plugin) EndCall(callID, requestingUserID string) error {
 	p.callMu.Lock()
