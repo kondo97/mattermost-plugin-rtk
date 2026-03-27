@@ -10,8 +10,14 @@
     "plugin.rtk.toast_bar.dismiss": "Dismiss",
     "plugin.rtk.toast_bar.started_at": "Started {time}",
     "plugin.rtk.toast_bar.participants": "{count, plural, one {# participant} other {# participants}}",
-    "plugin.rtk.floating_widget.open_in_tab": "Open in new tab",
+    "plugin.rtk.floating_widget.title": "Call [{id}]",
+    "plugin.rtk.floating_widget.connecting": "Connecting...",
     "plugin.rtk.floating_widget.leave_call": "Leave call",
+    "plugin.rtk.floating_widget.minimize": "Minimize",
+    "plugin.rtk.floating_widget.expand": "Expand",
+    "plugin.rtk.floating_widget.fullscreen": "Fullscreen",
+    "plugin.rtk.floating_widget.exit_fullscreen": "Exit fullscreen",
+    "plugin.rtk.floating_widget.retry": "Retry",
     "plugin.rtk.floating_widget.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.switch_call_modal.title": "You are already in a call",
     "plugin.rtk.switch_call_modal.body": "Do you want to leave your current call and join the new one?",
@@ -31,5 +37,8 @@
     "plugin.rtk.call_post.duration": "Lasted {duration}",
     "plugin.rtk.call_post.tooltip_already_in_call": "You are already in this call",
     "plugin.rtk.call_post.participants": "{count, plural, one {# participant} other {# participants}}",
-    "plugin.rtk.call_post.error_close": "OK"
+    "plugin.rtk.call_post.error_close": "OK",
+    "plugin.rtk.admin.credential.loading": "Loading...",
+    "plugin.rtk.admin.credential.env_var_value": "Set via environment variable {envVar}",
+    "plugin.rtk.admin.credential.env_var_notice": "This value is configured via the environment variable {envVar}. Any value entered here is ignored while the environment variable is set."
 }

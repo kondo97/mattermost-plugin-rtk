@@ -1,7 +1,33 @@
 import path from 'path';
 
 import react from '@vitejs/plugin-react';
+import cssInjectedByJs from 'vite-plugin-css-injected-by-js';
 import {defineConfig} from 'vite';
+import type {Plugin} from 'vite';
+
+// Mattermost's CSP blocks blob: URLs for Web Workers.
+// worker-timers (a dependency of @cloudflare/realtimekit) creates a worker from a blob: URL.
+// This plugin patches the worker creation to use a static URL served by the Go plugin instead,
+// which satisfies the CSP's 'self' directive.
+function workerTimersCspPatch(): Plugin {
+    const workerUrl = '/plugins/com.kondo97.mattermost-plugin-rtk/worker.js';
+    return {
+        name: 'worker-timers-csp-patch',
+        transform(code, id) {
+            if (!id.includes('worker-timers') || !id.includes('load-or-return-broker')) {
+                return null;
+            }
+            const patched = code.replace(
+                /const blob[\s\S]*?URL\.revokeObjectURL\(url\)\);/,
+                `broker = loadBroker('${workerUrl}');`,
+            );
+            if (patched === code) {
+                console.warn('[worker-timers-csp-patch] Pattern not found - check worker-timers version'); // eslint-disable-line no-console
+            }
+            return patched;
+        },
+    };
+}
 
 // Mattermost host provides these as browser globals.
 // Applied to the 'main' entry only — the 'call' entry is a standalone bundle
@@ -23,7 +49,7 @@ const buildTarget = process.env.VITE_BUILD_TARGET ?? 'main'; // eslint-disable-l
 const isCallBuild = buildTarget === 'call';
 
 export default defineConfig({
-    plugins: [react()],
+    plugins: [react(), cssInjectedByJs(), workerTimersCspPatch()],
 
     resolve: {
         alias: [

@@ -64,7 +64,7 @@ func (p *Plugin) OnActivate() error {
 	p.pushSender = push.NewSender(p.API)
 
 	cfg := p.getConfiguration()
-	if cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != "" {
+	if cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != "" {
 		p.rtkClient = rtkclient.NewClient(cfg.GetEffectiveOrgID(), cfg.GetEffectiveAPIKey())
 		p.registerWebhookIfNeeded()
 	}
