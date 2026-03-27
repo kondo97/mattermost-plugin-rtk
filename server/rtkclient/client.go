@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -88,20 +87,12 @@ func (c *client) CreateMeeting() (*Meeting, error) {
 }
 
 // GenerateToken adds a participant to the meeting and returns an auth token.
-// If the preset does not exist, it is auto-created and the request is retried.
 func (c *client) GenerateToken(meetingID, userID, displayName, preset string) (*Token, error) {
-	token, respBody, err := c.generateTokenOnce(meetingID, userID, displayName, preset)
-	if err != nil && isPresetNotFound(respBody, err) {
-		if createErr := c.EnsurePreset(preset); createErr != nil {
-			return nil, fmt.Errorf("failed to create preset %q: %w", preset, createErr)
-		}
-		token, _, err = c.generateTokenOnce(meetingID, userID, displayName, preset)
-	}
-	return token, err
+	return c.generateTokenOnce(meetingID, userID, displayName, preset)
 }
 
 // generateTokenOnce makes a single add-participant API call.
-func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string) (*Token, []byte, error) {
+func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string) (*Token, error) {
 	url := fmt.Sprintf("%s/meetings/%s/participants", c.baseURL, meetingID)
 	body, err := json.Marshal(addParticipantRequest{
 		Name:                displayName,
@@ -109,113 +100,26 @@ func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string
 		CustomParticipantID: userID,
 	})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to marshal GenerateToken request")
+		return nil, errors.Wrap(err, "failed to marshal GenerateToken request")
 	}
 
 	resp, err := c.doRequest(http.MethodPost, url, body)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "GenerateToken request failed")
+		return nil, errors.Wrap(err, "GenerateToken request failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, respBody, fmt.Errorf("GenerateToken: unexpected status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("GenerateToken: unexpected status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result apiResponse[addParticipantData]
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, respBody, errors.Wrap(err, "failed to decode GenerateToken response")
+		return nil, errors.Wrap(err, "failed to decode GenerateToken response")
 	}
-	return &Token{Token: result.Data.Token}, respBody, nil
-}
-
-// isPresetNotFound checks whether the error or response body indicates a missing preset.
-func isPresetNotFound(respBody []byte, err error) bool {
-	if err == nil {
-		return false
-	}
-	s := err.Error() + string(respBody)
-	return strings.Contains(s, "No preset found") || strings.Contains(s, "preset")
-}
-
-// EnsurePreset creates a preset with full media permissions if it does not already exist.
-func (c *client) EnsurePreset(presetName string) error {
-	preset := map[string]interface{}{
-		"name": presetName,
-		"config": map[string]interface{}{
-			"view_type":             "GROUP_CALL",
-			"max_screenshare_count": 1,
-			"max_video_streams": map[string]interface{}{
-				"desktop": 9,
-				"mobile":  9,
-			},
-			"media": map[string]interface{}{
-				"screenshare": map[string]interface{}{
-					"frame_rate": 15,
-					"quality":    "hd",
-				},
-				"video": map[string]interface{}{
-					"frame_rate": 30,
-					"quality":    "hd",
-				},
-			},
-		},
-		"permissions": map[string]interface{}{
-			"media": map[string]interface{}{
-				"audio":       map[string]interface{}{"can_produce": "ALLOWED"},
-				"video":       map[string]interface{}{"can_produce": "ALLOWED"},
-				"screenshare": map[string]interface{}{"can_produce": "ALLOWED"},
-			},
-			"stage_enabled":                      false,
-			"can_record":                         true,
-			"can_spotlight":                      true,
-			"kick_participant":                   true,
-			"disable_participant_audio":          true,
-			"disable_participant_video":          true,
-			"disable_participant_screensharing":  true,
-			"pin_participant":                    true,
-			"accept_waiting_requests":            true,
-			"can_change_participant_permissions": true,
-			"show_participant_list":              true,
-			"can_edit_display_name":              true,
-			"hidden_participant":                 false,
-			"is_recorder":                        false,
-			"waiting_room_type":                  "SKIP",
-			"chat": map[string]interface{}{
-				"public":  map[string]interface{}{"can_send": true, "text": true, "files": true},
-				"private": map[string]interface{}{"can_send": true, "can_receive": true, "text": true, "files": true},
-			},
-			"polls": map[string]interface{}{
-				"can_create": true,
-				"can_vote":   true,
-				"can_view":   true,
-			},
-		},
-	}
-
-	body, err := json.Marshal(preset)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal preset request")
-	}
-
-	reqURL := fmt.Sprintf("%s/presets", c.baseURL)
-	resp, err := c.doRequest(http.MethodPost, reqURL, body)
-	if err != nil {
-		return errors.Wrap(err, "EnsurePreset request failed")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Conflict means preset already exists — that's fine
-	if resp.StatusCode == http.StatusConflict {
-		return nil
-	}
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("EnsurePreset: unexpected status %d: %s", resp.StatusCode, string(respBody))
-	}
-	return nil
+	return &Token{Token: result.Data.Token}, nil
 }
 
 // EndMeeting terminates an RTK meeting (best effort — caller should not abort on error).
