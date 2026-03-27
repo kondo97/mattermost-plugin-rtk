@@ -2,21 +2,18 @@
 // See LICENSE.txt for license information.
 
 import {pluginFetch} from 'client';
-import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-import {setMyActiveCall} from 'redux/calls_slice';
+import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
 import {
     selectCallByChannel,
     selectIsCurrentUserParticipant,
     selectMyActiveCall,
     selectPluginEnabled,
 } from 'redux/selectors';
-import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
 
 import type {Channel} from '@mattermost/types/channels';
-import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 
@@ -47,7 +44,6 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
     const activeCall = useSelector(selectCallByChannel(channel.id));
     const myActiveCall = useSelector(selectMyActiveCall);
     const isParticipant = useSelector(selectIsCurrentUserParticipant(channel.id, currentUserId));
-    const channelDisplayName = useSelector((state: GlobalState) => getChannelDisplayName(state, channel.id));
 
     const [loading, setLoading] = useState(false);
     const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -58,15 +54,6 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
         return null;
     }
 
-    const openCallTab = (callId: string, token: string) => {
-        // Token intentionally not logged — SEC-U3-01
-        window.open(
-            buildCallTabUrl(manifest.id, token, callId, channelDisplayName),
-            '_blank',
-            'noopener,noreferrer',
-        );
-    };
-
     const joinCall = async (callId: string) => {
         const result = await pluginFetch<CallResponse>(`/api/v1/calls/${callId}/token`, {
             method: 'POST',
@@ -76,12 +63,20 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
             return;
         }
         const {data} = result;
+        console.log('[rtk-plugin] ChannelHeader joinCall response:', {callId: data.call.id, channelId: data.call.channel_id, tokenLen: data.token?.length, participants: data.call.participants}); // eslint-disable-line no-console
+        dispatch(upsertCall({
+            id: data.call.id,
+            channelId: data.call.channel_id,
+            creatorId: data.call.creator_id,
+            participants: data.call.participants,
+            startAt: data.call.start_at,
+            postId: data.call.post_id,
+        }));
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
         }));
-        openCallTab(data.call.id, data.token);
     };
 
     const handleClick = async () => {
@@ -113,16 +108,19 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
             return;
         }
         const {data} = result;
+        dispatch(upsertCall({
+            id: data.call.id,
+            channelId: data.call.channel_id,
+            creatorId: data.call.creator_id,
+            participants: data.call.participants,
+            startAt: data.call.start_at,
+            postId: data.call.post_id,
+        }));
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
         }));
-
-        // Sound cue: play via Mattermost notification infrastructure
-        // (handled by the desktop notification hook registered in index.tsx)
-
-        openCallTab(data.call.id, data.token);
     };
 
     const handleSwitchConfirm = async () => {

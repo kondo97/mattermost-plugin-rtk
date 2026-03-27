@@ -14,7 +14,7 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('client', () => ({pluginFetch: jest.fn()}));
-jest.mock('manifest', () => ({id: 'com.mattermost.plugin-rtk'}));
+jest.mock('manifest', () => ({id: 'com.kondo97.mattermost-plugin-rtk'}));
 jest.mock('react-intl', () => ({
     useIntl: () => ({formatMessage: ({id}: {id: string}) => id}),
 }));

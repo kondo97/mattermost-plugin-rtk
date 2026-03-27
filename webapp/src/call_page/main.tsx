@@ -13,8 +13,9 @@ import CallPage from './CallPage';
 // Parse URL parameters (Pattern U4-2)
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token') ?? '';
-const callId = params.get('call_id') ?? '';
+const callId = params.get('callId') ?? params.get('call_id') ?? '';
 const channelName = params.get('channel_name') ?? '';
+const embedded = params.get('embedded') === '1';
 
 // Set browser tab title (BR-U4-008, US-006)
 document.title = channelName ? `Call in #${channelName}` : 'RTK Call';
@@ -25,5 +26,6 @@ ReactDOM.createRoot(rootEl).render(
     <CallPage
         token={token}
         callId={callId}
+        embedded={embedded}
     />,
 );

@@ -4,15 +4,11 @@
 /* eslint-disable react/prop-types */
 
 import {pluginFetch} from 'client';
-import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-import {setMyActiveCall} from 'redux/calls_slice';
+import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
-import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-
-import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 
@@ -29,7 +25,16 @@ interface CallPostProps {
 }
 
 interface CallResponse {
-    call: {id: string; channel_id: string};
+    call: {
+        id: string;
+        channel_id: string;
+        creator_id: string;
+        meeting_id: string;
+        participants: string[];
+        start_at: number;
+        end_at: number;
+        post_id: string;
+    };
     token: string;
 }
 
@@ -53,9 +58,6 @@ const CallPost = ({post}: Props) => {
     // Live Redux state (may be undefined before first WS event — pattern U4-4)
     const liveCall = useSelector(selectCallByChannel(channelId));
     const myActiveCall = useSelector(selectMyActiveCall);
-    const channelName = useSelector(
-        (state: GlobalState) => getChannelDisplayName(state, channelId),
-    );
 
     const [showSwitchModal, setShowSwitchModal] = useState(false);
     const [pendingCallId, setPendingCallId] = useState<string | null>(null);
@@ -80,18 +82,20 @@ const CallPost = ({post}: Props) => {
             return;
         }
         const {data} = result;
+        console.log('[rtk-plugin] CallPost joinCall response:', {callId: data.call.id, channelId: data.call.channel_id, tokenLen: data.token?.length, participants: data.call.participants}); // eslint-disable-line no-console
+        dispatch(upsertCall({
+            id: data.call.id,
+            channelId: data.call.channel_id,
+            creatorId: data.call.creator_id,
+            participants: data.call.participants,
+            startAt: data.call.start_at,
+            postId: data.call.post_id,
+        }));
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
         }));
-
-        // Token intentionally not logged — SEC-U4-01
-        window.open(
-            buildCallTabUrl(manifest.id, data.token, data.call.id, channelName),
-            '_blank',
-            'noopener,noreferrer',
-        );
     };
 
     const handleJoin = () => {

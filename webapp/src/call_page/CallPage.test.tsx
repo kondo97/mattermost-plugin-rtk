@@ -8,6 +8,8 @@ import React from 'react';
 const mockInitMeeting = jest.fn();
 const mockMeeting = {id: 'mock-meeting'};
 
+jest.mock('manifest', () => ({id: 'com.kondo97.mattermost-plugin-rtk'}));
+
 jest.mock('@cloudflare/realtimekit-react', () => ({
     useRealtimeKitClient: jest.fn(() => [null, mockInitMeeting]),
     RealtimeKitProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
@@ -131,11 +133,11 @@ describe('CallPage', () => {
         window.dispatchEvent(event);
 
         expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            '/plugins/com.mattermost.plugin-rtk/api/v1/calls/call1/leave',
+            '/plugins/com.kondo97.mattermost-plugin-rtk/api/v1/calls/call1/leave',
         );
     });
 
-    it('shows error screen on SDK initialization failure', async () => {
+    it('shows error screen on SDK initialization failure after retries', async () => {
         mockInitMeeting.mockRejectedValue(new Error('SDK init failed'));
         await act(async () => {
             render(
@@ -145,6 +147,18 @@ describe('CallPage', () => {
                 />,
             );
         });
+
+        // Advance through all 3 retries (2s each)
+        for (let i = 0; i < 3; i++) {
+            await act(async () => {
+                jest.advanceTimersByTime(2000);
+            });
+            // Flush the rejected promise from the retry
+            await act(async () => {
+                await Promise.resolve();
+            });
+        }
+
         expect(screen.getByTestId('call-page-error')).toBeTruthy();
     });
 });

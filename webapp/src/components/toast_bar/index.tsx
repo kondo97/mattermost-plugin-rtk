@@ -2,7 +2,6 @@
 // See LICENSE.txt for license information.
 
 import {pluginFetch} from 'client';
-import manifest from 'manifest';
 import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
@@ -12,9 +11,6 @@ import {
     selectIsCurrentUserParticipant,
     selectMyActiveCall,
 } from 'redux/selectors';
-import {buildCallTabUrl, getChannelDisplayName} from 'utils/call_tab';
-
-import type {GlobalState} from '@mattermost/types/store';
 
 import SwitchCallModal from 'components/switch_call_modal';
 
@@ -40,9 +36,6 @@ const ToastBar = ({currentChannelId, currentUserId}: Props) => {
         selectIsCurrentUserParticipant(currentChannelId, currentUserId),
     );
     const myActiveCall = useSelector(selectMyActiveCall);
-    const channelDisplayName = useSelector(
-        (state: GlobalState) => getChannelDisplayName(state, currentChannelId),
-    );
 
     const [dismissed, setDismissed] = useState(false);
     const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -66,13 +59,6 @@ const ToastBar = ({currentChannelId, currentUserId}: Props) => {
             channelId: data.call.channel_id,
             token: data.token,
         }));
-
-        // Token intentionally not logged — SEC-U3-01
-        window.open(
-            buildCallTabUrl(manifest.id, data.token, data.call.id, channelDisplayName),
-            '_blank',
-            'noopener,noreferrer',
-        );
     };
 
     const handleJoin = () => {
