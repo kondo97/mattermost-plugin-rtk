@@ -77,6 +77,25 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleGetCall handles GET /api/v1/calls/{id}.
+func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
+	callID := mux.Vars(r)["id"]
+
+	session, err := p.kvStore.GetCallByID(callID)
+	if err != nil {
+		p.API.LogError("handleGetCall failed", "call_id", callID, "error", err.Error())
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if session == nil {
+		writeError(w, http.StatusNotFound, "call not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(session)
+}
+
 // handleLeaveCall handles POST /api/v1/calls/{id}/leave.
 func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
