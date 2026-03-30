@@ -11,6 +11,9 @@ import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 
 import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
 import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
+import {useLanguage} from '@cloudflare/realtimekit-ui';
+
+import jaDict from 'utils/rtk_lang_ja';
 
 const INITIAL_WIDTH = 400;
 const INITIAL_HEIGHT = 300;
@@ -26,6 +29,7 @@ const FloatingWidget = () => {
     );
 
     const [meeting, initMeeting] = useRealtimeKitClient();
+    const rtkT = useLanguage(intl.locale === 'ja' ? jaDict : undefined);
     const [joinError, setJoinError] = useState<string | null>(null);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -73,17 +77,15 @@ const FloatingWidget = () => {
         }
         console.log('[rtk-plugin] meeting initialized, roomJoined=', meeting.self.roomJoined); // eslint-disable-line no-console
 
-        // Log all available meeting metadata for debugging
-        try {
-            const payload = JSON.parse(atob(myActiveCall!.token.split('.')[1])); // eslint-disable-line no-console
-            console.log('[rtk-plugin] token payload:', payload); // eslint-disable-line no-console
-        } catch {
-            // ignore JWT decode errors
+        // If room is already joined when the effect runs, update state immediately
+        if (meeting.self.roomJoined) {
+            setRoomJoined(true);
         }
 
         const onRoomJoined = () => {
             console.log('[rtk-plugin] roomJoined event fired'); // eslint-disable-line no-console
             setJoinError(null);
+            setRoomJoined(true);
         };
         const onRoomLeft = () => {
             console.log('[rtk-plugin] roomLeft event fired'); // eslint-disable-line no-console
@@ -286,6 +288,7 @@ const FloatingWidget = () => {
                                         onClick={() => {
                                             if (myActiveCall?.token) {
                                                 retryCountRef.current = 0;
+                                                setRoomJoined(false);
                                                 attemptInit(myActiveCall.token);
                                             }
                                         }}
@@ -306,6 +309,7 @@ const FloatingWidget = () => {
                         ) : meeting ? (
                             <RtkMeeting
                                 meeting={meeting}
+                                t={rtkT}
                                 mode={isFullscreen ? 'fixed' : 'fill'}
                                 showSetupScreen={false}
                                 style={{width: '100%', height: '100%'}}

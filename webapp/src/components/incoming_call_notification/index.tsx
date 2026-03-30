@@ -65,6 +65,7 @@ const IncomingCallNotification = ({currentUserId: _currentUserId}: Props) => {
             channelId: data.call.channel_id,
             token: data.token,
         }));
+        dispatch(clearIncomingCall());
     };
 
     const handleJoin = () => {
