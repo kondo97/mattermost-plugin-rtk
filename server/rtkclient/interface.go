@@ -13,6 +13,8 @@ type RTKClient interface {
 	RegisterWebhook(url string, events []string) (id, secret string, err error)
 	// DeleteWebhook removes a previously registered RTK webhook by ID.
 	DeleteWebhook(webhookID string) error
+	// GetMeetingParticipants returns the custom participant IDs currently connected to a meeting.
+	GetMeetingParticipants(meetingID string) ([]string, error)
 }
 
 // Meeting represents an RTK meeting returned by the Cloudflare API.

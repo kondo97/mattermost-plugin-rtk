@@ -194,6 +194,43 @@ func (c *client) DeleteWebhook(webhookID string) error {
 	return nil
 }
 
+// meetingParticipantItem is a single entry in the list-participants response.
+type meetingParticipantItem struct {
+	CustomParticipantID string `json:"custom_participant_id"`
+}
+
+// meetingParticipantsData wraps the participants array returned by the API.
+type meetingParticipantsData struct {
+	Participants []meetingParticipantItem `json:"participants"`
+}
+
+// GetMeetingParticipants returns the custom participant IDs currently connected to a meeting.
+func (c *client) GetMeetingParticipants(meetingID string) ([]string, error) {
+	url := fmt.Sprintf("%s/meetings/%s/active-participants", c.baseURL, meetingID)
+	resp, err := c.doRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetMeetingParticipants request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetMeetingParticipants: unexpected status %d", resp.StatusCode)
+	}
+
+	var result apiResponse[meetingParticipantsData]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, errors.Wrap(err, "failed to decode GetMeetingParticipants response")
+	}
+
+	ids := make([]string, 0, len(result.Data.Participants))
+	for _, p := range result.Data.Participants {
+		if p.CustomParticipantID != "" {
+			ids = append(ids, p.CustomParticipantID)
+		}
+	}
+	return ids, nil
+}
+
 // doRequest executes an authenticated HTTP request.
 func (c *client) doRequest(method, url string, body []byte) (*http.Response, error) {
 	var bodyReader io.Reader
