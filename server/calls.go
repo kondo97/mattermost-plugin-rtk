@@ -137,14 +137,6 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		"post_id":      session.PostID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
 
-	// BR-P01: best-effort push notification (DM/GM only, max 8 members)
-	if p.pushSender != nil {
-		if err := p.pushSender.SendIncomingCall(session); err != nil {
-			p.API.LogWarn("CreateCall: SendIncomingCall failed (best effort)",
-				"call_id", session.ID, "channel_id", channelID, "err", err.Error())
-		}
-	}
-
 	p.API.LogInfo("call started", "call_id", session.ID, "channel_id", channelID, "creator_id", userID)
 
 	return session, token.Token, nil
@@ -312,14 +304,6 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 		"end_at":      endAt,
 		"duration_ms": durationMs,
 	}, &model.WebsocketBroadcast{ChannelId: session.ChannelID})
-
-	// BR-P01: best-effort push notification to dismiss incoming call UI
-	if p.pushSender != nil {
-		if err := p.pushSender.SendCallEnded(session); err != nil {
-			p.API.LogWarn("endCallInternal: SendCallEnded failed (best effort)",
-				"call_id", session.ID, "channel_id", session.ChannelID, "err", err.Error())
-		}
-	}
 
 	p.API.LogInfo("call ended", "call_id", session.ID, "channel_id", session.ChannelID, "duration_ms", durationMs)
 

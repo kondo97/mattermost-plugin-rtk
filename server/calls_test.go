@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	gomock "go.uber.org/mock/gomock"
 
-	"github.com/kondo97/mattermost-plugin-rtk/server/push"
-	pushmocks "github.com/kondo97/mattermost-plugin-rtk/server/push/mocks"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	rtkmocks "github.com/kondo97/mattermost-plugin-rtk/server/rtkclient/mocks"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
@@ -47,15 +45,6 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 	p.SetAPI(api)
 	p.rtkClient = rtkClient
 	p.kvStore = store
-	// pushSender intentionally left nil; inject via p.pushSender in tests that need it.
-	return p, api
-}
-
-// newTestPluginWithPush creates a Plugin with an injected MockPushSender.
-func newTestPluginWithPush(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KVStore, pushSender push.PushSender) (*Plugin, *plugintest.API) {
-	t.Helper()
-	p, api := newTestPlugin(t, rtkClient, store)
-	p.pushSender = pushSender
 	return p, api
 }
 
@@ -323,77 +312,3 @@ func TestEndCall_AlreadyEnded(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
-// --- Push integration (US-018) ---
-
-func TestCreateCall_InvokesPushSender(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	mockPush := pushmocks.NewMockPushSender(ctrl)
-	p, api := newTestPluginWithPush(t, mockRTK, mockStore, mockPush)
-
-	channelID := "channel1"
-	userID := "user1"
-	meetingID := "meeting1"
-
-	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
-	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
-	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
-	api.On("PublishWebSocketEvent", wsEventCallStarted,
-		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-	mockPush.EXPECT().SendIncomingCall(gomock.Any()).Return(nil)
-
-	_, _, err := p.CreateCall(channelID, userID)
-	require.NoError(t, err)
-}
-
-func TestCreateCall_PushSenderError_CallSucceeds(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	mockPush := pushmocks.NewMockPushSender(ctrl)
-	p, api := newTestPluginWithPush(t, mockRTK, mockStore, mockPush)
-
-	channelID := "channel1"
-	userID := "user1"
-	meetingID := "meeting1"
-
-	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: "tok"}, nil)
-	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
-	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
-	api.On("PublishWebSocketEvent", wsEventCallStarted,
-		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-	mockPush.EXPECT().SendIncomingCall(gomock.Any()).Return(errors.New("push failed"))
-
-	// push failure is best-effort — CreateCall must still succeed
-	_, _, err := p.CreateCall(channelID, userID)
-	require.NoError(t, err)
-}
-
-func TestEndCall_InvokesPushSender(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
-	mockPush := pushmocks.NewMockPushSender(ctrl)
-	p, api := newTestPluginWithPush(t, mockRTK, mockStore, mockPush)
-
-	callID := "call1"
-	session := &kvstore.CallSession{
-		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
-		CreatorID: "user1", Participants: []string{"user1"}, StartAt: 1000, EndAt: 0,
-	}
-
-	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
-	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventCallEnded,
-		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-	mockPush.EXPECT().SendCallEnded(gomock.Any()).Return(nil)
-
-	err := p.EndCall(callID, "user1")
-	require.NoError(t, err)
-}
