@@ -4,7 +4,7 @@
 /* eslint-disable react/prop-types */
 
 import {pluginFetch} from 'client';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
@@ -63,11 +63,36 @@ const CallPost = ({post}: Props) => {
     const [pendingCallId, setPendingCallId] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // Merge: Redux wins if available, post.props as fallback (pattern U4-4)
-    const participants = liveCall?.participants ?? props.participants ?? [];
-    const startAt = liveCall?.startAt ?? props.start_at;
-    const endAt = liveCall ?
-        ((liveCall as unknown as {endAt?: number}).endAt ?? 0) :
+    // On mount, fetch the latest call state from the server so that the post
+    // reflects reality even right after a page reload (before any WS event).
+    useEffect(() => {
+        if (props.end_at > 0 || (liveCall?.id === props.call_id)) {
+            return;
+        }
+        pluginFetch<CallResponse['call']>(`/api/v1/calls/${props.call_id}`).then((result) => {
+            if ('data' in result) {
+                const d = result.data;
+                dispatch(upsertCall({
+                    id: d.id,
+                    channelId: d.channel_id,
+                    creatorId: d.creator_id,
+                    participants: d.participants,
+                    startAt: d.start_at,
+                    postId: d.post_id,
+                }));
+            }
+        });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Only use live Redux state when it matches THIS post's call (pattern U4-4).
+    // Without this guard every call post in the channel would appear active
+    // whenever any call in the channel is ongoing.
+    const matchingLiveCall = liveCall?.id === props.call_id ? liveCall : undefined;
+
+    const participants = matchingLiveCall?.participants ?? props.participants ?? [];
+    const startAt = matchingLiveCall?.startAt ?? props.start_at;
+    const endAt = matchingLiveCall ?
+        ((matchingLiveCall as unknown as {endAt?: number}).endAt ?? 0) :
         props.end_at;
     const isEnded = endAt > 0;
 
