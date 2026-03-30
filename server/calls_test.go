@@ -29,7 +29,8 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 		}
 		return args
 	}
-	for _, n := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} {
+	for _, n := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12} {
+		api.On("LogDebug", anyArgs(n)...).Maybe().Return()
 		api.On("LogInfo", anyArgs(n)...).Maybe().Return()
 		api.On("LogWarn", anyArgs(n)...).Maybe().Return()
 		api.On("LogError", anyArgs(n)...).Maybe().Return()
@@ -141,6 +142,36 @@ func TestJoinCall_Success(t *testing.T) {
 	assert.Equal(t, callID, sess.ID)
 }
 
+func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, api := newTestPlugin(t, mockRTK, mockStore)
+
+	callID := "call1"
+	userID := "user2"
+	session := &kvstore.CallSession{
+		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
+		Participants: []string{"user1"}, EndAt: 0, PostID: "post1",
+	}
+
+	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user1", userID}).Return(nil)
+
+	existingPost := &model.Post{Id: "post1", Props: model.StringInterface{"call_id": callID}}
+	api.On("GetPost", "post1").Return(existingPost, nil)
+	api.On("UpdatePost", mock.MatchedBy(func(post *model.Post) bool {
+		participants, ok := post.Props["participants"].([]string)
+		return ok && len(participants) == 2 && participants[0] == "user1" && participants[1] == "user2"
+	})).Return(existingPost, nil)
+	api.On("PublishWebSocketEvent", wsEventUserJoined,
+		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
+
+	_, _, err := p.JoinCall(callID, userID)
+	require.NoError(t, err)
+}
+
 func TestJoinCall_CallNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
@@ -206,6 +237,34 @@ func TestLeaveCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user2"}).Return(nil)
+	api.On("PublishWebSocketEvent", wsEventUserLeft,
+		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
+
+	err := p.LeaveCall(callID, "user1")
+	require.NoError(t, err)
+}
+
+func TestLeaveCall_UpdatesPostParticipants(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, api := newTestPlugin(t, mockRTK, mockStore)
+
+	callID := "call1"
+	session := &kvstore.CallSession{
+		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
+		Participants: []string{"user1", "user2"}, EndAt: 0, PostID: "post1",
+	}
+
+	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
+	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user2"}).Return(nil)
+
+	existingPost := &model.Post{Id: "post1", Props: model.StringInterface{"call_id": callID}}
+	api.On("GetPost", "post1").Return(existingPost, nil)
+	api.On("UpdatePost", mock.MatchedBy(func(post *model.Post) bool {
+		participants, ok := post.Props["participants"].([]string)
+		return ok && len(participants) == 1 && participants[0] == "user2"
+	})).Return(existingPost, nil)
 	api.On("PublishWebSocketEvent", wsEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 

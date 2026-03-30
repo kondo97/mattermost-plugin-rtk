@@ -38,6 +38,26 @@ func nowMs() int64 {
 	return time.Now().UnixMilli()
 }
 
+// updatePostParticipants updates the participants list stored in the call post props.
+// Best-effort: errors are logged but not returned to avoid blocking call state transitions.
+func (p *Plugin) updatePostParticipants(postID string, participants []string) {
+	if postID == "" {
+		return
+	}
+	post, appErr := p.API.GetPost(postID)
+	if appErr != nil {
+		p.API.LogWarn("updatePostParticipants: GetPost failed", "post_id", postID, "err", appErr.Error())
+		return
+	}
+	if post.Props == nil {
+		post.Props = make(model.StringInterface)
+	}
+	post.Props["participants"] = participants
+	if _, appErr := p.API.UpdatePost(post); appErr != nil {
+		p.API.LogWarn("updatePostParticipants: UpdatePost failed", "post_id", postID, "err", appErr.Error())
+	}
+}
+
 // containsUser returns true if userID is in participants.
 func containsUser(participants []string, userID string) bool {
 	return slices.Contains(participants, userID)
@@ -186,6 +206,9 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 		return nil, "", fmt.Errorf("failed to update participants: %w", err)
 	}
 
+	// Update post participants — best effort
+	p.updatePostParticipants(session.PostID, session.Participants)
+
 	// BR-10: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
 		"call_id":      callID,
@@ -221,6 +244,9 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}
 	session.Participants = updated
+
+	// Update post participants — best effort
+	p.updatePostParticipants(session.PostID, updated)
 
 	// BR-12: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserLeft, map[string]any{
