@@ -21,7 +21,7 @@ jest.mock('@cloudflare/realtimekit-react-ui', () => ({
 
 import CallPage from './CallPage';
 
-const originalSendBeacon = navigator.sendBeacon;
+const mockFetch = jest.fn();
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -31,21 +31,13 @@ beforeEach(() => {
     const {useRealtimeKitClient} = require('@cloudflare/realtimekit-react');
     (useRealtimeKitClient as jest.Mock).mockReturnValue([null, mockInitMeeting]);
 
-    // Mock sendBeacon
-    Object.defineProperty(navigator, 'sendBeacon', {
-        value: jest.fn(),
-        writable: true,
-        configurable: true,
-    });
+    // Mock fetch for keepalive leave requests
+    mockFetch.mockResolvedValue({ok: true});
+    global.fetch = mockFetch;
 });
 
 afterEach(() => {
     jest.useRealTimers();
-    Object.defineProperty(navigator, 'sendBeacon', {
-        value: originalSendBeacon,
-        writable: true,
-        configurable: true,
-    });
 });
 
 describe('CallPage', () => {
@@ -107,7 +99,7 @@ describe('CallPage', () => {
         expect(mockInitMeeting).not.toHaveBeenCalled();
     });
 
-    it('registers beforeunload handler for sendBeacon', () => {
+    it('registers beforeunload handler', () => {
         const addEventSpy = jest.spyOn(window, 'addEventListener');
         mockInitMeeting.mockResolvedValue(undefined);
         render(
@@ -119,7 +111,7 @@ describe('CallPage', () => {
         expect(addEventSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
     });
 
-    it('calls sendBeacon with correct URL on beforeunload', () => {
+    it('calls fetch with keepalive on beforeunload', () => {
         mockInitMeeting.mockResolvedValue(undefined);
         render(
             <CallPage
@@ -132,8 +124,13 @@ describe('CallPage', () => {
         const event = new Event('beforeunload');
         window.dispatchEvent(event);
 
-        expect(navigator.sendBeacon).toHaveBeenCalledWith(
+        expect(mockFetch).toHaveBeenCalledWith(
             '/plugins/com.kondo97.mattermost-plugin-rtk/api/v1/calls/call1/leave',
+            expect.objectContaining({
+                method: 'POST',
+                keepalive: true,
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            }),
         );
     });
 

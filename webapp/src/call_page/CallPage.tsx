@@ -49,14 +49,21 @@ const CallPage = ({token, callId, embedded = false}: Props) => {
         attemptInit(token);
     }, [token, attemptInit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Leave on tab close via sendBeacon (BR-U4-011, US-013)
+    // Leave on tab close (BR-U4-011, US-013).
+    // Uses fetch+keepalive instead of sendBeacon so that auth headers are included.
     // Skip when embedded in iframe — the parent floating widget handles leave.
     useEffect(() => {
         if (!callId || embedded) {
             return undefined;
         }
         const handler = () => {
-            navigator.sendBeacon(`/plugins/${manifest.id}/api/v1/calls/${callId}/leave`);
+            fetch(`/plugins/${manifest.id}/api/v1/calls/${callId}/leave`, {
+                method: 'POST',
+                keepalive: true,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
         };
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler); // REL-U4-04

@@ -2,6 +2,7 @@
 // See LICENSE.txt for license information.
 
 import {pluginFetch} from 'client';
+import manifest from 'manifest';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
@@ -131,6 +132,28 @@ const FloatingWidget = () => {
             window.removeEventListener('mouseup', onMouseUp);
         };
     }, []);
+
+    // Leave call when browser tab is closed or navigated away (safety net).
+    // Uses fetch+keepalive instead of sendBeacon so that auth headers
+    // (X-Requested-With) are included — sendBeacon cannot set custom headers
+    // and may be rejected by Mattermost CSRF protection.
+    useEffect(() => {
+        if (!myActiveCall?.callId) {
+            return undefined;
+        }
+        const callId = myActiveCall.callId;
+        const handler = () => {
+            fetch(`/plugins/${manifest.id}/api/v1/calls/${callId}/leave`, {
+                method: 'POST',
+                keepalive: true,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [myActiveCall?.callId]);
 
     if (!myActiveCall || !activeCall) {
         if (myActiveCall) {
