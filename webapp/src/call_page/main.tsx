@@ -16,6 +16,7 @@ const token = params.get('token') ?? '';
 const callId = params.get('callId') ?? params.get('call_id') ?? '';
 const channelName = params.get('channel_name') ?? '';
 const embedded = params.get('embedded') === '1';
+const locale = params.get('locale') ?? navigator.language.split('-')[0];
 
 // Set browser tab title (BR-U4-008, US-006)
 document.title = channelName ? `Call in #${channelName}` : 'RTK Call';
@@ -27,5 +28,6 @@ ReactDOM.createRoot(rootEl).render(
         token={token}
         callId={callId}
         embedded={embedded}
+        locale={locale}
     />,
 );

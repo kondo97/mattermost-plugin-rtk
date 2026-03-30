@@ -77,15 +77,9 @@ const FloatingWidget = () => {
         }
         console.log('[rtk-plugin] meeting initialized, roomJoined=', meeting.self.roomJoined); // eslint-disable-line no-console
 
-        // If room is already joined when the effect runs, update state immediately
-        if (meeting.self.roomJoined) {
-            setRoomJoined(true);
-        }
-
         const onRoomJoined = () => {
             console.log('[rtk-plugin] roomJoined event fired'); // eslint-disable-line no-console
             setJoinError(null);
-            setRoomJoined(true);
         };
         const onRoomLeft = () => {
             console.log('[rtk-plugin] roomLeft event fired'); // eslint-disable-line no-console
@@ -288,7 +282,6 @@ const FloatingWidget = () => {
                                         onClick={() => {
                                             if (myActiveCall?.token) {
                                                 retryCountRef.current = 0;
-                                                setRoomJoined(false);
                                                 attemptInit(myActiveCall.token);
                                             }
                                         }}

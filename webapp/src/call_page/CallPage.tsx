@@ -6,17 +6,22 @@
 
 import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
 import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
+import {useLanguage} from '@cloudflare/realtimekit-ui';
 import manifest from 'manifest';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+
+import jaDict from '../utils/rtk_lang_ja';
 
 interface Props {
     token: string;
     callId: string;
     embedded?: boolean;
+    locale?: string;
 }
 
-const CallPage = ({token, callId, embedded = false}: Props) => {
+const CallPage = ({token, callId, embedded = false, locale}: Props) => {
     const [meeting, initMeeting] = useRealtimeKitClient();
+    const rtkT = useLanguage(locale === 'ja' ? jaDict : undefined);
     const [initError, setInitError] = useState<string | null>(null);
 
     const MAX_RETRIES = 3;
@@ -132,6 +137,7 @@ const CallPage = ({token, callId, embedded = false}: Props) => {
         >
             <RtkMeeting
                 meeting={meeting}
+                t={rtkT}
                 mode='fill'
                 showSetupScreen={!embedded}
                 data-testid='call-page-meeting'
