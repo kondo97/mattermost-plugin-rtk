@@ -1,9 +1,9 @@
 import path from 'path';
 
 import react from '@vitejs/plugin-react';
-import cssInjectedByJs from 'vite-plugin-css-injected-by-js';
 import {defineConfig} from 'vite';
 import type {Plugin} from 'vite';
+import cssInjectedByJs from 'vite-plugin-css-injected-by-js';
 
 // Mattermost's CSP blocks blob: URLs for Web Workers.
 // worker-timers (a dependency of @cloudflare/realtimekit) creates a worker from a blob: URL.

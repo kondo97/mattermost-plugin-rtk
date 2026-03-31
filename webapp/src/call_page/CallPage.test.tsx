@@ -146,12 +146,16 @@ describe('CallPage', () => {
         });
 
         // Advance through all 3 retries (2s each)
+        // eslint-disable-next-line no-await-in-loop
         for (let i = 0; i < 3; i++) {
+            // eslint-disable-next-line no-await-in-loop
             await act(async () => {
                 jest.advanceTimersByTime(2000);
             });
-            // Flush the rejected promise from the retry
+
+            // eslint-disable-next-line no-await-in-loop
             await act(async () => {
+                // Flush the rejected promise from the retry
                 await Promise.resolve();
             });
         }

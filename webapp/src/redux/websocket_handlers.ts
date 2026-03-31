@@ -173,7 +173,8 @@ export function handleCallStarted(store: Store<GlobalState>, currentUserId: stri
     };
 }
 
-export function handleUserJoined(store: Store<GlobalState>, currentUserId: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function handleUserJoined(store: Store<GlobalState>, _currentUserId: string) {
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isUserJoinedPayload(data)) {

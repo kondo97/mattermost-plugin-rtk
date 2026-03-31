@@ -223,14 +223,16 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
         lineHeight: '16px',
         cursor: disabled ? 'default' : 'pointer',
         transition: 'background 0.15s ease, color 0.15s ease',
-        color: disabled
-            ? 'rgba(var(--center-channel-color-rgb), 0.32)'
-            : hasActiveCall
-                ? '#3db887'
-                : 'rgba(var(--center-channel-color-rgb), 0.64)',
-        background: hover && !disabled
-            ? 'rgba(var(--center-channel-color-rgb), 0.08)'
-            : 'transparent',
+        // eslint-disable-next-line no-nested-ternary
+        color: disabled ?
+            'rgba(var(--center-channel-color-rgb), 0.32)' :
+            // eslint-disable-next-line no-nested-ternary
+            hasActiveCall ?
+                '#3db887' :
+                'rgba(var(--center-channel-color-rgb), 0.64)',
+        background: hover && !disabled ?
+            'rgba(var(--center-channel-color-rgb), 0.08)' :
+            'transparent',
     };
 
     return (

@@ -1,6 +1,9 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
+import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
+import {useLanguage} from '@cloudflare/realtimekit-ui';
 import {pluginFetch} from 'client';
 import manifest from 'manifest';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
@@ -8,11 +11,6 @@ import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {clearMyActiveCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
-
-import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
-import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
-import {useLanguage} from '@cloudflare/realtimekit-ui';
-
 import jaDict from 'utils/rtk_lang_ja';
 
 const INITIAL_WIDTH = 400;
@@ -73,7 +71,7 @@ const FloatingWidget = () => {
     // Debug: log meeting state and connection events
     useEffect(() => {
         if (!meeting) {
-            return;
+            return undefined;
         }
         console.log('[rtk-plugin] meeting initialized, roomJoined=', meeting.self.roomJoined); // eslint-disable-line no-console
 
@@ -236,9 +234,7 @@ const FloatingWidget = () => {
                         <button
                             type='button'
                             style={headerBtnStyle}
-                            title={isMinimized ?
-                                intl.formatMessage({id: 'plugin.rtk.floating_widget.expand'}) :
-                                intl.formatMessage({id: 'plugin.rtk.floating_widget.minimize'})}
+                            title={isMinimized ? intl.formatMessage({id: 'plugin.rtk.floating_widget.expand'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.minimize'})}
                             onClick={() => setIsMinimized((v) => !v)}
                         >
                             {isMinimized ? '\u25B2' : '\u25BC'}
@@ -247,9 +243,7 @@ const FloatingWidget = () => {
                     <button
                         type='button'
                         style={headerBtnStyle}
-                        title={isFullscreen ?
-                            intl.formatMessage({id: 'plugin.rtk.floating_widget.exit_fullscreen'}) :
-                            intl.formatMessage({id: 'plugin.rtk.floating_widget.fullscreen'})}
+                        title={isFullscreen ? intl.formatMessage({id: 'plugin.rtk.floating_widget.exit_fullscreen'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.fullscreen'})}
                         onClick={() => {
                             setIsFullscreen((v) => !v);
                             setIsMinimized(false);
@@ -273,6 +267,7 @@ const FloatingWidget = () => {
             {!isMinimized && (
                 <div style={{flex: isFullscreen ? 1 : undefined, height: isFullscreen ? undefined : INITIAL_HEIGHT, overflow: 'hidden'}}>
                     <RealtimeKitProvider value={meeting}>
+                        {/* eslint-disable-next-line no-nested-ternary */}
                         {joinError ? (
                             <div style={messageStyle}>
                                 <div>

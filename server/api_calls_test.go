@@ -45,6 +45,7 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
+	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted, mock.Anything, mock.Anything).Return()
 
@@ -149,6 +150,7 @@ func TestHandleLeaveCall_Success(t *testing.T) {
 	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
 	// last participant left → auto-end
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
+	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	api.On("PublishWebSocketEvent", wsEventUserLeft, mock.Anything, mock.Anything).Return()
 	api.On("PublishWebSocketEvent", wsEventCallEnded, mock.Anything, mock.Anything).Return()
@@ -169,6 +171,7 @@ func TestHandleEndCall_Success(t *testing.T) {
 	session := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", CreatorID: "user1", MeetingID: "mtg1"}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
+	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	api.On("PublishWebSocketEvent", wsEventCallEnded, mock.Anything, mock.Anything).Return()
 	api.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
