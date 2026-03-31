@@ -1,223 +1,144 @@
-# Plugin Starter Template
+# Mattermost RTK Plugin
 
-[![Build Status](https://github.com/mattermost/mattermost-plugin-starter-template/actions/workflows/ci.yml/badge.svg)](https://github.com/mattermost/mattermost-plugin-starter-template/actions/workflows/ci.yml)
-[![E2E Status](https://github.com/mattermost/mattermost-plugin-starter-template/actions/workflows/e2e.yml/badge.svg)](https://github.com/mattermost/mattermost-plugin-starter-template/actions/workflows/e2e.yml)
+A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.cloudflare.com/realtime/) to add video and voice calling directly within Mattermost channels.
 
-This plugin serves as a starting point for writing a Mattermost plugin. Feel free to base your own plugin off this repository.
+| | |
+|---|---|
+| **Plugin ID** | `com.kondo97.mattermost-plugin-rtk` |
+| **Min Mattermost** | 10.11.0 |
+| **Backend** | Go 1.25 |
+| **Frontend** | React 18 + TypeScript |
 
-To learn more about plugins, see [our plugin documentation](https://developers.mattermost.com/extend/plugins/).
+---
 
-This template requires node v16 and npm v8. You can download and install nvm to manage your node versions by following the instructions [here](https://github.com/nvm-sh/nvm). Once you've setup the project simply run `nvm i` within the root folder to use the suggested version of node.
+## Features
 
-## Getting Started
-Use GitHub's template feature to make a copy of this repository by clicking the "Use this template" button.
+- **Start a call** from the channel header — one active call per channel
+- **Join / leave** from the header button, channel post, or toast bar
+- **Floating in-call widget** — drag, minimize, and fullscreen while staying in Mattermost
+- **Standalone call page** — opens in a new tab for a full-screen experience
+- **Incoming call notification** — ringing alert for DM and GM channels (30-second auto-dismiss)
+- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand
+- **Admin Console integration** — configure credentials in the System Console or via environment variables
+- **Japanese UI** — full i18n support including RTK SDK UI strings
 
-Alternatively shallow clone the repository matching your plugin name:
+---
+
+## Architecture Overview
+
 ```
-git clone --depth 1 https://github.com/mattermost/mattermost-plugin-starter-template com.example.my-plugin
++---------------------------------------------------------------------+
+|  Browser                                                            |
+|  main.js (Mattermost plugin bundle)     call.js (standalone tab)   |
+|  ChannelHeaderButton  CallPost          CallPage                    |
+|  ToastBar  FloatingWidget               useRealtimeKitClient()      |
+|  IncomingCallNotification               RtkMeeting UI               |
+|  Redux (calls_slice) + WebSocket handlers                           |
++----------------------------+------------------+---------------------+
+                             | REST / WebSocket  | New tab
+                             v                  |
++----------------------------+------------------+
+|  Go Plugin                                    |
+|  calls.go  —  CreateCall / JoinCall /         |
+|               LeaveCall / EndCall             |
+|  api_*.go  —  REST endpoints                  |
+|  rtkclient/  —  Cloudflare RTK HTTP client    |
+|  store/kvstore/  —  KVStore abstraction       |
++-------------------+---------------------------+
+                    |                    ^ Webhook (HMAC-SHA256)
+                    v                    |
+            Mattermost KVStore    Cloudflare RTK API
+            call:id / channel /   api.realtime.cloudflare.com/v2
+            meeting / active_calls
 ```
 
-Note that this project uses [Go modules](https://github.com/golang/go/wiki/Modules). Be sure to locate the project outside of `$GOPATH`.
+**Key design decisions:**
 
-Edit the following files:
-1. `plugin.json` with your `id`, `name`, and `description`:
-```json
-{
-    "id": "com.example.my-plugin",
-    "name": "My Plugin",
-    "description": "A plugin to enhance Mattermost."
-}
-```
+| Topic | Decision |
+|-------|---------|
+| Call state | Stored in Mattermost KVStore; synced via WebSocket events |
+| Concurrency | Single `callMu sync.Mutex` guards all call state mutations |
+| Participant cleanup | RTK webhook (`meeting.participantLeft`) triggers `LeaveCall` |
+| Call page auth | JWT token passed as URL parameter; tab close fires `fetch + keepalive` |
+| CSP workaround | Vite build patches `worker-timers` blob URL → static `/worker.js` endpoint |
+| Feature flags | `*bool` fields default to `true` (nil = enabled); overridable via env vars |
 
-2. `go.mod` with your Go module path, following the `<hosting-site>/<repository>/<module>` convention:
-```
-module github.com/example/my-plugin
-```
+For a full description of every component, data flow, and API, see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
-3. Replace all occurrences of `github.com/mattermost/mattermost-plugin-starter-template` in the codebase with your Go module path:
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Mattermost 10.11.0+
+- A [Cloudflare RealtimeKit](https://dash.cloudflare.com/) account (Organization ID + API Key)
+- Go 1.25, Node 18+, npm 9+
+
+### Build
+
 ```bash
-sed -i '' 's|github.com/mattermost/mattermost-plugin-starter-template|github.com/example/my-plugin|g' server/*.go
+# Server binaries (linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
+make build
+
+# Frontend — main bundle
+cd webapp && npm install && npm run build
+
+# Frontend — standalone call page bundle
+cd webapp && VITE_BUILD_TARGET=call npm run build
 ```
 
-4. Replace `.golangci.yml` `local-prefixes` attribute with your Go module path:
-```yml
-linters-settings:
-  # [...]
-  goimports:
-    local-prefixes: github.com/example/my-plugin
-```
+### Configure
 
-5. Build your plugin:
-```
-make
-```
+Set credentials in **System Console → Plugins → RTK Plugin**, or via environment variables:
 
-This will produce a single plugin file (with support for multiple architectures) for upload to your Mattermost server:
-
-```
-dist/com.example.my-plugin.tar.gz
-```
-
-## Development
-
-To avoid having to manually install your plugin, build and deploy your plugin using one of the following options. In order for the below options to work, you must first enable plugin uploads via your config.json or API and restart Mattermost.
-
-```json
-    "PluginSettings" : {
-        ...
-        "EnableUploads" : true
-    }
-```
-
-### Development guidance
-
-1. Fewer packages is better: default to the main package unless there's good reason for a new package.
-
-2. Coupling implies same package: don't jump through hoops to break apart code that's naturally coupled.
-
-3. New package for a new interface: a classic example is the sqlstore with layers for monitoring performance, caching and mocking.
-
-4. New package for upstream integration: a discrete client package for interfacing with a 3rd party is often a great place to break out into a new package
-
-### Modifying the server boilerplate
-
-The server code comes with some boilerplate for creating an api, using slash commands, accessing the kvstore and using the cluster package for jobs.
-
-#### Api
-
-api.go implements the ServeHTTP hook which allows the plugin to implement the http.Handler interface. Requests destined for the `/plugins/{id}` path will be routed to the plugin. This file also contains a sample `HelloWorld` endpoint that is tested in plugin_test.go.
-
-#### Command package
-
-This package contains the boilerplate for adding a slash command and an instance of it is created in the `OnActivate` hook in plugin.go. If you don't need it you can delete the package and remove any reference to `commandClient` in plugin.go. The package also contains an example of how to create a mock for testing.
-
-#### KVStore package
-
-This is a central place for you to access the KVStore methods that are available in the `pluginapi.Client`. The package contains an interface for you to define your methods that will wrap the KVStore methods. An instance of the KVStore is created in the `OnActivate` hook.
-
-### Deploying with Local Mode
-
-If your Mattermost server is running locally, you can enable [local mode](https://docs.mattermost.com/administration/mmctl-cli-tool.html#local-mode) to streamline deploying your plugin. Edit your server configuration as follows:
-
-```json
-{
-    "ServiceSettings": {
-        ...
-        "EnableLocalMode": true,
-        "LocalModeSocketLocation": "/var/tmp/mattermost_local.socket"
-    },
-}
-```
-
-and then deploy your plugin:
-```
-make deploy
-```
-
-You may also customize the Unix socket path:
 ```bash
-export MM_LOCALSOCKETPATH=/var/tmp/alternate_local.socket
-make deploy
+RTK_ORG_ID=<your-cloudflare-org-id>
+RTK_API_KEY=<your-cloudflare-api-key>
 ```
 
-If developing a plugin with a webapp, watch for changes and deploy those automatically:
+Environment variables take strict precedence over the System Console values.
+
+### Deploy (local mode)
+
 ```bash
 export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_TOKEN=j44acwd8obn78cdcx7koid4jkr
-make watch
-```
-
-### Deploying with credentials
-
-Alternatively, you can authenticate with the server's API with credentials:
-```bash
-export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_USERNAME=admin
-export MM_ADMIN_PASSWORD=password
+export MM_ADMIN_TOKEN=<your-token>
 make deploy
 ```
 
-or with a [personal access token](https://docs.mattermost.com/developer/personal-access-tokens.html):
-```bash
-export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_TOKEN=j44acwd8obn78cdcx7koid4jkr
-make deploy
-```
+---
 
-### Releasing new versions
+## Configuration
 
-The version of a plugin is determined at compile time, automatically populating a `version` field in the [plugin manifest](plugin.json):
-* If the current commit matches a tag, the version will match after stripping any leading `v`, e.g. `1.3.1`.
-* Otherwise, the version will combine the nearest tag with `git rev-parse --short HEAD`, e.g. `1.3.1+d06e53e1`.
-* If there is no version tag, an empty version will be combined with the short hash, e.g. `0.0.0+76081421`.
+All settings are configurable from the System Console. Each can also be overridden by an environment variable.
 
-To disable this behaviour, manually populate and maintain the `version` field.
+| Setting | Env Var | Default | Description |
+|---------|---------|---------|-------------|
+| Cloudflare Org ID | `RTK_ORG_ID` | — | Required to enable the plugin |
+| Cloudflare API Key | `RTK_API_KEY` | — | Required to enable the plugin |
+| Recording | `RTK_RECORDING_ENABLED` | `true` | Allow call recording |
+| Screen Share | `RTK_SCREEN_SHARE_ENABLED` | `true` | Allow screen sharing |
+| Polls | `RTK_POLLS_ENABLED` | `true` | In-call polls |
+| Transcription | `RTK_TRANSCRIPTION_ENABLED` | `true` | Real-time transcription |
+| Waiting Room | `RTK_WAITING_ROOM_ENABLED` | `true` | Require host approval to join |
+| Video | `RTK_VIDEO_ENABLED` | `true` | Camera video |
+| Chat | `RTK_CHAT_ENABLED` | `true` | In-call text chat |
+| Plugins | `RTK_PLUGINS_ENABLED` | `true` | Third-party RTK plugins |
+| Participants Panel | `RTK_PARTICIPANTS_ENABLED` | `true` | Participant list UI |
+| Raise Hand | `RTK_RAISE_HAND_ENABLED` | `true` | Raise hand feature |
 
-## How to Release
+---
 
-To trigger a release, follow these steps:
+## Documentation
 
-1. **For Patch Release:** Run the following command:
-    ```
-    make patch
-    ```
-   This will release a patch change.
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Full implementation guide: system diagram, server/frontend architecture, data flows, API reference, WebSocket events, security design |
+| [aidlc-docs/](./aidlc-docs/) | AI-DLC design artifacts: requirements, user stories, functional design, NFR design, and code generation plans for each unit |
 
-2. **For Minor Release:** Run the following command:
-    ```
-    make minor
-    ```
-   This will release a minor change.
+---
 
-3. **For Major Release:** Run the following command:
-    ```
-    make major
-    ```
-   This will release a major change.
+## License
 
-4. **For Patch Release Candidate (RC):** Run the following command:
-    ```
-    make patch-rc
-    ```
-   This will release a patch release candidate.
-
-5. **For Minor Release Candidate (RC):** Run the following command:
-    ```
-    make minor-rc
-    ```
-   This will release a minor release candidate.
-
-6. **For Major Release Candidate (RC):** Run the following command:
-    ```
-    make major-rc
-    ```
-   This will release a major release candidate.
-
-## Q&A
-
-### How do I make a server-only or web app-only plugin?
-
-Simply delete the `server` or `webapp` folders and remove the corresponding sections from `plugin.json`. The build scripts will skip the missing portions automatically.
-
-### How do I include assets in the plugin bundle?
-
-Place them into the `assets` directory. To use an asset at runtime, build the path to your asset and open as a regular file:
-
-```go
-bundlePath, err := p.API.GetBundlePath()
-if err != nil {
-    return errors.Wrap(err, "failed to get bundle path")
-}
-
-profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile_image.png"))
-if err != nil {
-    return errors.Wrap(err, "failed to read profile image")
-}
-
-if appErr := p.API.SetProfileImage(userID, profileImage); appErr != nil {
-    return errors.Wrap(err, "failed to set profile image")
-}
-```
-
-### How do I build the plugin with unminified JavaScript?
-Setting the `MM_DEBUG` environment variable will invoke the debug builds. The simplist way to do this is to simply include this variable in your calls to `make` (e.g. `make dist MM_DEBUG=1`).
+See [LICENSE](./LICENSE).
