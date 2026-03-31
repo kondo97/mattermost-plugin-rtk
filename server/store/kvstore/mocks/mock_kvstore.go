@@ -128,21 +128,6 @@ func (mr *MockKVStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByMeetingID", reflect.TypeOf((*MockKVStore)(nil).GetCallByMeetingID), meetingID)
 }
 
-// GetTemplateData mocks base method.
-func (m *MockKVStore) GetTemplateData(userID string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTemplateData", userID)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTemplateData indicates an expected call of GetTemplateData.
-func (mr *MockKVStoreMockRecorder) GetTemplateData(userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTemplateData", reflect.TypeOf((*MockKVStore)(nil).GetTemplateData), userID)
-}
-
 // GetVoIPToken mocks base method.
 func (m *MockKVStore) GetVoIPToken(userID string) (string, error) {
 	m.ctrl.T.Helper()

@@ -13,6 +13,7 @@ import (
 	"github.com/kondo97/mattermost-plugin-rtk/server/command"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store/sqlstore"
 )
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
@@ -56,7 +57,11 @@ var rtkWebhookEvents = []string{"meeting.participantLeft", "meeting.ended"}
 func (p *Plugin) OnActivate() error {
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 
-	p.kvStore = kvstore.NewKVStore(p.client)
+	store, err := sqlstore.NewStore(p.client)
+	if err != nil {
+		return fmt.Errorf("plugin: init sqlstore: %w", err)
+	}
+	p.kvStore = store
 
 	p.commandClient = command.NewCommandHandler(p.client)
 
