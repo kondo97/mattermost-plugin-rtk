@@ -1,5 +1,10 @@
 package rtkclient
 
+import "errors"
+
+// ErrMeetingNotFound is returned when the requested RTK meeting does not exist (HTTP 404).
+var ErrMeetingNotFound = errors.New("meeting not found")
+
 // RTKClient defines the interface for interacting with the Cloudflare RealtimeKit API.
 type RTKClient interface {
 	// CreateMeeting creates a new RTK meeting and returns the meeting.
