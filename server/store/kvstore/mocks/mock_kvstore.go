@@ -128,21 +128,6 @@ func (mr *MockKVStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByMeetingID", reflect.TypeOf((*MockKVStore)(nil).GetCallByMeetingID), meetingID)
 }
 
-// GetVoIPToken mocks base method.
-func (m *MockKVStore) GetVoIPToken(userID string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVoIPToken", userID)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetVoIPToken indicates an expected call of GetVoIPToken.
-func (mr *MockKVStoreMockRecorder) GetVoIPToken(userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVoIPToken", reflect.TypeOf((*MockKVStore)(nil).GetVoIPToken), userID)
-}
-
 // GetWebhookID mocks base method.
 func (m *MockKVStore) GetWebhookID() (string, error) {
 	m.ctrl.T.Helper()
@@ -199,20 +184,6 @@ func (m *MockKVStore) SaveCall(session *kvstore.CallSession) error {
 func (mr *MockKVStoreMockRecorder) SaveCall(session any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveCall", reflect.TypeOf((*MockKVStore)(nil).SaveCall), session)
-}
-
-// StoreVoIPToken mocks base method.
-func (m *MockKVStore) StoreVoIPToken(userID, token string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreVoIPToken", userID, token)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StoreVoIPToken indicates an expected call of StoreVoIPToken.
-func (mr *MockKVStoreMockRecorder) StoreVoIPToken(userID, token any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreVoIPToken", reflect.TypeOf((*MockKVStore)(nil).StoreVoIPToken), userID, token)
 }
 
 // StoreWebhookID mocks base method.

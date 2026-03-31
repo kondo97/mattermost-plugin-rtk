@@ -73,11 +73,6 @@ func (s *Store) createTablesIfNotExist() error {
 			PostId      VARCHAR(26)  NOT NULL,
 			PRIMARY KEY (Id)
 		)`,
-		`CREATE TABLE IF NOT EXISTS RTK_VoIPTokens (
-			UserId VARCHAR(26) NOT NULL,
-			Token  TEXT        NOT NULL,
-			PRIMARY KEY (UserId)
-		)`,
 		`CREATE TABLE IF NOT EXISTS RTK_WebhookConfig (
 			Key   VARCHAR(255) NOT NULL,
 			Value TEXT         NOT NULL,
