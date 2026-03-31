@@ -2,6 +2,7 @@ package kvstore
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/pkg/errors"
 )
@@ -147,10 +148,8 @@ func (kv Client) AddActiveCallID(callID string) error {
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		if id == callID {
-			return nil // already present
-		}
+	if slices.Contains(ids, callID) {
+		return nil // already present
 	}
 	ids = append(ids, callID)
 	if _, err := kv.client.KV.Set(keyActiveCalls, ids); err != nil {

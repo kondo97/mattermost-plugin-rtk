@@ -5,3 +5,9 @@ import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
 import Enzyme from 'enzyme';
 
 Enzyme.configure({adapter: new Adapter()});
+
+// structuredClone is not available in older jsdom/Node versions used by Jest.
+// @cloudflare/realtimekit-ui calls it at module init time.
+if (typeof globalThis.structuredClone === 'undefined') {
+    globalThis.structuredClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
+}

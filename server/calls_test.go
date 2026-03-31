@@ -373,4 +373,3 @@ func TestEndCall_AlreadyEnded(t *testing.T) {
 	err := p.EndCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
-

@@ -38,9 +38,9 @@ type apiResponse[T any] struct {
 
 // createMeetingRequest is the request body for creating a meeting.
 type createMeetingRequest struct {
-	Title              string `json:"title"`
-	RecordOnStart      bool   `json:"record_on_start"`
-	LiveStreamOnStart  bool   `json:"live_stream_on_start"`
+	Title             string `json:"title"`
+	RecordOnStart     bool   `json:"record_on_start"`
+	LiveStreamOnStart bool   `json:"live_stream_on_start"`
 }
 
 // createMeetingData is the data field in the create meeting response.
