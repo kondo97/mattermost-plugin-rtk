@@ -19,8 +19,12 @@ export async function pluginFetch<T>(
 ): Promise<FetchResult<T>> {
     try {
         const resp = await fetch(`/plugins/${manifest.id}${path}`, {
-            headers: {'Content-Type': 'application/json'},
             ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                ...options?.headers,
+            },
         });
 
         if (!resp.ok) {

@@ -20,7 +20,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 | WebRTC / media infrastructure | Mattermost SFU | Cloudflare RealtimeKit | Different backend |
 | Admin credentials | Mattermost-specific (TURN/ICE servers) | Cloudflare RTK (org ID + API key) | Different backend |
 | Feature flags | Various (recording, screen share, etc.) | 10 RTK-specific flags via admin UI + env vars | Extended |
-| Mobile push delivery | Mattermost push notification infrastructure | Same Mattermost push notification infrastructure | Aligned |
+| Mobile push delivery | Mattermost push notification infrastructure | WebSocket events (push notifications removed) | Diverges |
 | Web Worker CSP compliance | Handled by Mattermost server | Plugin serves `/plugins/{id}/worker.js` | Plugin responsibility |
 
 ---
@@ -105,7 +105,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] A sound cue plays on the Mattermost side when the `POST /api/v1/calls` response is received (not on call page load).
 - [ ] If the RTK API returns an error, a modal is shown with the error message — no inline channel message is posted.
 
-*Mobile variant*: On mobile, the push notification (US-022) serves as the call announcement; the creator does not receive their own push notification.
+*Mobile variant*: On mobile, the WebSocket event (`custom_cf_call_started`) serves as the call announcement; the creator does not receive their own push notification.
 
 ---
 
@@ -254,6 +254,9 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 ## Journey 8: Mobile — Incoming Call
 
 ### US-018: Receive Incoming Call Push Notification
+
+> **Updated 2026-03-31**: This story's push notification approach has been REMOVED. Mobile clients receive call notifications via WebSocket events instead.
+
 **Persona**: Mobile User
 **As a** mobile user, **I want to** receive a push notification when someone starts a call in a channel I belong to, **so that** I can decide whether to join the call natively.
 

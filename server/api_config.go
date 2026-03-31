@@ -50,6 +50,8 @@ func (p *Plugin) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"enabled":           enabled,
+		"org_id_via_env":    cfg.OrgIDFromEnv(),
+		"api_key_via_env":   cfg.APIKeyFromEnv(),
 		"cloudflare_org_id": cfg.CloudflareOrgID,
 		"feature_flags":     configFeatureFlags(cfg),
 	})

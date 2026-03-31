@@ -138,27 +138,22 @@ interface Props {
 
 **Responsibilities**:
 1. Show error screen if `token` is empty
-2. Initialize heartbeat loop via `useEffect` (15s interval, cleanup on unmount)
-3. Register `beforeunload` handler via `useEffect` (sendBeacon, cleanup on unmount)
-4. Render `<DyteProvider client={meeting}>` + `<RtkMeeting mode="fill" />`
+2. ~~Initialize heartbeat loop~~ — **Deferred / not implemented** (RTK webhook handles participant cleanup)
+3. Register `beforeunload` handler via `useEffect` (fetch+keepalive, cleanup on unmount)
+4. Render `<RealtimeKitProvider client={meeting}>` + `<RtkMeeting mode="fill" />`
 
-**Heartbeat effect**:
-```typescript
-useEffect(() => {
-    if (!callId) return undefined;
-    const id = setInterval(() => {
-        fetch(`/plugins/${PLUGIN_ID}/api/v1/calls/${callId}/heartbeat`, {method: 'POST'});
-    }, 15_000);
-    return () => clearInterval(id);
-}, [callId]);
-```
+> **Updated 2026-03-30**: Heartbeat loop removed (deferred). `navigator.sendBeacon` replaced by `fetch` with `keepalive: true` and custom `X-Requested-With` header. `DyteProvider` renamed to `RealtimeKitProvider`, `useDyteClient` renamed to `useRealtimeKitClient`.
 
-**sendBeacon effect**:
+**fetch+keepalive effect (beforeunload)**:
 ```typescript
 useEffect(() => {
     if (!callId) return undefined;
     const handler = () => {
-        navigator.sendBeacon(`/plugins/${PLUGIN_ID}/api/v1/calls/${callId}/leave`);
+        fetch(`/plugins/${PLUGIN_ID}/api/v1/calls/${callId}/leave`, {
+            method: 'POST',
+            keepalive: true,
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+        });
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
@@ -167,7 +162,7 @@ useEffect(() => {
 
 **RTK UI Kit initialization**:
 ```typescript
-const [meeting, initMeeting] = useDyteClient();  // from @cloudflare/realtimekit-react
+const [meeting, initMeeting] = useRealtimeKitClient();  // from @cloudflare/realtimekit-react
 
 useEffect(() => {
     initMeeting({
@@ -186,14 +181,14 @@ if (!meeting) {
     return <div data-testid="call-page-loading">Connecting...</div>;
 }
 return (
-    <DyteProvider value={meeting} fallback={<div>Loading...</div>}>
+    <RealtimeKitProvider value={meeting} fallback={<div>Loading...</div>}>
         <RtkMeeting mode="fill" />
-    </DyteProvider>
+    </RealtimeKitProvider>
 );
 ```
 
 **Dependencies** (new packages):
-- `@cloudflare/realtimekit-react` — `useDyteClient`, `DyteProvider`
+- `@cloudflare/realtimekit-react` — `useRealtimeKitClient`, `RealtimeKitProvider`
 - `@cloudflare/realtimekit-react-ui` — `RtkMeeting`
 
 ---
@@ -285,8 +280,8 @@ registry.registerPostTypeComponent(
 | US-009: Join from post | CallPost join button handler |
 | US-010: Join disabled when already in call | CallPost + selectMyActiveCall |
 | US-012: Post updates in real-time | CallPost + Redux selectors |
-| US-013: Leave by closing tab | CallPage sendBeacon |
+| US-013: Leave by closing tab | CallPage fetch+keepalive |
 | US-015: Host ends call | CallPage RtkMeeting (UI Kit host controls) |
 | US-016: Post ended state | CallPost (ended state) |
 | US-006: Tab title | CallPage document.title |
-| US-025: Last-participant auto-end | CallPage sendBeacon → server handles |
+| US-025: Last-participant auto-end | CallPage fetch+keepalive → server handles |

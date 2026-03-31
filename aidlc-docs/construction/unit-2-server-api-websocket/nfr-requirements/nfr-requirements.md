@@ -62,7 +62,7 @@
 | ID | Requirement | Source |
 |---|---|---|
 | MAINT-U2-01 | Unit tests for all handlers using `httptest.NewRecorder` with existing `mock_kvstore.go` and `mock_rtkclient.go` | NFR Q4 decision |
-| MAINT-U2-02 | Handler files organized by resource: `api/calls.go`, `api/heartbeat.go`, `api/config.go`, `api/mobile.go`, `api/static.go`, `api/handler.go` | unit-of-work.md |
+| MAINT-U2-02 | Handler files use flat structure: `server/api.go` (router setup + middleware), `server/api_calls.go`, `server/api_config.go`, `server/api_static.go`, etc. **Updated 2026-03-30**: Changed from `server/api/` subdirectory to flat files in `server/`. Heartbeat handler (`api/heartbeat.go`) not implemented. | unit-of-work.md |
 | MAINT-U2-03 | Structured logging in all handlers using `p.API.LogInfo`, `p.API.LogWarn`, `p.API.LogError` | Inherits MAINT-04 from Unit 1 |
 | MAINT-U2-04 | Log entries include: call_id (where applicable), user_id, handler name, error | Inherits MAINT-05 from Unit 1 |
 

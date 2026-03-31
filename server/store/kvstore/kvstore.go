@@ -23,6 +23,13 @@ type KVStore interface {
 	// GetVoIPToken retrieves the VoIP device token for a user.
 	GetVoIPToken(userID string) (string, error)
 
+	// GetActiveCallIDs returns the list of currently active call IDs.
+	GetActiveCallIDs() ([]string, error)
+	// AddActiveCallID adds a call ID to the active calls index.
+	AddActiveCallID(callID string) error
+	// RemoveActiveCallID removes a call ID from the active calls index.
+	RemoveActiveCallID(callID string) error
+
 	// StoreWebhookID persists the registered RTK webhook ID.
 	StoreWebhookID(id string) error
 	// GetWebhookID retrieves the registered RTK webhook ID, or empty string if not set.

@@ -12,18 +12,50 @@ import (
 )
 
 const (
-	wsEventCallStarted   = "custom_cf_call_started"
-	wsEventUserJoined    = "custom_cf_user_joined"
-	wsEventUserLeft      = "custom_cf_user_left"
-	wsEventCallEnded     = "custom_cf_call_ended"
+	wsEventCallStarted   = "call_started"
+	wsEventUserJoined    = "user_joined"
+	wsEventUserLeft      = "user_left"
+	wsEventCallEnded     = "call_ended"
 	callPostType         = "custom_cf_call"
 	rtkPresetHost        = "group_call_host"
 	rtkPresetParticipant = "group_call_participant"
 )
 
+// getUserDisplayName returns the display name for a Mattermost user.
+func (p *Plugin) getUserDisplayName(userID string) string {
+	user, appErr := p.API.GetUser(userID)
+	if appErr != nil || user == nil {
+		return "Someone"
+	}
+	if name := user.GetDisplayName(model.ShowFullName); name != "" {
+		return name
+	}
+	return "@" + user.Username
+}
+
 // nowMs returns the current time as Unix milliseconds.
 func nowMs() int64 {
 	return time.Now().UnixMilli()
+}
+
+// updatePostParticipants updates the participants list stored in the call post props.
+// Best-effort: errors are logged but not returned to avoid blocking call state transitions.
+func (p *Plugin) updatePostParticipants(postID string, participants []string) {
+	if postID == "" {
+		return
+	}
+	post, appErr := p.API.GetPost(postID)
+	if appErr != nil {
+		p.API.LogWarn("updatePostParticipants: GetPost failed", "post_id", postID, "err", appErr.Error())
+		return
+	}
+	if post.Props == nil {
+		post.Props = make(model.StringInterface)
+	}
+	post.Props["participants"] = participants
+	if _, appErr := p.API.UpdatePost(post); appErr != nil {
+		p.API.LogWarn("updatePostParticipants: UpdatePost failed", "post_id", postID, "err", appErr.Error())
+	}
 }
 
 // containsUser returns true if userID is in participants.
@@ -69,7 +101,8 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		return nil, "", fmt.Errorf("failed to create meeting: %w", err)
 	}
 
-	token, err := p.rtkClient.GenerateToken(meeting.ID, userID, rtkPresetHost)
+	displayName := p.getUserDisplayName(userID)
+	token, err := p.rtkClient.GenerateToken(meeting.ID, userID, displayName, rtkPresetHost)
 	if err != nil {
 		p.API.LogError("CreateCall: GenerateToken failed", "channel_id", channelID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -89,6 +122,9 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 	if err := p.kvStore.SaveCall(session); err != nil {
 		p.API.LogError("CreateCall: SaveCall failed", "call_id", session.ID, "channel_id", channelID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to save call: %w", err)
+	}
+	if err := p.kvStore.AddActiveCallID(session.ID); err != nil {
+		p.API.LogWarn("CreateCall: AddActiveCallID failed (best effort)", "call_id", session.ID, "err", err.Error())
 	}
 
 	// BR-04: create post — best effort
@@ -124,14 +160,6 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		"post_id":      session.PostID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
 
-	// BR-P01: best-effort push notification (DM/GM only, max 8 members)
-	if p.pushSender != nil {
-		if err := p.pushSender.SendIncomingCall(session); err != nil {
-			p.API.LogWarn("CreateCall: SendIncomingCall failed (best effort)",
-				"call_id", session.ID, "channel_id", channelID, "err", err.Error())
-		}
-	}
-
 	p.API.LogInfo("call started", "call_id", session.ID, "channel_id", channelID, "creator_id", userID)
 
 	return session, token.Token, nil
@@ -152,12 +180,18 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 		p.API.LogError("JoinCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to get call: %w", err)
 	}
-	if session == nil || session.EndAt != 0 {
+	if session == nil {
+		p.API.LogError("JoinCall: call not found in KV store", "call_id", callID, "user_id", userID)
+		return nil, "", ErrCallNotFound
+	}
+	if session.EndAt != 0 {
+		p.API.LogError("JoinCall: call already ended", "call_id", callID, "user_id", userID, "end_at", session.EndAt)
 		return nil, "", ErrCallNotFound
 	}
 
 	// BR-08: generate participant token
-	token, err := p.rtkClient.GenerateToken(session.MeetingID, userID, rtkPresetParticipant)
+	displayName := p.getUserDisplayName(userID)
+	token, err := p.rtkClient.GenerateToken(session.MeetingID, userID, displayName, rtkPresetParticipant)
 	if err != nil {
 		p.API.LogError("JoinCall: GenerateToken failed", "call_id", callID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -171,6 +205,9 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 		p.API.LogError("JoinCall: UpdateCallParticipants failed", "call_id", callID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to update participants: %w", err)
 	}
+
+	// Update post participants — best effort
+	p.updatePostParticipants(session.PostID, session.Participants)
 
 	// BR-10: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
@@ -207,6 +244,9 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}
 	session.Participants = updated
+
+	// Update post participants — best effort
+	p.updatePostParticipants(session.PostID, updated)
 
 	// BR-12: emit WebSocket event
 	p.API.PublishWebSocketEvent(wsEventUserLeft, map[string]any{
@@ -259,6 +299,9 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 		p.API.LogError("endCallInternal: EndCall KVStore failed", "call_id", session.ID, "err", err.Error())
 		return fmt.Errorf("failed to end call in store: %w", err)
 	}
+	if err := p.kvStore.RemoveActiveCallID(session.ID); err != nil {
+		p.API.LogWarn("endCallInternal: RemoveActiveCallID failed (best effort)", "call_id", session.ID, "err", err.Error())
+	}
 
 	durationMs := endAt - session.StartAt
 
@@ -293,14 +336,6 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
 		"end_at":      endAt,
 		"duration_ms": durationMs,
 	}, &model.WebsocketBroadcast{ChannelId: session.ChannelID})
-
-	// BR-P01: best-effort push notification to dismiss incoming call UI
-	if p.pushSender != nil {
-		if err := p.pushSender.SendCallEnded(session); err != nil {
-			p.API.LogWarn("endCallInternal: SendCallEnded failed (best effort)",
-				"call_id", session.ID, "channel_id", session.ChannelID, "err", err.Error())
-		}
-	}
 
 	p.API.LogInfo("call ended", "call_id", session.ID, "channel_id", session.ChannelID, "duration_ms", durationMs)
 

@@ -2,6 +2,7 @@ package kvstore
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/pkg/errors"
 )
@@ -10,6 +11,7 @@ const (
 	keyCallChannel   = "call:channel:%s"
 	keyCallID        = "call:id:%s"
 	keyCallMeeting   = "call:meeting:%s"
+	keyActiveCalls   = "active_calls"
 	keyVoIPToken     = "voip:%s"
 	keyWebhookID     = "webhook:id"
 	keyWebhookSecret = "webhook:secret"
@@ -123,6 +125,53 @@ func (kv Client) EndCall(callID string, endAt int64) error {
 		if _, err := kv.client.KV.Set(fmt.Sprintf(keyCallMeeting, session.MeetingID), session); err != nil {
 			return errors.Wrap(err, "failed to end call by meeting ID")
 		}
+	}
+	return nil
+}
+
+// GetActiveCallIDs returns the list of currently active call IDs.
+func (kv Client) GetActiveCallIDs() ([]string, error) {
+	var ids []string
+	err := kv.client.KV.Get(keyActiveCalls, &ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get active call IDs")
+	}
+	if ids == nil {
+		return []string{}, nil
+	}
+	return ids, nil
+}
+
+// AddActiveCallID adds a call ID to the active calls index.
+func (kv Client) AddActiveCallID(callID string) error {
+	ids, err := kv.GetActiveCallIDs()
+	if err != nil {
+		return err
+	}
+	if slices.Contains(ids, callID) {
+		return nil // already present
+	}
+	ids = append(ids, callID)
+	if _, err := kv.client.KV.Set(keyActiveCalls, ids); err != nil {
+		return errors.Wrap(err, "failed to add active call ID")
+	}
+	return nil
+}
+
+// RemoveActiveCallID removes a call ID from the active calls index.
+func (kv Client) RemoveActiveCallID(callID string) error {
+	ids, err := kv.GetActiveCallIDs()
+	if err != nil {
+		return err
+	}
+	filtered := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id != callID {
+			filtered = append(filtered, id)
+		}
+	}
+	if _, err := kv.client.KV.Set(keyActiveCalls, filtered); err != nil {
+		return errors.Wrap(err, "failed to remove active call ID")
 	}
 	return nil
 }

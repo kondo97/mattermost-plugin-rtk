@@ -40,7 +40,7 @@
 ### Proposed New Components (Backend)
 - `server/api/` — Dedicated API handler package with all HTTP endpoints
 - `server/rtkclient/` — Cloudflare RTK API client (interface + implementation)
-- `server/push/` — Mobile push notification delivery
+- ~~`server/push/`~~ — REMOVED (mobile uses WebSocket events)
 
 ### Proposed New Components (Frontend)
 - `webapp/src/components/` — All UI components (channel header, custom post, toast bar, modals)

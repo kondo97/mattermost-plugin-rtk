@@ -137,7 +137,7 @@
 
 | Item | Reason |
 |---|---|
-| `POST /calls/{id}/heartbeat` | Replaced by RTK webhook (`meeting.participantLeft`) |
+| `POST /calls/{id}/heartbeat` | Deferred / not implemented — RTK webhook (`meeting.participantLeft`) handles cleanup |
 | `POST /mobile/voip-token` | Handled by Mattermost server at login time |
-| `CleanupStaleParticipants` background job | Replaced by RTK webhook |
-| sendBeacon / heartbeat loop (Unit 4) | Replaced by RTK webhook; `POST /calls/{id}/leave` retained as explicit leave path |
+| `CleanupStaleParticipants` background job | Deferred / not implemented — RTK webhook handles cleanup |
+| ~~sendBeacon~~ fetch+keepalive / ~~heartbeat loop~~ (Unit 4) | Heartbeat deferred; leave uses `fetch` with `keepalive: true`; `POST /calls/{id}/leave` retained as explicit leave path |

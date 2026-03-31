@@ -16,6 +16,7 @@ import {
 
 import type {GlobalState} from '@mattermost/types/store';
 
+import EnvVarCredentialSetting from 'components/admin_config/EnvVarCredentialSetting';
 import CallPost from 'components/call_post';
 import ChannelHeaderButton from 'components/channel_header_button';
 import FloatingWidget from 'components/floating_widget';
@@ -132,7 +133,19 @@ export default class Plugin {
             CallPost as any,
         );
 
-        // 8. Register translations (i18n)
+        // 8. Register custom admin console settings (show env var status)
+        registry.registerAdminConsoleCustomSetting(
+            'CloudflareOrgID',
+            EnvVarCredentialSetting as never,
+            {showTitle: true},
+        );
+        registry.registerAdminConsoleCustomSetting(
+            'CloudflareAPIKey',
+            EnvVarCredentialSetting as never,
+            {showTitle: true},
+        );
+
+        // 9. Register translations (i18n)
         registry.registerTranslations((locale: string) => {
             if (locale === 'ja') {
                 return jaTranslations;

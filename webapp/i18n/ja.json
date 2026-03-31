@@ -10,8 +10,14 @@
     "plugin.rtk.toast_bar.dismiss": "閉じる",
     "plugin.rtk.toast_bar.started_at": "{time} に開始",
     "plugin.rtk.toast_bar.participants": "{count}人が参加中",
-    "plugin.rtk.floating_widget.open_in_tab": "新しいタブで開く",
+    "plugin.rtk.floating_widget.title": "通話 [{id}]",
+    "plugin.rtk.floating_widget.connecting": "接続中...",
     "plugin.rtk.floating_widget.leave_call": "通話を退出",
+    "plugin.rtk.floating_widget.minimize": "最小化",
+    "plugin.rtk.floating_widget.expand": "展開",
+    "plugin.rtk.floating_widget.fullscreen": "全画面",
+    "plugin.rtk.floating_widget.exit_fullscreen": "全画面を終了",
+    "plugin.rtk.floating_widget.retry": "再試行",
     "plugin.rtk.floating_widget.participants": "{count}人が参加中",
     "plugin.rtk.switch_call_modal.title": "すでに通話中です",
     "plugin.rtk.switch_call_modal.body": "現在の通話を退出して、新しい通話に参加しますか？",
@@ -31,5 +37,8 @@
     "plugin.rtk.call_post.duration": "{duration} 継続",
     "plugin.rtk.call_post.tooltip_already_in_call": "すでにこの通話に参加しています",
     "plugin.rtk.call_post.participants": "{count}人が参加中",
-    "plugin.rtk.call_post.error_close": "OK"
+    "plugin.rtk.call_post.error_close": "OK",
+    "plugin.rtk.admin.credential.loading": "読み込み中...",
+    "plugin.rtk.admin.credential.env_var_value": "環境変数 {envVar} で設定済み",
+    "plugin.rtk.admin.credential.env_var_notice": "この値は環境変数 {envVar} で設定されています。環境変数が設定されている間、ここに入力した値は無視されます。"
 }

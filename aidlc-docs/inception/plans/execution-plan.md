@@ -5,16 +5,16 @@
 ### Transformation Scope
 - **Transformation Type**: Architectural — complete replacement of starter template with production Mattermost plugin
 - **Primary Changes**:
-  - Go backend: RTK API client, call service, session management, WebSocket events, push notifications, HTTP API endpoints
+  - Go backend: RTK API client, call service, session management, WebSocket events, HTTP API endpoints
   - React/TypeScript frontend: call button, standalone call page, custom post type, admin settings, in-call indicator
   - Build system: replace webpack with Vite, add dual-bundle configuration, embed call page in Go binary
 - **Related Components**: All existing starter template files will be replaced or significantly modified
 
 ### Change Impact Assessment
-- **User-facing changes**: Yes — new call initiation/joining UX, custom post cards, channel header button, mobile push notifications
+- **User-facing changes**: Yes — new call initiation/joining UX, custom post cards, channel header button, mobile WebSocket events
 - **Structural changes**: Yes — new packages (rtkclient, callservice), new build pipeline (Vite), new file structure
 - **Data model changes**: Yes — call session stored in KVStore with 7 fields; WebSocket event payloads defined
-- **API changes**: Yes — 8+ new REST endpoints, 5 WebSocket event types, VoIP token registration
+- **API changes**: Yes — 8+ new REST endpoints, 5 WebSocket event types
 - **NFR impact**: Yes — SECURITY-01 through SECURITY-15 enforced, 200 user scale, 1s response time target
 
 ### Component Relationships
@@ -94,7 +94,7 @@ OPERATIONS PHASE
 | Unit 3: Webapp - Channel UI | Call button, channel call toast bar, Switch Call Modal, in-call indicator |
 | Unit 4: Webapp - Call Page & Post | Standalone call page, custom post type (active/ended states) |
 | Unit 5: Admin & Config | Admin console UI, config status API, environment variable override |
-| Unit 6: Mobile Support | VoIP token registration, push notification delivery, mobile-compatible API responses |
+| Unit 6: Mobile Support | REMOVED — mobile uses WebSocket events; VoIP token/push notification subsystem deleted |
 
 **Unit dependency order:**
 ```
@@ -103,7 +103,7 @@ Unit 1 (RTK Integration)
         ├── Unit 3 (Webapp - Channel UI)    ← depends on Unit 2 API contracts
         ├── Unit 4 (Webapp - Call Page & Post) ← depends on Unit 2 API contracts
         ├── Unit 5 (Admin & Config)         ← depends on Unit 2 config endpoints
-        └── Unit 6 (Mobile Support)         ← depends on Unit 1 call service + Unit 2 API
+        └── Unit 6 (Mobile Support — REMOVED, uses WebSocket events)
 ```
 
 For each unit:
@@ -154,7 +154,7 @@ Step 4: Build and Test
   - Working call start/join/end flow in browser (new tab)
   - Custom post card with active/ended states
   - Admin configuration UI
-  - Mobile push notification support
+  - Mobile support via WebSocket events (push subsystem removed)
   - All SECURITY-01–15 constraints satisfied
   - Unit tests for core business logic
 - **Quality Gates**:

@@ -14,7 +14,7 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('client', () => ({pluginFetch: jest.fn()}));
-jest.mock('manifest', () => ({id: 'com.mattermost.plugin-rtk'}));
+jest.mock('manifest', () => ({id: 'com.kondo97.mattermost-plugin-rtk'}));
 jest.mock('react-intl', () => ({
     useIntl: () => ({formatMessage: ({id}: {id: string}) => id}),
 }));
@@ -113,6 +113,12 @@ describe('CallPost', () => {
 
     it('renders error modal when errorMsg is set after API failure', async () => {
         const {pluginFetch} = require('client');
+
+        // Two pluginFetch calls occur:
+        // 1st: the on-mount GET /calls/{id} fetch (useEffect with [] deps)
+        // 2nd: the POST /calls/{id}/token fetch triggered by onJoin
+        const initialCallData = {id: 'call1', channel_id: 'channel1', creator_id: 'user1', participants: [], start_at: 1000000, post_id: 'post1'};
+        pluginFetch.mockResolvedValueOnce({data: initialCallData});
         pluginFetch.mockResolvedValueOnce({error: 'Something went wrong'});
         setSelectors(undefined, null);
 

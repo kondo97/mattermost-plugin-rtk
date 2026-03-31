@@ -17,29 +17,25 @@
 |  - JoinCall      |        +------------------+
 |  - LeaveCall     |------->|  KVStore         |
 |  - EndCall       |        |  (store/kvstore) |
-|  - Heartbeat     |        +------------------+
-|  - Cleanup       |
-|                  |        +------------------+
-|                  |------->|  Push Sender     |
-+--------+---------+        |  (push/)         |
-         |                  +------------------+
+|  - Cleanup (stub)|        +------------------+
++--------+---------+
          |
          v
 +--------+---------+        +------------------+
 |  API Handler     |------->|  Plugin          |
-|  (api/)          |        |  (via PluginAPI  |
-|                  |        |   interface)     |
-|  - calls.go      |        +------------------+
-|  - heartbeat.go  |
+|  (api.go,        |        |  (via PluginAPI  |
+|   api_calls.go)  |        |   interface)     |
+|                  |        +------------------+
+|  - calls.go      |
 |  - config.go     |
 |  - mobile.go     |
 |  - static.go     |
 +--------+---------+
          |
          v
-+--------+---------+
-|  Background Job  |------->|  Plugin.Cleanup  |
-|  (job.go)        |        |  (every 30s)     |
++------------------+
+|  Cleanup Loop    |  (stub — waits for stop signal only)
+|  (cleanup.go)    |
 +------------------+
 ```
 
@@ -118,18 +114,16 @@ All components read from / dispatch to:
 
 ```
 +------------------+
-|  call/index.tsx  |
+|call_page/main.tsx|
 +--------+---------+
          |
          v
 +--------+---------+
 |  CallPage.tsx    |
 |                  |
-|  reads: ?token   |------> Cloudflare RTK SDK (DyteProvider)
+|  reads: ?token   |------> Cloudflare RTK SDK (RealtimeKitProvider)
 |                  |        (media handled entirely by Cloudflare)
-|  heartbeat loop  |------> POST /api/v1/calls/{id}/heartbeat
-|                  |        (Mattermost session cookie automatic)
-|  beforeunload    |------> navigator.sendBeacon
+|  beforeunload    |------> fetch(..., {keepalive: true})
 |                  |        POST /api/v1/calls/{id}/leave
 +------------------+
 ```
@@ -144,11 +138,11 @@ Main Bundle (Mattermost SPA)          Standalone Call Bundle (new tab)
 | - passes token in URL     |  HTTP   | - Cloudflare RTK SDK      |
 +---------------------------+         +---------------------------+
          ^                                       |
-         |                                       | sendBeacon / heartbeat
+         |                                       | fetch+keepalive (leave)
          |   WebSocket events                    v
 +--------+-----------+              +-----------+---------+
 | Calls Redux        |<-------------+ Plugin API          |
-| - userLeft action  |  WS event    | (server/api/)       |
+| - userLeft action  |  WS event    | (server/api.go)     |
 | - callEnded action |              +---------------------+
 +--------------------+
 ```

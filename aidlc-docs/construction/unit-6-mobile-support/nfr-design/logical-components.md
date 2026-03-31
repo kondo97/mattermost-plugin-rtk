@@ -1,17 +1,18 @@
 # Unit 6: Mobile Support — Logical Components
 
-## Component Overview
+> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead of push notifications. All components described below no longer exist in the codebase.
+
+## Component Overview (REMOVED)
 
 ```
 server/
-  push/
-    interface.go        <- PushSender interface
-    push.go             <- Sender struct + SendIncomingCall + SendCallEnded
+  push/                     <- DELETED
+    interface.go            <- DELETED
+    push.go                 <- DELETED
     mocks/
-      mock_push.go      <- mockery-generated mock (PushSender)
-  plugin.go             <- pushSender field + OnActivate init
-  calls.go              <- SendIncomingCall call in CreateCall
-                           SendCallEnded call in endCallInternal
+      mock_push.go          <- DELETED
+  plugin.go                 <- pushSender field REMOVED
+  calls.go                  <- SendIncomingCall/SendCallEnded calls REMOVED
 ```
 
 ---

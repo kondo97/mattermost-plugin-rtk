@@ -14,7 +14,7 @@ This document consolidates the application design for `mattermost-plugin-rtk`. I
 | Q2 | Backend service layer | Flat (Plugin struct + api/) | Acceptable scope; avoids over-engineering |
 | Q3 | Frontend state | Redux slice | Mattermost plugin standard; survives navigation |
 | Q4 | Call page auth | Token + Mattermost session | Session cookie automatic (same domain); Calls plugin pattern |
-| Q5 | Leave detection | sendBeacon + heartbeat (60s timeout) | Balances reliability vs false-positive risk |
+| Q5 | Leave detection | fetch+keepalive on beforeunload | Custom headers (CSRF) not possible with sendBeacon; heartbeat deferred |
 
 ---
 
@@ -25,13 +25,13 @@ Browser (Mattermost SPA)                    Browser (New Tab)
 +---------------------------------+         +------------------+
 | Main Bundle (main.js)           |         | Call Bundle      |
 |  ChannelHeaderButton            |         | (call.js)        |
-|  CallPost                       |         |  DyteProvider    |
-|  ToastBar                       |  opens  |  heartbeat loop  |
-|  FloatingWidget  +--------------+-------->|  sendBeacon      |
+|  CallPost                       |         |  RtkProvider     |
+|  ToastBar                       |  opens  |  fetch+keepalive |
+|  FloatingWidget  +--------------+-------->|  on beforeunload |
 |  SwitchCallModal |  /call?token=|         +--------+---------+
 |  IncomingCallNotification       |                  |
-|  AdminSettings                  |    heartbeat /   |
-|  Calls Redux (slice + WS)       |    leave API     |
+|  AdminSettings                  |    leave API     |
+|  Calls Redux (slice + WS)       |                  |
 +---------------+--+--------------+                  |
                 |  ^ WebSocket events                 |
                 |  |                                  |
@@ -41,13 +41,11 @@ Browser (Mattermost SPA)                    Browser (New Tab)
 |  +----------------------------------------------------+  |
 |  |  mattermost-plugin-rtk                             |  |
 |  |                                                    |  |
-|  |  Plugin Core (plugin.go)                           |  |
+|  |  Plugin Core (plugin.go, calls.go)                 |  |
 |  |  +- CreateCall / JoinCall / LeaveCall / EndCall    |  |
-|  |  +- HeartbeatCall / CleanupStaleParticipants       |  |
 |  |                                                    |  |
-|  |  API Handler (api/)                                |  |
+|  |  API Handler (api.go, api_calls.go, ...)           |  |
 |  |  +- /api/v1/calls (CRUD + token + leave)           |  |
-|  |  +- /api/v1/calls/{id}/heartbeat                   |  |
 |  |  +- /api/v1/config/status                          |  |
 |  |  +- /api/v1/mobile/voip-token                      |  |
 |  |  +- /call, /call.js, /worker.js (static)           |  |
@@ -56,8 +54,8 @@ Browser (Mattermost SPA)                    Browser (New Tab)
 |  |  +- Cloudflare credentials + 10 feature flags      |  |
 |  |  +- Env var overrides                              |  |
 |  |                                                    |  |
-|  |  Background Job (job.go)                           |  |
-|  |  +- Heartbeat cleanup every 30s                    |  |
+|  |  Cleanup Loop (cleanup.go)                         |  |
+|  |  +- Placeholder for future RTK participant sync    |  |
 |  +----------------------------------------------------+  |
 +-------+------------------+-------------------------------+
         |                  |
@@ -66,10 +64,11 @@ Browser (Mattermost SPA)                    Browser (New Tab)
 | Cloudflare   |  | Mattermost KVStore |
 | RTK API      |  | call:channel:{id}  |
 | (rtkclient/) |  | call:id:{id}       |
-|              |  | heartbeat:{id}:{u} |
-| CreateMeeting|  | voip:{userID}      |
-| GenToken     |  +--------------------+
+|              |  | voip:{userID}      |
+| CreateMeeting|  +--------------------+
+| GenToken     |
 | EndMeeting   |
+| GetParticipants |
 +--------------+
 ```
 
@@ -87,14 +86,11 @@ User clicks "Start call"
        -> RTKClient.GenerateToken(meetingID, userID, "group_call_host")
        -> KVStore.SaveCall(session)
        -> Post custom_cf_call to channel
-       -> Push.SendIncomingCall (to channel members)
        -> PublishWebSocketEvent(custom_cf_call_started)
        <- {call_id, token, feature_flags}
   -> Redux: startCallSuccess(channelID, callID, token)
-  -> FloatingWidget renders
-  -> New tab opens: /plugins/{id}/call?token=<jwt>
-  -> CallPage: DyteProvider initializes with token
-  -> CallPage: heartbeat interval starts
+  -> FloatingWidget renders (inline RtkMeeting via RTK React SDK)
+  -> CallPage: RtkProvider initializes with token
 ```
 
 ### Flow 2: Join a Call
@@ -111,12 +107,13 @@ User clicks "Join call" in CallPost
   -> New tab opens: /plugins/{id}/call?token=<jwt>
 ```
 
-### Flow 3: Leave (Tab Close — Normal)
+### Flow 3: Leave (Tab / Widget Close — Normal)
 
 ```
-User closes call tab
-  -> beforeunload fires
-  -> navigator.sendBeacon POST /api/v1/calls/{callId}/leave
+User closes call tab or clicks Leave in floating widget
+  -> beforeunload fires (tab) / handleClose called (widget)
+  -> fetch+keepalive POST /api/v1/calls/{callId}/leave
+       (uses fetch instead of sendBeacon — custom CSRF header required)
        -> KVStore: remove userID from participants
        -> PublishWebSocketEvent(custom_cf_user_left)
        -> If participants empty: EndCallInternal(callID)
@@ -124,14 +121,15 @@ User closes call tab
   -> FloatingWidget disappears
 ```
 
-### Flow 4: Leave (Tab Close — Crash / Network Drop Fallback)
+### Flow 4: Leave (Crash / Network Drop)
 
 ```
-sendBeacon fails (crash, kill -9, severe network drop)
-  -> heartbeat stops arriving
-  -> Background job (every 30s) checks heartbeat:{callID}:{userID}
-  -> After 60s without heartbeat: LeaveCall(userID, callID)
-       -> Same flow as Flow 3 from server side
+NOTE: Currently no automatic fallback for crash or network drop.
+If the browser crashes or network drops, the user remains listed
+as a participant until the call is manually ended by the creator.
+
+Future: cleanup.go will periodically call RTKClient.GetMeetingParticipants()
+to reconcile stale participants against RTK's actual active participants.
 ```
 
 ### Flow 5: End Call (Host)
@@ -153,26 +151,27 @@ Host clicks "End call" in call UI
 
 ```
 server/
-  plugin.go              (modified — add call logic methods)
+  plugin.go              (modified — OnActivate, ServeHTTP, cleanup loop)
   configuration.go       (modified — add RTK fields + feature flags)
-  job.go                 (modified — add heartbeat cleanup)
-  api/
-    handler.go           (new)
-    calls.go             (new)
-    heartbeat.go         (new)
-    config.go            (new)
-    mobile.go            (new)
-    static.go            (new)
+  calls.go               (new — CreateCall, JoinCall, LeaveCall, EndCall)
+  cleanup.go             (new — placeholder for RTK participant reconciliation)
+  api.go                 (new — router setup, auth middleware)
+  api_calls.go           (new — call CRUD + token + leave endpoints)
+  api_config.go          (new — GET /config/status, /config/admin-status)
+  api_mobile.go          (new — POST /mobile/voip-token, /calls/{id}/dismiss)
+  api_static.go          (new — /call HTML, /call.js, /worker.js)
+  api_webhook.go         (new — RTK webhook handler)
   rtkclient/
     interface.go         (new)
     client.go            (new)
-  push/
-    push.go              (new)
   store/kvstore/
     kvstore.go           (modified — extend interface + implementation)
+    calls.go             (new — call session KVStore methods)
 
 webapp/src/
   index.tsx              (modified — register all components + reducer)
+  utils/
+    rtk_lang_ja.ts       (new — Japanese translations for RTK SDK UI)
   components/
     channel_header_button/  (new)
     call_post/              (new)
@@ -180,14 +179,14 @@ webapp/src/
     floating_widget/        (new)
     switch_call_modal/      (new)
     incoming_call_notification/  (new)
-    admin_settings/         (new)
+    admin_config/           (new — EnvVarCredentialSetting)
   redux/
     calls_slice.ts          (new)
     websocket_handlers.ts   (new)
     selectors.ts            (new)
 
-webapp/src/call/            (new — separate Vite bundle entry)
-  index.tsx
+webapp/src/call_page/       (new — separate Vite bundle entry)
+  main.tsx
   CallPage.tsx
 ```
 
@@ -199,7 +198,6 @@ webapp/src/call/            (new — separate Vite bundle entry)
 - Admin endpoints additionally verify admin role server-side
 - Cloudflare API credentials never returned to frontend
 - RTK JWT tokens are short-lived (RTK SDK enforces expiry)
-- Heartbeat endpoint verifies user is a participant of the specified call before updating
 
 ---
 

@@ -11,7 +11,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/command"
-	"github.com/kondo97/mattermost-plugin-rtk/server/push"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
 )
@@ -36,11 +35,11 @@ type Plugin struct {
 	// router is the HTTP router for handling API requests.
 	router *mux.Router
 
-	// pushSender dispatches mobile push notifications for call events.
-	pushSender push.PushSender
-
 	// callMu guards call state mutations (CreateCall, JoinCall, LeaveCall, EndCall).
 	callMu sync.Mutex
+
+	// stopCleanup signals the cleanup goroutine to stop.
+	stopCleanup chan struct{}
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -61,15 +60,16 @@ func (p *Plugin) OnActivate() error {
 
 	p.commandClient = command.NewCommandHandler(p.client)
 
-	p.pushSender = push.NewSender(p.API)
-
 	cfg := p.getConfiguration()
-	if cfg.CloudflareOrgID != "" && cfg.CloudflareAPIKey != "" {
+	if cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != "" {
 		p.rtkClient = rtkclient.NewClient(cfg.GetEffectiveOrgID(), cfg.GetEffectiveAPIKey())
 		p.registerWebhookIfNeeded()
 	}
 
 	p.router = p.initRouter()
+
+	p.stopCleanup = make(chan struct{})
+	go p.runCleanupLoop(p.stopCleanup)
 
 	return nil
 }
@@ -138,6 +138,10 @@ func (p *Plugin) reRegisterWebhook() {
 
 // OnDeactivate is invoked when the plugin is deactivated.
 func (p *Plugin) OnDeactivate() error {
+	if p.stopCleanup != nil {
+		close(p.stopCleanup)
+		p.stopCleanup = nil
+	}
 	return nil
 }
 

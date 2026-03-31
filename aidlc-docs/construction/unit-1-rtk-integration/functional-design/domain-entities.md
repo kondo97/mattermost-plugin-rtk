@@ -46,7 +46,7 @@ Returned by `RTKClient.GenerateToken()`. Passed to the client; not stored in KVS
 |---|---|---|
 | `call:channel:{channelID}` | CallSession (JSON) | None (manually managed) |
 | `call:id:{callID}` | CallSession (JSON) | None (manually managed) |
-| `heartbeat:{callID}:{userID}` | int64 (Unix ms timestamp) | None |
+| ~~`heartbeat:{callID}:{userID}`~~ | ~~int64 (Unix ms timestamp)~~ | ~~None~~ | **Deferred / not implemented** — heartbeat replaced by RTK webhook |
 | `voip:{userID}` | string (device token) | None |
 
 Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync on all writes.

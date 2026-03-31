@@ -39,7 +39,7 @@ Source: US-023
 ### BR-U4-007: URL Parameters Are Required
 The call page MUST parse `token` and `call_id` from `window.location.search`.
 If `token` is absent, show an error screen ("Missing call token") and do not initialize the RTK SDK.
-If `call_id` is absent, the call page MAY still initialize RTK but heartbeat/leave will not work — log a warning.
+If `call_id` is absent, the call page MAY still initialize RTK but leave-on-close will not work — log a warning.
 
 ### BR-U4-008: Browser Tab Title Format
 `document.title` MUST be set to `'Call in #' + channelName` where `channelName` comes from the `channel_name` URL param.
@@ -49,17 +49,16 @@ Source: US-006
 ### BR-U4-009: Call Page Requires No Mattermost Session Cookie
 The call page MUST function without a Mattermost session cookie.
 RTK SDK authentication uses the `token` URL parameter only.
-Heartbeat and leave endpoints authenticate via `call_id` in KVStore (server-side, no cookie required).
+Leave endpoint authenticates via `call_id` in KVStore (server-side, no cookie required).
 Source: US-006
 
-### BR-U4-010: Heartbeat Interval — 15 Seconds
-`POST /api/v1/calls/{call_id}/heartbeat` MUST be called every 15 seconds.
-Heartbeat is fire-and-forget: no retry on failure, no error surfacing to user.
-Source: Application Design (heartbeat mechanism)
+### BR-U4-010: ~~Heartbeat Interval — 15 Seconds~~ — Deferred / Not Implemented
+> **Updated 2026-03-30**: Heartbeat mechanism is deferred. RTK webhook (`meeting.participantLeft`) handles participant cleanup instead. No heartbeat endpoint or client-side heartbeat loop exists in the current implementation.
 
-### BR-U4-011: sendBeacon on Tab Close
-`navigator.sendBeacon('/plugins/{id}/api/v1/calls/{call_id}/leave')` MUST be called in the `beforeunload` event handler.
-`fetch` MUST NOT be used for this purpose (it does not survive tab close).
+### BR-U4-011: fetch+keepalive on Tab Close
+> **Updated 2026-03-30**: Changed from `navigator.sendBeacon` to `fetch` with `keepalive: true` and custom `X-Requested-With` header. This allows setting custom headers (which `sendBeacon` cannot do) while still surviving tab close.
+
+`fetch('/plugins/{id}/api/v1/calls/{call_id}/leave', {method: 'POST', keepalive: true, headers: {'X-Requested-With': 'XMLHttpRequest'}})` MUST be called in the `beforeunload` event handler.
 Source: US-013
 
 ### BR-U4-012: RTK UI Kit — No Custom UI Construction

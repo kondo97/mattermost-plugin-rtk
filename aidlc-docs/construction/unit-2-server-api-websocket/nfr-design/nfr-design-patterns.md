@@ -34,7 +34,7 @@ func (p *Plugin) initRouter() *mux.Router {
     api.HandleFunc("/calls/{id}/token", p.handleJoinCall).Methods(http.MethodPost)
     api.HandleFunc("/calls/{id}/leave", p.handleLeaveCall).Methods(http.MethodPost)
     api.HandleFunc("/calls/{id}", p.handleEndCall).Methods(http.MethodDelete)
-    api.HandleFunc("/calls/{id}/heartbeat", p.handleHeartbeat).Methods(http.MethodPost)
+    // heartbeat endpoint deferred / not implemented — RTK webhook handles cleanup
     api.HandleFunc("/calls/{id}/dismiss", p.handleDismiss).Methods(http.MethodPost)
     api.HandleFunc("/config/status", p.handleConfigStatus).Methods(http.MethodGet)
     api.HandleFunc("/config/admin-status", p.handleAdminConfigStatus).Methods(http.MethodGet)
@@ -98,7 +98,7 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 ```
 
 **Scope**: `handleCreateCall`, `handleJoinCall`, `handleLeaveCall`, `handleEndCall` acquire `callMu`.
-**Excluded**: `handleHeartbeat`, `handleDismiss`, `handleConfigStatus`, `handleAdminConfigStatus` — no read-modify-write on participants.
+**Excluded**: `handleDismiss`, `handleConfigStatus`, `handleAdminConfigStatus` — no read-modify-write on participants. (Heartbeat handler deferred / not implemented.)
 
 ---
 
@@ -107,7 +107,7 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 Assets are embedded into the Go binary at compile time using `//go:embed`. No runtime file I/O, no deployment dependency on asset files.
 
 ```go
-// server/api/static.go
+// server/api_static.go (flat structure, not api/ subdirectory)
 import "embed"
 
 //go:embed assets/call.html
@@ -136,7 +136,7 @@ func (p *Plugin) serveCallHTML(w http.ResponseWriter, r *http.Request) {
 A consistent JSON error writer prevents format drift across handlers.
 
 ```go
-// server/api/handler.go
+// server/api.go (flat structure, not api/ subdirectory)
 func writeError(w http.ResponseWriter, status int, msg string) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(status)

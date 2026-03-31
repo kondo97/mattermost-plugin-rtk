@@ -56,9 +56,11 @@
     "jest-junit": "13.0.0",
     "react-dom": "18.2.0",
     "react-intl": "6.8.9",
-    "vite": "5.4.10"
+    "vite": "5.4.10",
+    "vite-plugin-css-injected-by-js": "4.0.1"
   },
   "dependencies": {
+    "@cloudflare/realtimekit": "1.2.5",
     "@cloudflare/realtimekit-react": "1.2.5",
     "@cloudflare/realtimekit-react-ui": "1.1.1",
     "core-js": "3.26.0",

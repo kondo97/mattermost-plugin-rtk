@@ -8,6 +8,8 @@ import React from 'react';
 const mockInitMeeting = jest.fn();
 const mockMeeting = {id: 'mock-meeting'};
 
+jest.mock('manifest', () => ({id: 'com.kondo97.mattermost-plugin-rtk'}));
+
 jest.mock('@cloudflare/realtimekit-react', () => ({
     useRealtimeKitClient: jest.fn(() => [null, mockInitMeeting]),
     RealtimeKitProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
@@ -19,7 +21,7 @@ jest.mock('@cloudflare/realtimekit-react-ui', () => ({
 
 import CallPage from './CallPage';
 
-const originalSendBeacon = navigator.sendBeacon;
+const mockFetch = jest.fn();
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -29,21 +31,13 @@ beforeEach(() => {
     const {useRealtimeKitClient} = require('@cloudflare/realtimekit-react');
     (useRealtimeKitClient as jest.Mock).mockReturnValue([null, mockInitMeeting]);
 
-    // Mock sendBeacon
-    Object.defineProperty(navigator, 'sendBeacon', {
-        value: jest.fn(),
-        writable: true,
-        configurable: true,
-    });
+    // Mock fetch for keepalive leave requests
+    mockFetch.mockResolvedValue({ok: true});
+    global.fetch = mockFetch;
 });
 
 afterEach(() => {
     jest.useRealTimers();
-    Object.defineProperty(navigator, 'sendBeacon', {
-        value: originalSendBeacon,
-        writable: true,
-        configurable: true,
-    });
 });
 
 describe('CallPage', () => {
@@ -105,7 +99,7 @@ describe('CallPage', () => {
         expect(mockInitMeeting).not.toHaveBeenCalled();
     });
 
-    it('registers beforeunload handler for sendBeacon', () => {
+    it('registers beforeunload handler', () => {
         const addEventSpy = jest.spyOn(window, 'addEventListener');
         mockInitMeeting.mockResolvedValue(undefined);
         render(
@@ -117,7 +111,7 @@ describe('CallPage', () => {
         expect(addEventSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
     });
 
-    it('calls sendBeacon with correct URL on beforeunload', () => {
+    it('calls fetch with keepalive on beforeunload', () => {
         mockInitMeeting.mockResolvedValue(undefined);
         render(
             <CallPage
@@ -130,12 +124,17 @@ describe('CallPage', () => {
         const event = new Event('beforeunload');
         window.dispatchEvent(event);
 
-        expect(navigator.sendBeacon).toHaveBeenCalledWith(
-            '/plugins/com.mattermost.plugin-rtk/api/v1/calls/call1/leave',
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/plugins/com.kondo97.mattermost-plugin-rtk/api/v1/calls/call1/leave',
+            expect.objectContaining({
+                method: 'POST',
+                keepalive: true,
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            }),
         );
     });
 
-    it('shows error screen on SDK initialization failure', async () => {
+    it('shows error screen on SDK initialization failure after retries', async () => {
         mockInitMeeting.mockRejectedValue(new Error('SDK init failed'));
         await act(async () => {
             render(
@@ -145,6 +144,22 @@ describe('CallPage', () => {
                 />,
             );
         });
+
+        // Advance through all 3 retries (2s each)
+        // eslint-disable-next-line no-await-in-loop
+        for (let i = 0; i < 3; i++) {
+            // eslint-disable-next-line no-await-in-loop
+            await act(async () => {
+                jest.advanceTimersByTime(2000);
+            });
+
+            // eslint-disable-next-line no-await-in-loop
+            await act(async () => {
+                // Flush the rejected promise from the retry
+                await Promise.resolve();
+            });
+        }
+
         expect(screen.getByTestId('call-page-error')).toBeTruthy();
     });
 });

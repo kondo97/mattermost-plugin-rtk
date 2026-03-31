@@ -11,10 +11,9 @@ import {
     clearMyActiveCall,
     removeCall,
     setIncomingCall,
-    setMyActiveCall,
     upsertCall,
 } from './calls_slice';
-import {selectIncomingCall, selectMyActiveCall} from './selectors';
+import {selectCallByChannel, selectIncomingCall, selectMyActiveCall} from './selectors';
 
 // ---------------------------------------------------------------------------
 // Channel type constants (for DM/GM detection)
@@ -174,7 +173,8 @@ export function handleCallStarted(store: Store<GlobalState>, currentUserId: stri
     };
 }
 
-export function handleUserJoined(store: Store<GlobalState>, currentUserId: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function handleUserJoined(store: Store<GlobalState>, _currentUserId: string) {
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isUserJoinedPayload(data)) {
@@ -182,9 +182,7 @@ export function handleUserJoined(store: Store<GlobalState>, currentUserId: strin
             return;
         }
 
-        const state = store.getState();
-        const existing = (state as unknown as {[key: string]: {callsByChannel: Record<string, {id: string; creatorId: string; startAt: number; postId: string}>}})
-            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id]; // eslint-disable-line no-unexpected-multiline
+        const existing = selectCallByChannel(data.channel_id)(store.getState() as unknown as GlobalState);
 
         if (existing) {
             store.dispatch(upsertCall({
@@ -194,15 +192,9 @@ export function handleUserJoined(store: Store<GlobalState>, currentUserId: strin
             }));
         }
 
-        // Secondary path: sync myActiveCall for multi-session scenarios
-        const myActiveCall = selectMyActiveCall(store.getState() as unknown as GlobalState);
-        if (data.user_id === currentUserId && !myActiveCall) {
-            store.dispatch(setMyActiveCall({
-                callId: data.call_id,
-                channelId: data.channel_id,
-                token: '', // token not available from WS; obtained from API response
-            }));
-        }
+        // Note: myActiveCall is NOT set here — the token is only available
+        // from the API response (joinCall). Setting it with an empty token
+        // would race with the API response and prevent RTK SDK initialization.
     };
 }
 
@@ -214,9 +206,7 @@ export function handleUserLeft(store: Store<GlobalState>, currentUserId: string)
             return;
         }
 
-        const state = store.getState();
-        const existing = (state as unknown as {[key: string]: {callsByChannel: Record<string, {id: string; creatorId: string; startAt: number; postId: string}>}})
-            ['plugins-com.mattermost.plugin-rtk']?.callsByChannel?.[data.channel_id]; // eslint-disable-line no-unexpected-multiline
+        const existing = selectCallByChannel(data.channel_id)(store.getState() as unknown as GlobalState);
 
         if (existing) {
             store.dispatch(upsertCall({

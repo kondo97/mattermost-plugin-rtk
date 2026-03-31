@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -61,11 +62,38 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p.API.LogDebug("handleJoinCall success",
+		"call_id", callID,
+		"user_id", userID,
+		"meeting_id", session.MeetingID,
+		"token_len", fmt.Sprintf("%d", len(token)),
+		"participants", fmt.Sprintf("%v", session.Participants),
+	)
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"call":  session,
 		"token": token,
 	})
+}
+
+// handleGetCall handles GET /api/v1/calls/{id}.
+func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
+	callID := mux.Vars(r)["id"]
+
+	session, err := p.kvStore.GetCallByID(callID)
+	if err != nil {
+		p.API.LogError("handleGetCall failed", "call_id", callID, "error", err.Error())
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if session == nil {
+		writeError(w, http.StatusNotFound, "call not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(session)
 }
 
 // handleLeaveCall handles POST /api/v1/calls/{id}/leave.

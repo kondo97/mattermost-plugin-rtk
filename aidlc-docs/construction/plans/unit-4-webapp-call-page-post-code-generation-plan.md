@@ -2,7 +2,9 @@
 
 ## Unit Context
 
-**Purpose**: RTK call page (standalone bundle), `custom_cf_call` post renderer, Vite dual-bundle build migration, heartbeat/sendBeacon lifecycle, Unit 3 URL updates.
+**Purpose**: RTK call page (standalone bundle), `custom_cf_call` post renderer, Vite dual-bundle build migration, fetch+keepalive leave lifecycle, Unit 3 URL updates.
+
+> **Updated 2026-03-31**: Heartbeat removed (server uses RTK webhooks). `sendBeacon` replaced with `fetch+keepalive`. `DyteProvider`/`useDyteClient` replaced with `RealtimeKitProvider`.
 **Stories**: US-007, US-009, US-010, US-013, US-015, US-016, US-025 (primary); US-006, US-012 (supporting)
 **Tech**: Vite + @cloudflare/realtimekit-react-ui + React 18 + TypeScript + Enzyme (tests)
 
@@ -13,7 +15,7 @@
 
 ## Dependencies (already implemented)
 
-- Unit 2: Server endpoints (`/calls/{id}/token`, `/calls/{id}/heartbeat`, `/calls/{id}/leave`, `/calls/{id}/dismiss`)
+- Unit 2: Server endpoints (`/calls/{id}/token`, `/calls/{id}/leave`, `/calls/{id}/dismiss`) — NOTE: `/calls/{id}/heartbeat` removed; not implemented
 - Unit 3: Redux slice (`calls_slice.ts`), selectors, `pluginFetch`, `SwitchCallModal`, `index.tsx`
 
 ## File Plan
@@ -28,7 +30,7 @@
 | 6 | `webapp/src/components/call_post/CallPostActive.tsx` | Create — active state subcomponent |
 | 7 | `webapp/src/components/call_post/CallPostEnded.tsx` | Create — ended state subcomponent |
 | 8 | `webapp/src/call_page/main.tsx` | Create — standalone call page entry point |
-| 9 | `webapp/src/call_page/CallPage.tsx` | Create — RTK SDK init + heartbeat + sendBeacon |
+| 9 | `webapp/src/call_page/CallPage.tsx` | Create — RTK SDK init + fetch+keepalive leave |
 | 10 | `webapp/i18n/en.json` | Modify — add `plugin.rtk.call_post.*` keys |
 | 11 | `webapp/i18n/ja.json` | Modify — add Japanese `plugin.rtk.call_post.*` keys |
 | 12 | `webapp/src/index.tsx` | Modify — add `registry.registerPostTypeComponent('custom_cf_call', ...)` |
@@ -38,7 +40,7 @@
 | 16 | `webapp/src/components/floating_widget/index.tsx` | Modify — use `buildCallTabUrl` |
 | 17 | `webapp/src/components/incoming_call_notification/index.tsx` | Modify — use `buildCallTabUrl` |
 | 18 | `webapp/src/components/call_post/index.test.tsx` | Create — Enzyme tests: active, ended, disabled-join, error modal |
-| 19 | `webapp/src/call_page/CallPage.test.tsx` | Create — Jest tests: URL parsing, heartbeat, sendBeacon, error screen |
+| 19 | `webapp/src/call_page/CallPage.test.tsx` | Create — Jest tests: URL parsing, fetch+keepalive leave, error screen |
 | 20 | `aidlc-docs/construction/unit-4-webapp-call-page-post/code/code-summary.md` | Create |
 
 ---
@@ -113,12 +115,12 @@
 
 - [x] Step 9: Create `webapp/src/call_page/CallPage.tsx`
   - Props: `{token: string; callId: string}`
-  - RTK SDK init: `useDyteClient` + `initMeeting({authToken: token})` (Pattern U4-5)
+  - RTK SDK init: `useRealtimeKitClient` + `initMeeting({authToken: token})` (Pattern U4-5)
   - Loading state: "Connecting..." (USE-U4-01)
   - Error state: `initError` string → error screen (REL-U4-07)
-  - Render: `<DyteProvider value={meeting}><RtkMeeting mode="fill" /></DyteProvider>`
-  - Heartbeat loop: `setInterval(15s)` with cleanup (Pattern U4-3, BR-U4-010)
-  - sendBeacon: `beforeunload` handler with cleanup (Pattern U4-3, BR-U4-011)
+  - Render: `<RealtimeKitProvider value={meeting}><RtkMeeting mode="fill" /></RealtimeKitProvider>`
+  - ~~Heartbeat loop~~ — REMOVED: server uses RTK webhooks for leave detection
+  - fetch+keepalive: `beforeunload` handler with cleanup (Pattern U4-3, BR-U4-011) — replaces sendBeacon
   - Token must not be logged (SEC-U4-01)
 
 ### Part E: i18n + Registration + Server
@@ -164,9 +166,9 @@
   - Mock `@cloudflare/realtimekit-react` and `@cloudflare/realtimekit-react-ui`
   - Test: `token` absent → error screen renders (`data-testid="call-page-error"`)
   - Test: loading state while `meeting` is null
-  - Test: heartbeat `setInterval` called with 15000ms
-  - Test: `beforeunload` listener registered with `sendBeacon`
-  - Test: cleanup clears interval and removes listener
+  - ~~Test: heartbeat `setInterval` called with 15000ms~~ — REMOVED (no heartbeat)
+  - Test: `beforeunload` listener registered with `fetch+keepalive` leave
+  - Test: cleanup removes listener
 
 ### Part H: Documentation
 
@@ -182,8 +184,8 @@
 | US-009: Join from post | Steps 5, 6, 4 |
 | US-010: Join disabled when in call | Steps 5, 6 |
 | US-012: Post real-time updates | Steps 5 (Redux selectors) |
-| US-013: Leave by closing tab | Step 9 (sendBeacon) |
+| US-013: Leave by closing tab | Step 9 (fetch+keepalive) |
 | US-015: Host ends call (UI Kit) | Step 9 (RtkMeeting host controls) |
 | US-016: Post ended state | Steps 5, 7 |
 | US-006: Tab title | Step 8 |
-| US-025: Auto-end (last participant) | Step 9 (sendBeacon triggers server cleanup) |
+| US-025: Auto-end (last participant) | Step 9 (fetch+keepalive triggers server cleanup) |

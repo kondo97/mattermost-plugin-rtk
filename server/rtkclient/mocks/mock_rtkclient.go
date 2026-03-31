@@ -99,17 +99,32 @@ func (mr *MockRTKClientMockRecorder) RegisterWebhook(url, events any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWebhook", reflect.TypeOf((*MockRTKClient)(nil).RegisterWebhook), url, events)
 }
 
-// GenerateToken mocks base method.
-func (m *MockRTKClient) GenerateToken(meetingID, userID, preset string) (*rtkclient.Token, error) {
+// GetMeetingParticipants mocks base method.
+func (m *MockRTKClient) GetMeetingParticipants(meetingID string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateToken", meetingID, userID, preset)
+	ret := m.ctrl.Call(m, "GetMeetingParticipants", meetingID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMeetingParticipants indicates an expected call of GetMeetingParticipants.
+func (mr *MockRTKClientMockRecorder) GetMeetingParticipants(meetingID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeetingParticipants", reflect.TypeOf((*MockRTKClient)(nil).GetMeetingParticipants), meetingID)
+}
+
+// GenerateToken mocks base method.
+func (m *MockRTKClient) GenerateToken(meetingID, userID, displayName, preset string) (*rtkclient.Token, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateToken", meetingID, userID, displayName, preset)
 	ret0, _ := ret[0].(*rtkclient.Token)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GenerateToken indicates an expected call of GenerateToken.
-func (mr *MockRTKClientMockRecorder) GenerateToken(meetingID, userID, preset any) *gomock.Call {
+func (mr *MockRTKClientMockRecorder) GenerateToken(meetingID, userID, displayName, preset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateToken", reflect.TypeOf((*MockRTKClient)(nil).GenerateToken), meetingID, userID, preset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateToken", reflect.TypeOf((*MockRTKClient)(nil).GenerateToken), meetingID, userID, displayName, preset)
 }

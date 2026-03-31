@@ -1,40 +1,14 @@
 # Unit 6: Mobile Support — NFR Design Patterns
 
-## Pattern 1: Best-Effort Notification Pattern
+> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events instead of push notifications. All patterns below are no longer applicable. This document is retained for historical reference.
 
-**Applies to**: `SendIncomingCall`, `SendCallEnded`, callers in `calls.go`
+## ~~Pattern 1: Best-Effort Notification Pattern~~ — REMOVED
 
-**Problem**: Push notification delivery must not block or fail call creation/termination.
+**REMOVED — mobile uses WebSocket events.**
 
-**Solution**: All push operations return `error` but callers treat errors as warnings.
+~~**Applies to**: `SendIncomingCall`, `SendCallEnded`, callers in `calls.go`~~
 
-```
-// In CreateCall (calls.go)
-if err := p.pushSender.SendIncomingCall(session); err != nil {
-    p.API.LogWarn("CreateCall: SendIncomingCall failed (best effort)",
-        "call_id", session.ID, "channel_id", session.ChannelID, "err", err.Error())
-    // do NOT return error — CreateCall succeeds
-}
-
-// In endCallInternal (calls.go)
-if err := p.pushSender.SendCallEnded(session); err != nil {
-    p.API.LogWarn("endCallInternal: SendCallEnded failed (best effort)",
-        "call_id", session.ID, "channel_id", session.ChannelID, "err", err.Error())
-    // do NOT return error — endCallInternal succeeds
-}
-```
-
-**Within Sender**: Per-member send errors are also logged and skipped:
-
-```
-for _, member := range members {
-    if err := p.api.SendPushNotification(n, member.UserId); err != nil {
-        p.api.LogWarn("push: SendPushNotification failed",
-            "user_id", member.UserId, "err", err.Error())
-        // continue to next member
-    }
-}
-```
+The push notification subsystem has been removed. Mobile clients receive `custom_cf_call_started` and `custom_cf_call_ended` WebSocket events directly.
 
 ---
 

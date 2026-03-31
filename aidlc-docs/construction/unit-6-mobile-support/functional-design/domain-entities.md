@@ -1,9 +1,11 @@
 # Unit 6: Mobile Support — Domain Entities
 
+> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events instead of push notifications. All entities described below no longer exist in the codebase. This document is retained for historical reference.
+
 ## Overview
 
-Unit 6 introduces a push notification subsystem as a standalone package (`server/push`).
-The subsystem is integrated into the Plugin Core via dependency injection.
+~~Unit 6 introduces a push notification subsystem as a standalone package (`server/push`).
+The subsystem is integrated into the Plugin Core via dependency injection.~~ **REMOVED.**
 
 ---
 
