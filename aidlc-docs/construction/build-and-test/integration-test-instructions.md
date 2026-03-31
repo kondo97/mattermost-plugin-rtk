@@ -92,7 +92,7 @@ In Mattermost System Console → Plugins → Mattermost RTK Plugin:
 **Steps**:
 1. As User A, click the Call button in the channel header
 2. Verify `/call/<channel_id>` route loads (or modal opens)
-3. Verify RTK `<DailyProvider>` renders without error
+3. Verify RTK `<RealtimeKitProvider>` renders without error
 4. Verify user media permissions are requested (camera/microphone)
 5. Verify call controls (mute, camera, leave) are visible and functional
 
@@ -115,19 +115,9 @@ In Mattermost System Console → Plugins → Mattermost RTK Plugin:
 
 ---
 
-### Scenario 5: Unit 6 — Mobile Push Notification
+### ~~Scenario 5: Unit 6 — Mobile Push Notification~~ — REMOVED
 
-**Tests**: Call started → push notification sent to mobile participant
-
-**Steps**:
-1. Register a test device token for User B (simulate mobile client):
-   POST `/plugins/com.kondo97.mattermost-plugin-rtk/api/v1/mobile/token`
-   with `{"device_token": "test-device-token", "platform": "ios"}`
-2. As User A, start a call in a channel User B is a member of
-3. Verify Mattermost push proxy receives a notification for User B's device token
-4. Verify notification payload contains channel name and caller info
-
-**Expected**: Push notification delivered within 3 seconds of call start.
+> **Updated 2026-03-31**: Push notification subsystem removed. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`). No push-specific integration test is needed.
 
 ---
 
