@@ -82,7 +82,8 @@ const CallPost = ({post}: Props) => {
                 }));
             }
         });
-    }, [props.call_id, props.end_at, liveCall?.id, dispatch]);
+    }, []); // intentional: Mattermost renders each post with post.id as key, so this component
+    // always remounts for a different post. Empty deps is safe here. // eslint-disable-line react-hooks/exhaustive-deps
 
     // Only use live Redux state when it matches THIS post's call (pattern U4-4).
     // Without this guard every call post in the channel would appear active
