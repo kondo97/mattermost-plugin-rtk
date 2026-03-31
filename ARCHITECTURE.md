@@ -325,7 +325,6 @@ type RTKClient interface {
 | `call:id:{callID}` | CallSession (JSON) | Call lookup by ID |
 | `call:meeting:{meetingID}` | CallSession (JSON) | Call lookup by RTK meeting ID |
 | `active_calls` | []string (JSON) | List of active call IDs |
-| `voip:{userID}` | string | VoIP device token (reserved for future use) |
 | `webhook:id` | string | Registered RTK webhook ID |
 | `webhook:secret` | string | RTK webhook signing secret |
 

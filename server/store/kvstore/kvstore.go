@@ -18,11 +18,6 @@ type KVStore interface {
 	// EndCall marks a call as ended with the given timestamp.
 	EndCall(callID string, endAt int64) error
 
-	// StoreVoIPToken stores a VoIP device token for a user.
-	StoreVoIPToken(userID, token string) error
-	// GetVoIPToken retrieves the VoIP device token for a user.
-	GetVoIPToken(userID string) (string, error)
-
 	// GetActiveCallIDs returns the list of currently active call IDs.
 	GetActiveCallIDs() ([]string, error)
 	// AddActiveCallID adds a call ID to the active calls index.
