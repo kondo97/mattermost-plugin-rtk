@@ -109,7 +109,7 @@ Shared error response for all endpoints.
 |---|---|---|
 | `ErrCallAlreadyActive` | 409 Conflict | Channel already has an active call |
 | `ErrCallNotFound` | 404 Not Found | Call not found or already ended |
-| `ErrNotParticipant` | 403 Forbidden | User is not a participant (not used in Unit 2 — heartbeat removed) |
+| `ErrNotParticipant` | 403 Forbidden | User is not a participant (not used in Unit 2 — heartbeat deferred / not implemented) |
 | `ErrUnauthorized` | 403 Forbidden | User is not the call creator (EndCall) |
 | `ErrRTKNotConfigured` | 503 Service Unavailable | Cloudflare credentials not set |
 | Missing required field | 400 Bad Request | Request body validation failure |

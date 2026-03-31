@@ -66,17 +66,11 @@ Plugin method (e.g. CreateCall)
 
 ## Background Job Flow
 
+> **Updated 2026-03-30**: Heartbeat-based cleanup is deferred / not implemented. `server/cleanup.go` is a stub. RTK webhook (`meeting.participantLeft`) handles participant departure detection instead. The flow below is retained for future reference.
+
 ```
 job.go ticker (30s interval)
-  └── p.CleanupStaleParticipants()
-        ├── kvStore.GetAllActiveCalls()
-        │     └── error → LogError, return (skip this run)
-        ├── for each session:
-        │     for each participant:
-        │       heartbeat = kvStore.GetHeartbeat(callID, userID)
-        │       if stale → p.LeaveCall(callID, userID)
-        │             └── error → LogError, continue to next participant
-        └── done
+  └── p.CleanupStaleParticipants()   [STUB — not implemented]
 ```
 
 ---

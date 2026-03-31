@@ -17,7 +17,7 @@
 | File | Description |
 |---|---|
 | `server/errors.go` | Sentinel errors: `ErrCallAlreadyActive`, `ErrCallNotFound`, `ErrNotParticipant`, `ErrUnauthorized`, `ErrRTKNotConfigured` |
-| `server/calls.go` | Call lifecycle methods: `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`, `endCallInternal`, `HeartbeatCall`; helpers: `containsUser`, `removeUser`, `nowMs` |
+| `server/calls.go` | Call lifecycle methods: `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`, `endCallInternal`; helpers: `containsUser`, `removeUser`, `nowMs`. (**Updated 2026-03-30**: `HeartbeatCall` deferred / not implemented.) |
 | `server/calls_test.go` | Unit tests for all call lifecycle methods using gomock (KVStore/RTKClient) and plugintest.API |
 | `server/store/kvstore/models.go` | `CallSession` struct with all domain fields |
 | `server/store/kvstore/calls.go` | KVStore implementation of call session methods: CRUD, heartbeat, VoIP token, active channel index |
@@ -41,6 +41,6 @@
 
 - **Active call index**: `GetAllActiveCalls` uses a maintained index key (`calls:index:active_channels`) to avoid full KV scan; updated by `SaveCall` and `EndCall`.
 - **Dual-key storage**: Each `CallSession` is stored under both `call:channel:{channelID}` and `call:id:{callID}` for O(1) lookup by either key.
-- **Initial heartbeat on join** (BR-09a): `JoinCall` sets a heartbeat immediately after participant is added to prevent race with the 30s cleanup job.
+- **~~Initial heartbeat on join~~ (BR-09a)**: Deferred / not implemented. Heartbeat mechanism replaced by RTK webhook for participant cleanup.
 - **Best-effort operations**: `CreatePost`, `UpdatePost`, `EndMeeting` failures are logged as warnings but do not abort the primary flow (REL-02, REL-03).
 - **Nil RTK client guard**: All call lifecycle methods check `p.rtkClient == nil` and return `ErrRTKNotConfigured` if credentials are not configured.
