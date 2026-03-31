@@ -13,6 +13,43 @@ import {clearMyActiveCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import jaDict from 'utils/rtk_lang_ja';
 
+// HeaderButton renders an icon button with an instant custom tooltip on hover.
+const HeaderButton = ({
+    onClick,
+    label,
+    children,
+    active = false,
+    testId,
+}: {
+    onClick: () => void;
+    label: string;
+    children: React.ReactNode;
+    active?: boolean;
+    testId?: string;
+}) => {
+    const [hovered, setHovered] = useState(false);
+    const style: React.CSSProperties = active ? headerBtnActiveStyle : headerBtnStyle;
+    return (
+        <div style={{position: 'relative', display: 'inline-flex'}}>
+            <button
+                type='button'
+                style={style}
+                onClick={onClick}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                data-testid={testId}
+            >
+                {children}
+            </button>
+            {hovered && (
+                <div style={tooltipStyle}>
+                    {label}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const INITIAL_WIDTH = 400;
 const INITIAL_HEIGHT = 300;
 const INITIAL_RIGHT = 24;
@@ -257,35 +294,30 @@ const FloatingWidget = () => {
                 </span>
                 <div style={{display: 'flex', gap: '4px'}}>
                     {!isFullscreen && (
-                        <button
-                            type='button'
-                            style={headerBtnStyle}
-                            title={isMinimized ? intl.formatMessage({id: 'plugin.rtk.floating_widget.expand'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.minimize'})}
+                        <HeaderButton
                             onClick={() => setIsMinimized((v) => !v)}
+                            label={isMinimized ? intl.formatMessage({id: 'plugin.rtk.floating_widget.expand'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.minimize'})}
                         >
                             {isMinimized ? '\u25B2' : '\u25BC'}
-                        </button>
+                        </HeaderButton>
                     )}
-                    <button
-                        type='button'
-                        style={isFullscreen ? headerBtnActiveStyle : headerBtnStyle}
-                        title={isFullscreen ? intl.formatMessage({id: 'plugin.rtk.floating_widget.exit_fullscreen'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.fullscreen'})}
+                    <HeaderButton
                         onClick={() => {
                             setIsFullscreen((v) => !v);
                             setIsMinimized(false);
                         }}
+                        label={isFullscreen ? intl.formatMessage({id: 'plugin.rtk.floating_widget.exit_fullscreen'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.fullscreen'})}
+                        active={isFullscreen}
                     >
                         {isFullscreen ? '\u2291' : '\u229E'}
-                    </button>
-                    <button
-                        type='button'
-                        style={headerBtnStyle}
-                        title={intl.formatMessage({id: 'plugin.rtk.floating_widget.leave_call'})}
+                    </HeaderButton>
+                    <HeaderButton
                         onClick={handleClose}
-                        data-testid='floating-widget-leave-call'
+                        label={intl.formatMessage({id: 'plugin.rtk.floating_widget.leave_call'})}
+                        testId='floating-widget-leave-call'
                     >
                         {'\u00D7'}
-                    </button>
+                    </HeaderButton>
                 </div>
             </div>
 
@@ -357,6 +389,20 @@ const headerBtnActiveStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.15)',
     borderRadius: '4px',
     padding: '0 6px',
+};
+
+const tooltipStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 'calc(100% + 6px)',
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    color: '#fff',
+    fontSize: '11px',
+    whiteSpace: 'nowrap',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    pointerEvents: 'none',
+    zIndex: 9999,
 };
 
 const messageStyle: React.CSSProperties = {
