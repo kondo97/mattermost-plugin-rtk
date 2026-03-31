@@ -115,6 +115,20 @@ const FloatingWidget = () => {
         };
     }, [meeting, myActiveCall?.callId, dispatch]);
 
+    // Exit fullscreen on Escape key
+    useEffect(() => {
+        if (!isFullscreen) {
+            return undefined;
+        }
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setIsFullscreen(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isFullscreen]);
+
     // Drag handlers
     useEffect(() => {
         const onMouseMove = (e: MouseEvent) => {
@@ -254,7 +268,7 @@ const FloatingWidget = () => {
                     )}
                     <button
                         type='button'
-                        style={headerBtnStyle}
+                        style={isFullscreen ? headerBtnActiveStyle : headerBtnStyle}
                         title={isFullscreen ? intl.formatMessage({id: 'plugin.rtk.floating_widget.exit_fullscreen'}) : intl.formatMessage({id: 'plugin.rtk.floating_widget.fullscreen'})}
                         onClick={() => {
                             setIsFullscreen((v) => !v);
@@ -310,7 +324,7 @@ const FloatingWidget = () => {
                             <RtkMeeting
                                 meeting={meeting}
                                 t={rtkT}
-                                mode={isFullscreen ? 'fixed' : 'fill'}
+                                mode='fill'
                                 showSetupScreen={false}
                                 style={{width: '100%', height: '100%'}}
                             />
@@ -334,6 +348,15 @@ const headerBtnStyle: React.CSSProperties = {
     cursor: 'pointer',
     lineHeight: 1,
     padding: '0 4px',
+};
+
+const headerBtnActiveStyle: React.CSSProperties = {
+    ...headerBtnStyle,
+    color: '#fff',
+    fontSize: '18px',
+    background: 'rgba(255,255,255,0.15)',
+    borderRadius: '4px',
+    padding: '0 6px',
 };
 
 const messageStyle: React.CSSProperties = {
