@@ -6,7 +6,7 @@
 
 ```go
 func (p *Plugin) OnActivate() error
-// Initializes: API handler, RTKClient, Push sender, background job
+// Initializes: API handler, RTKClient, cleanup loop (stub)
 // Registers: HTTP router, slash commands (if any)
 
 func (p *Plugin) OnDeactivate() error
@@ -28,7 +28,7 @@ func (p *Plugin) CreateCall(userID, channelID string) (*CreateCallResponse, erro
 // 3. Generate JWT token via RTKClient.GenerateToken
 // 4. Persist CallSession to KVStore
 // 5. Post custom_cf_call post to channel
-// 6. Send push notifications to channel members (Push sender)
+// 6. Send push notifications (REMOVED — mobile uses WebSocket events)
 // 7. Emit custom_cf_call_started WebSocket event
 // Returns: call_id, token, feature_flags
 
@@ -53,15 +53,11 @@ func (p *Plugin) EndCallInternal(callID string) error
 // 1. Set end_at = now in KVStore
 // 2. Update custom_cf_call post to ended state
 // 3. Emit custom_cf_call_ended WebSocket event
+// 4. Call RTKClient.EndMeeting(meetingID)
 // (Called by EndCall and LeaveCall auto-end)
 
-func (p *Plugin) HeartbeatCall(userID, callID string) error
-// Update last heartbeat timestamp for userID in active call (KVStore)
-
-func (p *Plugin) CleanupStaleParticipants() error
-// Called by background job every 30s
-// Find participants with heartbeat older than 60s
-// Call p.LeaveCall for each stale participant
+// server/cleanup.go — placeholder stub
+// Waits for stop signal only; no active participant reconciliation implemented
 ```
 
 ### WebSocket Helpers
@@ -77,62 +73,47 @@ func (p *Plugin) publishNotificationDismissed(callID, userID string)
 
 ---
 
-## B-02: API Handler (`server/api/handler.go`)
+## B-02: API Handler (`server/api.go`)
 
 ```go
-type Handler struct {
-    plugin PluginAPI  // interface to Plugin methods
-    router *mux.Router
-}
+// server/api.go — router setup and auth middleware (flat structure, not a separate package)
+func (p *Plugin) initAPI()
+// Registers all routes on p.router with auth middleware
 
-func NewHandler(plugin PluginAPI) *Handler
-// Registers all routes with auth middleware
-
-func (h *Handler) authRequired(next http.HandlerFunc) http.HandlerFunc
+func (p *Plugin) authRequired(next http.HandlerFunc) http.HandlerFunc
 // Validates Mattermost-User-ID header; returns 401 if missing
-
-func (h *Handler) adminRequired(next http.HandlerFunc) http.HandlerFunc
-// Validates admin role via plugin API; returns 403 if not admin
 ```
 
 ### calls.go
 
 ```go
-func (h *Handler) handleCreateCall(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/calls
 // Calls plugin.CreateCall(userID, channelID)
 // Returns: {call_id, token, feature_flags}
 
-func (h *Handler) handleJoinCall(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/calls/{callId}/token
 // Calls plugin.JoinCall(userID, callID)
 // Returns: {token, feature_flags}
 
-func (h *Handler) handleLeaveCall(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/calls/{callId}/leave
 // Calls plugin.LeaveCall(userID, callID)
 
-func (h *Handler) handleEndCall(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleEndCall(w http.ResponseWriter, r *http.Request)
 // DELETE /api/v1/calls/{callId}
 // Calls plugin.EndCall(userID, callID)
-```
-
-### heartbeat.go
-
-```go
-func (h *Handler) handleHeartbeat(w http.ResponseWriter, r *http.Request)
-// POST /api/v1/calls/{callId}/heartbeat
-// Calls plugin.HeartbeatCall(userID, callID)
 ```
 
 ### config.go
 
 ```go
-func (h *Handler) handleConfigStatus(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request)
 // GET /api/v1/config/status
 // Returns: {configured: bool}
 
-func (h *Handler) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
 // GET /api/v1/config/admin-status (admin only)
 // Returns: {org_id_configured, api_key_configured, org_id_source, api_key_source}
 ```
@@ -140,12 +121,12 @@ func (h *Handler) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request
 ### mobile.go
 
 ```go
-func (h *Handler) handleRegisterVoIPToken(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleRegisterVoIPToken(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/mobile/voip-token
 // Body: {token: string}
 // Stores VoIP token keyed by userID in KVStore
 
-func (h *Handler) handleDismissNotification(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleDismissNotification(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/calls/{callId}/dismiss
 // Calls plugin.publishNotificationDismissed(callID, userID)
 ```
@@ -153,15 +134,15 @@ func (h *Handler) handleDismissNotification(w http.ResponseWriter, r *http.Reque
 ### static.go
 
 ```go
-func (h *Handler) handleCallPage(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleCallPage(w http.ResponseWriter, r *http.Request)
 // GET /call
 // Serves embedded call.html (no auth required)
 
-func (h *Handler) handleCallJS(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleCallJS(w http.ResponseWriter, r *http.Request)
 // GET /call.js
 // Serves embedded call.js bundle (no auth required)
 
-func (h *Handler) handleWorkerJS(w http.ResponseWriter, r *http.Request)
+func (p *Plugin) handleWorkerJS(w http.ResponseWriter, r *http.Request)
 // GET /worker.js
 // Serves embedded worker.js (no auth required)
 // Sets Content-Type: application/javascript
@@ -262,10 +243,6 @@ type KVStore interface {
     UpdateCallParticipants(callID string, participants []string) error
     EndCall(callID string, endAt int64) error
 
-    // Heartbeat methods
-    SetHeartbeat(callID, userID string, ts int64) error
-    GetStaleParticipants(callID string, cutoff int64) ([]string, error)
-
     // Mobile VoIP token methods
     StoreVoIPToken(userID, token string) error
     GetVoIPToken(userID string) (string, error)
@@ -283,30 +260,14 @@ type CallSession struct {
 // KV key patterns:
 //   call:channel:{channelID} -> CallSession JSON
 //   call:id:{callID}         -> CallSession JSON
-//   heartbeat:{callID}:{userID} -> unix timestamp (int64)
 //   voip:{userID}            -> token string
 ```
 
 ---
 
-## B-06: Push Sender (`server/push/push.go`)
+## ~~B-06: Push Sender~~ — REMOVED
 
-```go
-type Sender struct {
-    api pluginapi.Client
-}
-
-func NewSender(api pluginapi.Client) *Sender
-
-func (s *Sender) SendIncomingCall(channelID, callerID, callerName, channelName, callID, postID string, memberIDs []string) error
-// For each memberID (excluding callerID):
-//   Build PushNotification with type="message", sub_type="calls"
-//   Include: channel_id, sender_id, sender_name, channel_name, uuid=callID, root_id=postID, ack_id
-//   Send via pluginapi
-
-func (s *Sender) SendCallEnded(callID string, memberIDs []string) error
-// For each memberID: send type="clear", sub_type="calls_ended", uuid=callID
-```
+> Push notification subsystem removed. Mobile clients receive call notifications via WebSocket events.
 
 ---
 
@@ -333,18 +294,15 @@ notificationDismissed(callID)     // from WS event
 
 ---
 
-## F-10: Call Page (`webapp/src/call/CallPage.tsx`)
+## F-10: Call Page (`webapp/src/call_page/CallPage.tsx`)
 
 ```typescript
 function CallPage(): JSX.Element
 // 1. Parse token from URL search params
 // 2. Parse callID and channelID from token or URL params
-// 3. Initialize DyteProvider with token and feature flag config
-// 4. Start heartbeat interval (every 15 seconds):
-//    fetch(`/plugins/{id}/api/v1/calls/${callID}/heartbeat`, { method: 'POST' })
-// 5. Register beforeunload handler:
-//    navigator.sendBeacon(`/plugins/{id}/api/v1/calls/${callID}/leave`)
-//    clearInterval(heartbeatInterval)
-// 6. Set document.title = `Call in #${channelName}`
-// 7. Render <DyteProvider> with RTK meeting config and feature flags
+// 3. Initialize RealtimeKitProvider with token and feature flag config
+// 4. Register beforeunload handler:
+//    fetch(`/plugins/{id}/api/v1/calls/${callID}/leave`, { method: 'POST', keepalive: true })
+// 5. Set document.title = `Call in #${channelName}`
+// 6. Render <RealtimeKitProvider> with RTK meeting config and feature flags
 ```

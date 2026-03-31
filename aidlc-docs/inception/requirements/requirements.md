@@ -162,6 +162,9 @@
   - `custom_cf_notification_dismissed` — a user dismissed the incoming call notification (payload: `call_id`, `user_id`)
 
 ### FR-16: Mobile Client Support
+
+> **Updated 2026-03-31**: FR-16-2 (push notifications) is no longer implemented. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead.
+
 The plugin shall provide the server-side support necessary for a modified Mattermost Mobile app to deliver native incoming call notifications and participate in calls.
 
 #### FR-16-1: VoIP Device Token Registration
@@ -169,18 +172,20 @@ The plugin shall provide the server-side support necessary for a modified Matter
 - iOS VoIP tokens shall be stored with the prefix `apple_voip:{token}`.
 - Tokens shall be stored in KVStore keyed by user ID.
 
-#### FR-16-2: Incoming Call Push Notification
-- When a call is started, the plugin shall send a push notification to all channel members who are not the call creator, via the Mattermost push notification infrastructure.
-- The push notification payload shall include the following fields required by the native mobile call UI:
-  - `channel_id` — Mattermost channel ID
-  - `sender_id` — caller's user ID
-  - `sender_name` — caller's display name
-  - `channel_name` — channel or DM display name
-  - `ack_id` — unique notification acknowledgment ID
-  - `uuid` — call identifier
-  - `sub_type: "calls"` — identifies this as a call notification
-  - `root_id` — thread ID of the call post (if applicable)
-  - `server_id` — Mattermost server identifier
+#### ~~FR-16-2: Incoming Call Push Notification~~ — REMOVED
+- ~~When a call is started, the plugin shall send a push notification to all channel members who are not the call creator, via the Mattermost push notification infrastructure.~~
+- ~~The push notification payload shall include the following fields required by the native mobile call UI:~~
+  - ~~`channel_id` — Mattermost channel ID~~
+  - ~~`sender_id` — caller's user ID~~
+  - ~~`sender_name` — caller's display name~~
+  - ~~`channel_name` — channel or DM display name~~
+  - ~~`ack_id` — unique notification acknowledgment ID~~
+  - ~~`uuid` — call identifier~~
+  - ~~`sub_type: "calls"` — identifies this as a call notification~~
+  - ~~`root_id` — thread ID of the call post (if applicable)~~
+  - ~~`server_id` — Mattermost server identifier~~
+
+> **Note**: Push notifications have been replaced by WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) for notifying mobile clients of incoming and ended calls.
 
 #### FR-16-3: Dismiss Notification API
 - The plugin shall expose an API endpoint to mark an incoming call notification as dismissed for a specific user.

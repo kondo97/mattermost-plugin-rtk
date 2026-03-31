@@ -8,7 +8,7 @@
 | Backend service layer | Flat — logic in Plugin struct + api/ handlers |
 | Frontend state | Redux slice via `registry.registerReducer()` |
 | Call page auth | Token (JWT) + Mattermost session cookie (automatic, same domain) |
-| Leave detection | sendBeacon (primary) + heartbeat timeout 60s (fallback) |
+| Leave detection | fetch+keepalive on beforeunload (heartbeat deferred) |
 
 ---
 
@@ -19,27 +19,27 @@
 **Type**: Existing — major extension
 **Responsibility**: Plugin lifecycle, component wiring, call business logic
 **Key additions**:
-- Initialize RTKClient, Push sender on `OnActivate`
-- Call lifecycle methods: `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`, `HeartbeatCall`
+- Initialize RTKClient on `OnActivate`
+- Call lifecycle methods: `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`
 - WebSocket event emission helpers
-- Heartbeat cleanup loop trigger (delegated to background job)
+- Cleanup loop placeholder (future: RTK participant reconciliation)
 
 ---
 
-### B-02: API Handler (`server/api/`)
+### B-02: API Handler (`server/api*.go`)
 
-**Type**: New package
+**Type**: New files (flat structure)
 **Responsibility**: All HTTP endpoint handlers, authentication middleware, static file serving
 **Files**:
 
 | File | Endpoints |
 |---|---|
-| `handler.go` | Handler struct, router setup, auth middleware |
-| `calls.go` | `POST /api/v1/calls`, `POST /api/v1/calls/{callId}/token`, `POST /api/v1/calls/{callId}/leave`, `DELETE /api/v1/calls/{callId}` |
-| `heartbeat.go` | `POST /api/v1/calls/{callId}/heartbeat` |
-| `config.go` | `GET /api/v1/config/status`, `GET /api/v1/config/admin-status` |
-| `mobile.go` | `POST /api/v1/mobile/voip-token`, `POST /api/v1/calls/{callId}/dismiss` |
-| `static.go` | `GET /call` (call page HTML), `GET /call.js`, `GET /worker.js` |
+| `api.go` | Router setup, auth middleware |
+| `api_calls.go` | `POST /api/v1/calls`, `GET /api/v1/calls/{callId}`, `POST /api/v1/calls/{callId}/token`, `POST /api/v1/calls/{callId}/leave`, `DELETE /api/v1/calls/{callId}` |
+| `api_config.go` | `GET /api/v1/config/status`, `GET /api/v1/config/admin-status` |
+| `api_mobile.go` | `POST /api/v1/mobile/voip-token`, `POST /api/v1/calls/{callId}/dismiss` |
+| `api_static.go` | `GET /call` (call page HTML), `GET /call.js`, `GET /worker.js` |
+| `api_webhook.go` | RTK webhook handler |
 
 ---
 
@@ -83,30 +83,22 @@
 - `SaveCall(session *CallSession) error`
 - `UpdateCallParticipants(callID string, participants []string) error`
 - `EndCall(callID string, endAt int64) error`
-- `SetHeartbeat(callID, userID string, ts int64) error`
-- `GetStaleParticipants(callID string, cutoff int64) ([]string, error)`
 - `StoreVoIPToken(userID, token string) error`
 - `GetVoIPToken(userID string) (string, error)`
 
 ---
 
-### B-06: Push Sender (`server/push/`)
+### ~~B-06: Push Sender (`server/push/`)~~ — REMOVED
 
-**Type**: New package
-**Responsibility**: Mobile push notification delivery via Mattermost push infrastructure
-**Files**:
-
-| File | Content |
-|---|---|
-| `push.go` | `Sender` struct and `SendIncomingCall`, `SendCallEnded` methods |
+> **Updated 2026-03-31**: Push notification subsystem removed. Mobile clients receive call notifications via WebSocket events.
 
 ---
 
-### B-07: Background Job (`server/job.go`)
+### B-07: Cleanup Loop (`server/cleanup.go`)
 
-**Type**: Existing — extension
-**Responsibility**: Periodic heartbeat timeout cleanup (every 30 seconds)
-**Logic**: Scan all active calls; remove participants whose last heartbeat is older than 60 seconds; emit `custom_cf_user_left` WebSocket event; auto-end call if participants list becomes empty
+**Type**: New (placeholder)
+**Responsibility**: Placeholder for future RTK participant reconciliation via `GetMeetingParticipants()`
+**Current state**: Stub — waits for stop signal only
 
 ---
 
@@ -205,7 +197,7 @@
 
 ## Frontend Components (Standalone Call Bundle)
 
-### F-10: Call Page (`webapp/src/call/`)
+### F-10: Call Page (`webapp/src/call_page/`)
 
 **Type**: New — separate Vite entry point (`webapp/dist/call.js`)
 **Responsibility**: Full RTK SDK call UI in a dedicated browser tab
@@ -213,10 +205,8 @@
 
 | File | Content |
 |---|---|
-| `index.tsx` | Page bootstrap, read `?token` from URL |
-| `CallPage.tsx` | RTK DyteProvider initialization, heartbeat loop, sendBeacon on unload |
+| `main.tsx` | Page bootstrap, read `?token` from URL |
+| `CallPage.tsx` | RealtimeKitProvider initialization, fetch+keepalive on unload |
 
-**Authentication**: JWT token from URL `?token=` for RTK SDK; Mattermost session cookie automatic (same domain) for leave/heartbeat API calls
-**Leave detection**:
-- Primary: `beforeunload` → `navigator.sendBeacon('/api/v1/calls/{id}/leave')`
-- Fallback: heartbeat `POST /api/v1/calls/{id}/heartbeat` every 15 seconds (server timeout: 60 seconds)
+**Authentication**: JWT token from URL `?token=` for RTK SDK; Mattermost session cookie automatic (same domain) for leave API calls
+**Leave detection**: `beforeunload` → `fetch('/api/v1/calls/{id}/leave', {keepalive: true, headers: {'X-Requested-With': 'XMLHttpRequest'}})`

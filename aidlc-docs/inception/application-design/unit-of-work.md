@@ -13,8 +13,8 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 **Responsibilities**:
 - Implement the Cloudflare RTK API client (create meeting, generate token, end meeting)
 - Extend KVStore interface and implementation with call session methods
-- Add call lifecycle methods to Plugin struct (`CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`, `HeartbeatCall`, `CleanupStaleParticipants`)
-- Implement heartbeat timeout cleanup in background job
+- Add call lifecycle methods to Plugin struct (`CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`)
+- Add placeholder cleanup loop for future RTK participant reconciliation
 
 **In-Scope Files**:
 
@@ -23,20 +23,19 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 | `server/rtkclient/interface.go` | New — RTKClient interface |
 | `server/rtkclient/client.go` | New — HTTP implementation (Basic Auth) |
 | `server/store/kvstore/kvstore.go` | Modified — add 9 call session methods to interface + implementation |
-| `server/plugin.go` | Modified — add `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall`, `HeartbeatCall`, `CleanupStaleParticipants`, initialize RTKClient on `OnActivate` |
-| `server/job.go` | Modified — add heartbeat cleanup every 30s |
+| `server/plugin.go` | Modified — initialize RTKClient on `OnActivate`, start cleanup loop |
+| `server/calls.go` | New — `CreateCall`, `JoinCall`, `LeaveCall`, `EndCall` |
+| `server/cleanup.go` | New — placeholder cleanup loop (future: RTK participant reconciliation) |
 
 **KVStore Key Pattern**:
 - `call:channel:{channelID}` — active call per channel
 - `call:id:{callID}` — call session by ID
-- `heartbeat:{callID}:{userID}` — last heartbeat timestamp
 - `voip:{userID}` — VoIP device token
 
 **Success Criteria**:
 - RTKClient interface is mockable (used in unit tests)
 - KVStore interface is mockable (used in unit tests)
 - All call lifecycle methods have unit tests
-- Background job cleans up participants with heartbeat older than 60s
 
 ---
 
@@ -54,12 +53,12 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 
 | File | Change |
 |---|---|
-| `server/api/handler.go` | New — Handler struct, router setup (gorilla/mux), `Mattermost-User-ID` auth middleware |
-| `server/api/calls.go` | New — `POST /calls`, `POST /calls/{id}/token`, `POST /calls/{id}/leave`, `DELETE /calls/{id}` |
-| `server/api/heartbeat.go` | New — `POST /calls/{id}/heartbeat` |
-| `server/api/config.go` | New — `GET /config/status`, `GET /config/admin-status` |
-| `server/api/mobile.go` | New — `POST /mobile/voip-token`, `POST /calls/{id}/dismiss` |
-| `server/api/static.go` | New — `GET /call` (HTML), `GET /call.js`, `GET /worker.js` |
+| `server/api.go` | New — router setup (gorilla/mux), `Mattermost-User-ID` auth middleware |
+| `server/api_calls.go` | New — `POST /calls`, `GET /calls/{id}`, `POST /calls/{id}/token`, `POST /calls/{id}/leave`, `DELETE /calls/{id}` |
+| `server/api_config.go` | New — `GET /config/status`, `GET /config/admin-status` |
+| `server/api_mobile.go` | New — `POST /mobile/voip-token`, `POST /calls/{id}/dismiss` |
+| `server/api_static.go` | New — `GET /call` (HTML), `GET /call.js`, `GET /worker.js` |
+| `server/api_webhook.go` | New — RTK webhook handler |
 | `server/plugin.go` | Modified — register API handler in `ServeHTTP` |
 
 **WebSocket Events Emitted**:
@@ -126,8 +125,8 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 **Responsibilities**:
 - Implement `custom_cf_call` post renderer (active and ended states)
 - Implement standalone call page (separate Vite bundle entry)
-- Initialize Cloudflare RTK React SDK (`DyteProvider`)
-- Implement heartbeat loop (every 15s) and `sendBeacon` on tab close
+- Initialize Cloudflare RTK React SDK (`RealtimeKitProvider`)
+- Implement `fetch+keepalive` on tab close for leave detection
 - Migrate build system from webpack to Vite (dual bundle: `main.js` + `call.js`)
 
 **In-Scope Files**:
@@ -135,8 +134,8 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 | File | Change |
 |---|---|
 | `webapp/src/components/call_post/` | New — `custom_cf_call` post renderer |
-| `webapp/src/call/index.tsx` | New — call page bootstrap, read `?token` from URL |
-| `webapp/src/call/CallPage.tsx` | New — DyteProvider, heartbeat loop, sendBeacon on unload |
+| `webapp/src/call_page/main.tsx` | New — call page bootstrap, read `?token` from URL |
+| `webapp/src/call_page/CallPage.tsx` | New — RealtimeKitProvider, fetch+keepalive on unload |
 | `webapp/vite.config.ts` | New — dual entry point configuration |
 | `webapp/package.json` | Modified — replace webpack deps with Vite |
 | `webapp/src/index.tsx` | Modified — register `custom_cf_call` post type (shared edit with Unit 3) |
@@ -145,8 +144,7 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 - Call post shows active state (green indicator, participants, Join button)
 - Call post shows ended state (gray indicator, duration, no buttons)
 - Call page loads RTK SDK with `?token` parameter
-- `sendBeacon` fires on `beforeunload`
-- Heartbeat sends every 15s while call page is open
+- `fetch+keepalive` fires on `beforeunload` with CSRF header
 - `make` produces `call.js` embedded in Go binary
 - Jest unit tests for CallPost component states
 
@@ -183,30 +181,20 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 
 ## Unit 6: Mobile Support
 
-**Purpose**: Push notification delivery for mobile users when calls start and end.
+> **Status**: Push notification subsystem was implemented and then **intentionally removed**. Mobile call notifications are now handled through WebSocket events directly. The `server/push/` package and all related integration code have been deleted.
 
-**Responsibilities**:
-- Implement Push sender package using Mattermost push notification infrastructure
-- Send `type: "message"` / `sub_type: "calls"` notification on call start
-- Send `type: "clear"` / `sub_type: "calls_ended"` notification on call end
-- Integrate Push sender into Plugin Core (`OnActivate`, `CreateCall`, `EndCall`)
+**Original Purpose**: Push notification delivery for mobile users when calls start and end.
 
-**In-Scope Files**:
+**Current State**: No dedicated mobile support code. Mobile clients receive call events through the same WebSocket channel as desktop clients. The `custom_cf_call_started` and `custom_cf_call_ended` events carry sufficient data for mobile apps to display call notifications.
 
-| File | Change |
+**Removed Files**:
+
+| File | Status |
 |---|---|
-| `server/push/push.go` | New — `Sender` struct, `SendIncomingCall()`, `SendCallEnded()` |
-| `server/plugin.go` | Modified — initialize Push sender on `OnActivate`; call from `CreateCall` / `EndCall` |
-
-**Push Notification Payload**:
-- `channel_id`, `team_id`, `sender_id`, `sender_name`, `channel_name`, `root_id` (associated post ID)
-- Platform routing (APNs PushKit / FCM) handled transparently by Mattermost push proxy
-
-**Success Criteria**:
-- `SendIncomingCall` dispatched to all channel members except caller on call start
-- `SendCallEnded` dispatched to dismiss incoming call UI on all devices
-- Push sender is mockable via interface (unit testable)
-- Unit tests for Push sender using mock Mattermost push API
+| `server/push/interface.go` | Deleted |
+| `server/push/push.go` | Deleted |
+| `server/push/push_test.go` | Deleted |
+| `server/push/mocks/mock_push.go` | Deleted |
 
 ---
 
@@ -221,7 +209,8 @@ Unit 2: Server API & WebSocket   (depends on Unit 1)
   +---> Unit 3: Webapp - Channel UI     (depends on Unit 2 API contracts)
   +---> Unit 4: Webapp - Call Page & Post (depends on Unit 2 API contracts)
   +---> Unit 5: Admin & Config          (depends on Unit 2 config endpoints)
-  +---> Unit 6: Mobile Support          (depends on Unit 1 call service + Unit 2 API)
+  +---> Unit 6: Mobile Support          (REMOVED — WS events used instead of push)
 ```
 
-Units 3, 4, 5, 6 can be designed and reviewed in parallel; they are independent of each other.
+Units 3, 4, 5 can be designed and reviewed in parallel; they are independent of each other.
+Unit 6 push notification subsystem was removed; mobile clients use WebSocket events.
