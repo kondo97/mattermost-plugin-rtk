@@ -7,6 +7,7 @@ import {useLanguage} from '@cloudflare/realtimekit-ui';
 import {pluginFetch} from 'client';
 import manifest from 'manifest';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import ReactDOM from 'react-dom';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {clearMyActiveCall} from 'redux/calls_slice';
@@ -14,6 +15,7 @@ import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import jaDict from 'utils/rtk_lang_ja';
 
 // HeaderButton renders an icon button with an instant custom tooltip on hover.
+// The tooltip is rendered via a portal to escape overflow:hidden on the widget container.
 const HeaderButton = ({
     onClick,
     label,
@@ -27,26 +29,43 @@ const HeaderButton = ({
     active?: boolean;
     testId?: string;
 }) => {
-    const [hovered, setHovered] = useState(false);
+    const [tooltipRect, setTooltipRect] = useState<DOMRect | null>(null);
+    const btnRef = useRef<HTMLButtonElement>(null);
     const style: React.CSSProperties = active ? headerBtnActiveStyle : headerBtnStyle;
+
+    const showTooltip = () => {
+        if (btnRef.current) {
+            setTooltipRect(btnRef.current.getBoundingClientRect());
+        }
+    };
+    const hideTooltip = () => setTooltipRect(null);
+
     return (
-        <div style={{position: 'relative', display: 'inline-flex'}}>
+        <>
             <button
+                ref={btnRef}
                 type='button'
                 style={style}
                 onClick={onClick}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
+                onMouseEnter={showTooltip}
+                onMouseLeave={hideTooltip}
                 data-testid={testId}
             >
                 {children}
             </button>
-            {hovered && (
-                <div style={tooltipStyle}>
+            {tooltipRect && ReactDOM.createPortal(
+                <div
+                    style={{
+                        ...tooltipStyle,
+                        top: tooltipRect.bottom + 6,
+                        left: tooltipRect.left + (tooltipRect.width / 2),
+                    }}
+                >
                     {label}
-                </div>
+                </div>,
+                document.body,
             )}
-        </div>
+        </>
     );
 };
 
@@ -392,9 +411,8 @@ const headerBtnActiveStyle: React.CSSProperties = {
 };
 
 const tooltipStyle: React.CSSProperties = {
-    position: 'absolute',
-    bottom: 'calc(100% + 6px)',
-    right: 0,
+    position: 'fixed',
+    transform: 'translateX(-50%)',
     backgroundColor: 'rgba(0,0,0,0.85)',
     color: '#fff',
     fontSize: '11px',
@@ -402,7 +420,7 @@ const tooltipStyle: React.CSSProperties = {
     padding: '3px 8px',
     borderRadius: '4px',
     pointerEvents: 'none',
-    zIndex: 9999,
+    zIndex: 99999,
 };
 
 const messageStyle: React.CSSProperties = {
