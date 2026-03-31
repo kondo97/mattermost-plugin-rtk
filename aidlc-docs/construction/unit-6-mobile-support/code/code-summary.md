@@ -7,7 +7,7 @@
 
 The `server/push/` package and all related integration code were removed because
 the mobile app handles call notifications through the same WebSocket events
-(`custom_cf_call_started`, `custom_cf_call_ended`) used by the desktop client.
+(`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) used by the desktop client.
 Dedicated push notifications were no longer needed.
 
 ## Removed Files
@@ -30,8 +30,8 @@ Dedicated push notifications were no longer needed.
 ## Current Mobile Support
 
 Mobile clients receive call events through existing WebSocket channels:
-- `custom_cf_call_started` — triggers incoming call UI
-- `custom_cf_call_ended` — dismisses incoming call UI
-- `custom_cf_user_joined` / `custom_cf_user_left` — participant updates
+- `custom_com.kondo97.mattermost-plugin-rtk_call_started` — triggers incoming call UI
+- `custom_com.kondo97.mattermost-plugin-rtk_call_ended` — dismisses incoming call UI
+- `custom_com.kondo97.mattermost-plugin-rtk_user_joined` / `custom_com.kondo97.mattermost-plugin-rtk_user_left` — participant updates
 
 No dedicated mobile-specific server code is required.

@@ -65,7 +65,7 @@ If a user calls `POST /calls/{id}/token` and they are already in `Participants`,
 
 A) Return a fresh token (regenerate) — idempotent join, 200 OK
 B) Return 409 Conflict — user must leave first
-C) Return a fresh token AND re-emit `custom_cf_user_joined` WebSocket event
+C) Return a fresh token AND re-emit `custom_com.kondo97.mattermost-plugin-rtk_user_joined` WebSocket event
 D) Return the same token as before (requires token caching — complex)
 E) Other (describe below)
 

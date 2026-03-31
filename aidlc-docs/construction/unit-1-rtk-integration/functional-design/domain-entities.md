@@ -55,7 +55,14 @@ Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync 
 
 ## WebSocket Event Payloads
 
-### custom_cf_call_started
+> **Naming convention**: The server publishes events using short names (e.g., `call_started`).
+> The Mattermost plugin framework automatically prepends `custom_{pluginID}_` when delivering
+> events to clients. With plugin ID `com.kondo97.mattermost-plugin-rtk`, the full client-side
+> event name is `custom_com.kondo97.mattermost-plugin-rtk_call_started`, etc.
+> The webapp subscribes using `custom_${manifest.id}_call_started` (see `webapp/src/index.tsx`).
+
+### custom_com.kondo97.mattermost-plugin-rtk_call_started
+Server publishes as: `call_started`
 ```json
 {
   "call_id": "string",
@@ -67,7 +74,8 @@ Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync 
 }
 ```
 
-### custom_cf_user_joined
+### custom_com.kondo97.mattermost-plugin-rtk_user_joined
+Server publishes as: `user_joined`
 ```json
 {
   "call_id": "string",
@@ -77,7 +85,8 @@ Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync 
 }
 ```
 
-### custom_cf_user_left
+### custom_com.kondo97.mattermost-plugin-rtk_user_left
+Server publishes as: `user_left`
 ```json
 {
   "call_id": "string",
@@ -87,7 +96,8 @@ Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync 
 }
 ```
 
-### custom_cf_call_ended
+### custom_com.kondo97.mattermost-plugin-rtk_call_ended
+Server publishes as: `call_ended`
 ```json
 {
   "call_id": "string",
@@ -97,7 +107,8 @@ Both `call:channel:` and `call:id:` point to the same CallSession; kept in sync 
 }
 ```
 
-### custom_cf_notification_dismissed
+### custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed
+Server publishes as: `notification_dismissed`
 ```json
 {
   "call_id": "string",

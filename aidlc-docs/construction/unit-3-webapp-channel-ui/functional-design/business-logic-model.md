@@ -84,7 +84,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 
 **Dismiss**:
 - User clicks dismiss → set local `dismissed = true` (not persisted; resets on page reload)
-- `custom_cf_call_ended` for this call → clear local `dismissed`, call data removed from Redux
+- `custom_com.kondo97.mattermost-plugin-rtk_call_ended` for this call → clear local `dismissed`, call data removed from Redux
 
 **Join action from toast bar**: Same as BL-004 (checks `myActiveCall` first, shows SwitchCallModal if needed).
 
@@ -108,7 +108,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 
 **Note**: No mute/unmute control in the FloatingWidget. Mute is only available in the call tab (Unit 4).
 
-**Hide condition**: `myActiveCall === null` (cleared by `custom_cf_user_left` or `custom_cf_call_ended`)
+**Hide condition**: `myActiveCall === null` (cleared by `custom_com.kondo97.mattermost-plugin-rtk_user_left` or `custom_com.kondo97.mattermost-plugin-rtk_call_ended`)
 
 ---
 
@@ -131,7 +131,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 **Trigger**: `incomingCall !== null` in Redux.
 
 **Condition for Redux to set `incomingCall`**:
-- `custom_cf_call_started` WS event received
+- `custom_com.kondo97.mattermost-plugin-rtk_call_started` WS event received
 - Channel type of `channelId` is `D` or `G`
 - `creator_id != currentUser.id`
 
@@ -144,7 +144,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 
 **"Ignore" flow**:
 1. Call `POST /plugins/{id}/api/v1/calls/{callId}/dismiss`
-2. Server emits `custom_cf_notification_dismissed` WS event to all user sessions
+2. Server emits `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event to all user sessions
 3. Redux handler clears `incomingCall` (via WS event, not optimistically)
 
 **"Join" flow**: Same as BL-004 (checks `myActiveCall` first, shows SwitchCallModal if needed).
@@ -153,7 +153,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 
 ## BL-009: Real-Time Participant Updates
 
-**Trigger**: `custom_cf_user_joined` or `custom_cf_user_left` WS events.
+**Trigger**: `custom_com.kondo97.mattermost-plugin-rtk_user_joined` or `custom_com.kondo97.mattermost-plugin-rtk_user_left` WS events.
 
 **Flow**:
 - Redux updates `callsByChannel[channelId].participants` with the new `participants` array from the event
@@ -167,7 +167,7 @@ This document describes the business logic flows for all Unit 3 components. All 
 
 ## BL-010: Call Ended Cleanup
 
-**Trigger**: `custom_cf_call_ended` WS event.
+**Trigger**: `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WS event.
 
 **Flow**:
 1. Remove `callsByChannel[channelId]` from Redux

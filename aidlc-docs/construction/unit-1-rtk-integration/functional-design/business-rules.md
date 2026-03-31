@@ -7,7 +7,7 @@
 | BR-01 | Only one active call allowed per channel. If `call:channel:{channelID}` exists with `EndAt == 0`, return error. |
 | BR-02 | Creator is assigned `group_call_host` preset in RTK. |
 | BR-03 | Creator is automatically added to `Participants` on creation. |
-| BR-04 | On success: create `custom_cf_call` post in channel, emit `custom_cf_call_started` WebSocket event. (**Updated 2026-03-30**: Push notification via push sender REMOVED — mobile uses WebSocket events.) |
+| BR-04 | On success: create `custom_cf_call` post in channel, emit `custom_com.kondo97.mattermost-plugin-rtk_call_started` WebSocket event. (**Updated 2026-03-30**: Push notification via push sender REMOVED — mobile uses WebSocket events.) |
 | BR-05 | If RTKClient.CreateMeeting fails, abort — do not write to KVStore or post to channel. |
 
 ## JoinCall Rules
@@ -19,14 +19,14 @@
 | BR-08 | Joining user is assigned `group_call_participant` preset in RTK. |
 | BR-09 | UserID is appended to `Participants` in KVStore (deduplicated — no duplicate entries). |
 | BR-09a | ~~Set initial heartbeat~~ — **Deferred / not implemented**. Heartbeat mechanism is not currently implemented; RTK webhook handles participant cleanup instead. |
-| BR-10 | Emit `custom_cf_user_joined` WebSocket event on success. |
+| BR-10 | Emit `custom_com.kondo97.mattermost-plugin-rtk_user_joined` WebSocket event on success. |
 
 ## LeaveCall Rules
 
 | Rule | Description |
 |---|---|
 | BR-11 | UserID is removed from `Participants`. If userID not present, operation is a no-op (idempotent). |
-| BR-12 | Emit `custom_cf_user_left` WebSocket event after removal. |
+| BR-12 | Emit `custom_com.kondo97.mattermost-plugin-rtk_user_left` WebSocket event after removal. |
 | BR-13 | If `Participants` becomes empty after removal, auto-trigger `EndCallInternal`. |
 
 ## EndCall Rules
@@ -37,7 +37,7 @@
 | BR-15 | Set `EndAt` to current Unix timestamp (ms) in KVStore. |
 | BR-16 | Call `RTKClient.EndMeeting(meetingID)` — best effort: log failure but do not abort the end-call flow. |
 | BR-17 | Update `custom_cf_call` post to ended state (set `EndAt` and `DurationMs` in post props). |
-| BR-18 | Emit `custom_cf_call_ended` WebSocket event with `end_at` and `duration_ms`. |
+| BR-18 | Emit `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event with `end_at` and `duration_ms`. |
 
 ## HeartbeatCall Rules
 
@@ -69,4 +69,4 @@
 | BR-26 | Set `EndAt` in KVStore. |
 | BR-27 | Call `RTKClient.EndMeeting` — best effort. |
 | BR-28 | Update post to ended state. |
-| BR-29 | Emit `custom_cf_call_ended` WebSocket event. |
+| BR-29 | Emit `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event. |

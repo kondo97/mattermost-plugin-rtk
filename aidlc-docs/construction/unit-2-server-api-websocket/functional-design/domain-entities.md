@@ -84,9 +84,23 @@ Shared response shape for `POST /calls` and `POST /calls/{id}/token`.
 ### ConfigStatusResponse
 Response for `GET /config/status`.
 
+> **Updated**: `feature_flags` was added in Unit 5. Both `/config/status` and `/config/admin-status` include it.
+
 ```json
 {
-  "enabled": true
+  "enabled": true,
+  "feature_flags": {
+    "recording": true,
+    "screenShare": true,
+    "polls": true,
+    "transcription": true,
+    "waitingRoom": false,
+    "video": true,
+    "chat": true,
+    "plugins": true,
+    "participants": true,
+    "raiseHand": true
+  }
 }
 ```
 
@@ -132,15 +146,19 @@ Shared error response for all endpoints.
 
 All WebSocket events are emitted by Unit 1 (`calls.go`) via `p.API.PublishWebSocketEvent`. Unit 2 wires the HTTP triggers and webhook triggers that cause these emissions.
 
-| Event | Trigger | Broadcast Scope |
-|---|---|---|
-| `custom_cf_call_started` | `POST /calls` → `CreateCall` | Channel |
-| `custom_cf_user_joined` | `POST /calls/{id}/token` → `JoinCall` (new participant) | Channel |
-| `custom_cf_user_left` | `meeting.participantLeft` webhook → `LeaveCall` | Channel |
-| `custom_cf_call_ended` | `DELETE /calls/{id}` or `meeting.ended` webhook → `endCallInternal` | Channel |
-| `custom_cf_notification_dismissed` | `POST /calls/{id}/dismiss` | User (all sessions) |
+> **Naming convention**: The server publishes short event names; Mattermost prepends `custom_{pluginID}_` for client delivery.
+> Full client-side names: `custom_com.kondo97.mattermost-plugin-rtk_*` (see Unit 1 domain-entities.md).
 
-### custom_cf_notification_dismissed
+| Event (server-side) | Client-side name | Trigger | Broadcast Scope |
+|---|---|---|---|
+| `call_started` | `custom_com.kondo97.mattermost-plugin-rtk_call_started` | `POST /calls` → `CreateCall` | Channel |
+| `user_joined` | `custom_com.kondo97.mattermost-plugin-rtk_user_joined` | `POST /calls/{id}/token` → `JoinCall` (new participant) | Channel |
+| `user_left` | `custom_com.kondo97.mattermost-plugin-rtk_user_left` | `meeting.participantLeft` webhook → `LeaveCall` | Channel |
+| `call_ended` | `custom_com.kondo97.mattermost-plugin-rtk_call_ended` | `DELETE /calls/{id}` or `meeting.ended` webhook → `endCallInternal` | Channel |
+| `notification_dismissed` | `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` | `POST /calls/{id}/dismiss` | User (all sessions) |
+
+### custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed
+Server publishes as: `notification_dismissed`
 ```json
 {
   "call_id": "string",

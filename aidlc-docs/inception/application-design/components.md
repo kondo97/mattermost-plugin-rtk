@@ -141,7 +141,7 @@
 **Type**: New
 **Responsibility**: Channel call toast bar above message input
 **Shows**: Call start time, participant avatars, "Join" button (non-members), dismiss button
-**Dismisses**: Locally on user dismiss; globally on `custom_cf_call_ended` WS event
+**Dismisses**: Locally on user dismiss; globally on `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WS event
 
 ---
 
@@ -168,7 +168,7 @@
 **Responsibility**: DM/GM in-app ringing notification
 **Shows**: Caller info, "Ignore" and "Join" actions
 **Auto-dismisses**: After 30 seconds
-**Trigger**: `custom_cf_call_started` WS event on DM/GM channels
+**Trigger**: `custom_com.kondo97.mattermost-plugin-rtk_call_started` WS event on DM/GM channels
 
 ---
 

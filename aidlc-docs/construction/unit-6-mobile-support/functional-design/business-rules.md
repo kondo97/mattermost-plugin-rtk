@@ -1,6 +1,6 @@
 # Unit 6: Mobile Support — Business Rules
 
-> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead of push notifications. All rules below are no longer enforced. This document is retained for historical reference.
+> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) instead of push notifications. All rules below are no longer enforced. This document is retained for historical reference.
 
 ## Push Notification Rules (REMOVED)
 

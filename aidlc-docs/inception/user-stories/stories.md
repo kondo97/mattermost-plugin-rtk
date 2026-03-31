@@ -101,11 +101,11 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] The creator is added as a participant with the `group_call_host` preset.
 - [ ] An auth token (JWT) is returned and used to open the standalone call page in a new browser tab; the tab opens automatically and receives focus.
 - [ ] A `custom_cf_call` post is posted to the channel announcing the call; the post includes the creator's display name and avatar.
-- [ ] A `custom_cf_call_started` WebSocket event is emitted to all connected clients.
+- [ ] A `custom_com.kondo97.mattermost-plugin-rtk_call_started` WebSocket event is emitted to all connected clients.
 - [ ] A sound cue plays on the Mattermost side when the `POST /api/v1/calls` response is received (not on call page load).
 - [ ] If the RTK API returns an error, a modal is shown with the error message — no inline channel message is posted.
 
-*Mobile variant*: On mobile, the WebSocket event (`custom_cf_call_started`) serves as the call announcement; the creator does not receive their own push notification.
+*Mobile variant*: On mobile, the WebSocket event (`custom_com.kondo97.mattermost-plugin-rtk_call_started`) serves as the call announcement; the creator does not receive their own push notification.
 
 ---
 
@@ -153,7 +153,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] The toast bar shows the call start time and participant avatars.
 - [ ] The toast bar includes a "Join" button for members who are not in the call.
 - [ ] The toast bar has a dismiss button; dismissing it hides it for the local user only (dismiss state is not persisted — the toast bar reappears on page reload if the call is still active).
-- [ ] The toast bar disappears for all clients when the call ends (via `custom_cf_call_ended` WebSocket event).
+- [ ] The toast bar disappears for all clients when the call ends (via `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event).
 - [ ] Members who join the call transition from seeing the toast bar to seeing the floating widget.
 
 ---
@@ -168,7 +168,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] Clicking "Join call" sends a request to `POST /api/v1/calls/{callId}/token`.
 - [ ] The joining user is added with the `group_call_participant` preset.
 - [ ] An auth token is returned and used to open the standalone call page in a new browser tab.
-- [ ] A `custom_cf_user_joined` WebSocket event is emitted to all connected clients.
+- [ ] A `custom_com.kondo97.mattermost-plugin-rtk_user_joined` WebSocket event is emitted to all connected clients.
 - [ ] A sound cue plays when the call page loads for the joining user.
 - [ ] If the RTK API returns an error, a modal is shown — no inline channel message.
 
@@ -194,7 +194,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 
 **Acceptance Criteria:**
 - [ ] The call button in the active call's channel header shows "In call" (disabled) for the local user.
-- [ ] The state updates in real-time via `custom_cf_user_joined` / `custom_cf_user_left` WebSocket events.
+- [ ] The state updates in real-time via `custom_com.kondo97.mattermost-plugin-rtk_user_joined` / `custom_com.kondo97.mattermost-plugin-rtk_user_left` WebSocket events.
 
 ---
 
@@ -203,9 +203,9 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 **As a** channel member, **I want** the call post card to update participant avatars and state in real-time, **so that** I can see who is in the call without refreshing the page.
 
 **Acceptance Criteria:**
-- [ ] When a user joins, the `custom_cf_user_joined` event triggers an update to the post's participant avatar list.
-- [ ] When a user leaves, the `custom_cf_user_left` event triggers removal of their avatar from the post.
-- [ ] When the call ends, the `custom_cf_call_ended` event transitions the post to the "ended" state.
+- [ ] When a user joins, the `custom_com.kondo97.mattermost-plugin-rtk_user_joined` event triggers an update to the post's participant avatar list.
+- [ ] When a user leaves, the `custom_com.kondo97.mattermost-plugin-rtk_user_left` event triggers removal of their avatar from the post.
+- [ ] When the call ends, the `custom_com.kondo97.mattermost-plugin-rtk_call_ended` event transitions the post to the "ended" state.
 
 ---
 
@@ -217,7 +217,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 
 **Acceptance Criteria:**
 - [ ] When the user closes the call tab, the plugin detects the departure and removes the user from the `participants` list in KVStore.
-- [ ] A `custom_cf_user_left` WebSocket event is emitted to all connected clients.
+- [ ] A `custom_com.kondo97.mattermost-plugin-rtk_user_left` WebSocket event is emitted to all connected clients.
 - [ ] The custom post and toast bar participant avatars are updated accordingly.
 
 ---
@@ -232,7 +232,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] The host has an "End call" action in the call UI (in addition to the standard "Leave" action).
 - [ ] Clicking "End call" immediately ends the call for all participants regardless of how many are present.
 - [ ] Clicking "End call" sends a request to the server which sets `end_at` in KVStore.
-- [ ] A `custom_cf_call_ended` WebSocket event is emitted with `call_id`, `channel_id`, `end_at`, and `duration_ms`.
+- [ ] A `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event is emitted with `call_id`, `channel_id`, `end_at`, and `duration_ms`.
 - [ ] The custom post switches to the "ended" state for all clients.
 - [ ] The toast bar is dismissed for all clients.
 - [ ] Non-host participants do not have access to the "End call" action.
@@ -247,7 +247,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] The post card shows a gray indicator and "Call ended" label.
 - [ ] The post card shows the call end time and duration (e.g., "Lasted 12 minutes").
 - [ ] No "Join call" or "Leave" buttons are shown in the ended state.
-- [ ] The transition happens in real-time via the `custom_cf_call_ended` WebSocket event.
+- [ ] The transition happens in real-time via the `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event.
 
 ---
 
@@ -287,7 +287,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 
 **Acceptance Criteria:**
 - [ ] The mobile app calls `POST /api/v1/calls/{callId}/dismiss`.
-- [ ] The server emits a `custom_cf_notification_dismissed` WebSocket event with `call_id` and `user_id`.
+- [ ] The server emits a `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WebSocket event with `call_id` and `user_id`.
 - [ ] All other clients receiving the event stop showing the ringing notification for this user.
 
 ---
@@ -338,10 +338,10 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 - [ ] When a call starts in a DM or group DM channel, an incoming call ringing notification is shown to all other channel members (not the caller).
 - [ ] The notification shows "Ignore" and "Join" options.
 - [ ] Clicking "Join" initiates the join flow (US-009).
-- [ ] Clicking "Ignore" dismisses the notification for the local user and emits `custom_cf_notification_dismissed`.
+- [ ] Clicking "Ignore" dismisses the notification for the local user and emits `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed`.
 - [ ] The ringing notification automatically dismisses after 30 seconds.
 
-*Mobile variant*: On mobile, this ringing is delivered as a push notification (US-018). Dismissing it from mobile emits the same `custom_cf_notification_dismissed` event (US-020), causing other clients to stop ringing.
+*Mobile variant*: On mobile, this ringing is delivered as a push notification (US-018). Dismissing it from mobile emits the same `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` event (US-020), causing other clients to stop ringing.
 
 ---
 
@@ -351,7 +351,7 @@ The following table maps key features of `mattermost-plugin-rtk` to the equivale
 
 **Acceptance Criteria:**
 - [ ] When the last participant leaves (participants list becomes empty), the server automatically sets `end_at` to the current timestamp.
-- [ ] The `custom_cf_call_ended` WebSocket event is emitted.
+- [ ] The `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket event is emitted.
 - [ ] The call post switches to the "ended" state.
 - [ ] No further join requests are accepted after auto-end.
 

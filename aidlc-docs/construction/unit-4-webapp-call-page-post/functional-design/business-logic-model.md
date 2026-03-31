@@ -19,7 +19,7 @@
 
 ## BL-002: CallPost — Ended State Rendering
 
-**Trigger**: `end_at > 0` in `post.props` OR `custom_cf_call_ended` WS event updates Redux
+**Trigger**: `end_at > 0` in `post.props` OR `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WS event updates Redux
 
 **Logic**:
 1. Detect ended state: `end_at > 0` (from props or Redux)
@@ -94,7 +94,7 @@
 **Logic**:
 1. `navigator.sendBeacon('/plugins/{id}/api/v1/calls/{call_id}/leave')`
 2. `sendBeacon` is used (not `fetch`) because it survives tab close
-3. Server handles the leave and emits `custom_cf_user_left` WS event
+3. Server handles the leave and emits `custom_com.kondo97.mattermost-plugin-rtk_user_left` WS event
 
 **Note**: `sendBeacon` uses POST with no body and no auth header. The server authenticates via the call session in KVStore using the `call_id`.
 

@@ -145,10 +145,10 @@ Events emitted by `p.API.PublishWebSocketEvent`:
 
 | Event Name | Payload Fields |
 |---|---|
-| `custom_cf_call_started` | `call_id`, `channel_id`, `creator_id`, `start_at` |
-| `custom_cf_call_ended` | `call_id`, `channel_id`, `end_at`, `duration_ms` |
-| `custom_cf_user_joined` | `call_id`, `user_id` |
-| `custom_cf_user_left` | `call_id`, `user_id` |
-| `custom_cf_notification_dismissed` | `call_id`, `user_id` |
+| `custom_com.kondo97.mattermost-plugin-rtk_call_started` | `call_id`, `channel_id`, `creator_id`, `start_at` |
+| `custom_com.kondo97.mattermost-plugin-rtk_call_ended` | `call_id`, `channel_id`, `end_at`, `duration_ms` |
+| `custom_com.kondo97.mattermost-plugin-rtk_user_joined` | `call_id`, `user_id` |
+| `custom_com.kondo97.mattermost-plugin-rtk_user_left` | `call_id`, `user_id` |
+| `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` | `call_id`, `user_id` |
 
 All events are broadcast to the entire channel (`broadcast.ChannelId`).
