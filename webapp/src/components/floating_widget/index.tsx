@@ -41,6 +41,7 @@ const FloatingWidget = () => {
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
     const retryCountRef = useRef(0);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const attemptInit = useCallback((token: string) => {
         setJoinError(null);
@@ -52,7 +53,7 @@ const FloatingWidget = () => {
             if (retryCountRef.current < MAX_RETRIES) {
                 retryCountRef.current += 1;
                 console.log(`[rtk-plugin] Retrying initMeeting in ${RETRY_DELAY_MS}ms...`); // eslint-disable-line no-console
-                setTimeout(() => attemptInit(token), RETRY_DELAY_MS);
+                retryTimeoutRef.current = setTimeout(() => attemptInit(token), RETRY_DELAY_MS);
             } else {
                 setJoinError(err.message);
             }
@@ -62,10 +63,16 @@ const FloatingWidget = () => {
     // Initialize RTK SDK when active call is set
     useEffect(() => {
         if (!myActiveCall?.token) {
-            return;
+            return undefined;
         }
         retryCountRef.current = 0;
         attemptInit(myActiveCall.token);
+        return () => {
+            if (retryTimeoutRef.current !== null) {
+                clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
+        };
     }, [myActiveCall?.callId, myActiveCall?.token, attemptInit]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debug: log meeting state and connection events
@@ -75,13 +82,18 @@ const FloatingWidget = () => {
         }
         console.log('[rtk-plugin] meeting initialized, roomJoined=', meeting.self.roomJoined); // eslint-disable-line no-console
 
+        // Capture callId at effect time so the handler doesn't close over a stale ref
+        const activeCallId = myActiveCall?.callId;
+
         const onRoomJoined = () => {
             console.log('[rtk-plugin] roomJoined event fired'); // eslint-disable-line no-console
             setJoinError(null);
         };
         const onRoomLeft = () => {
             console.log('[rtk-plugin] roomLeft event fired'); // eslint-disable-line no-console
-            pluginFetch(`/api/v1/calls/${myActiveCall!.callId}/leave`, {method: 'POST'});
+            if (activeCallId) {
+                pluginFetch(`/api/v1/calls/${activeCallId}/leave`, {method: 'POST'});
+            }
             dispatch(clearMyActiveCall());
         };
         const onMediaConnectionUpdate = (state: unknown) => {
@@ -101,7 +113,7 @@ const FloatingWidget = () => {
                 (meeting as any).meta.off('mediaConnectionUpdate', onMediaConnectionUpdate);
             }
         };
-    }, [meeting]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [meeting, myActiveCall?.callId, dispatch]);
 
     // Drag handlers
     useEffect(() => {

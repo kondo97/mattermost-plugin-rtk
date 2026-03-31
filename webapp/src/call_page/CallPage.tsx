@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 // Standalone call page component. No Mattermost framework dependencies.
-// No i18n — this bundle runs outside the Mattermost React tree (MAINT-U4-02).
+// Locale-specific RTK UI translations are provided via useLanguage() (MAINT-U4-02).
 
 import {useRealtimeKitClient, RealtimeKitProvider} from '@cloudflare/realtimekit-react';
 import {RtkMeeting} from '@cloudflare/realtimekit-react-ui';
@@ -27,6 +27,7 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
     const retryCountRef = useRef(0);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const attemptInit = useCallback((authToken: string) => {
         setInitError(null);
@@ -38,7 +39,7 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
             console.error('[rtk-plugin] RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console
             if (retryCountRef.current < MAX_RETRIES) {
                 retryCountRef.current += 1;
-                setTimeout(() => attemptInit(authToken), RETRY_DELAY_MS);
+                retryTimeoutRef.current = setTimeout(() => attemptInit(authToken), RETRY_DELAY_MS);
             } else {
                 setInitError('Failed to connect to the call. Please close this tab and try again.');
             }
@@ -48,10 +49,16 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
     // Initialize RTK SDK (Pattern U4-5)
     useEffect(() => {
         if (!token) {
-            return;
+            return undefined;
         }
         retryCountRef.current = 0;
         attemptInit(token);
+        return () => {
+            if (retryTimeoutRef.current !== null) {
+                clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
+        };
     }, [token, attemptInit]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Leave on tab close (BR-U4-011, US-013).

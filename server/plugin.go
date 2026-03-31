@@ -138,6 +138,10 @@ func (p *Plugin) reRegisterWebhook() {
 
 // OnDeactivate is invoked when the plugin is deactivated.
 func (p *Plugin) OnDeactivate() error {
+	if p.stopCleanup != nil {
+		close(p.stopCleanup)
+		p.stopCleanup = nil
+	}
 	return nil
 }
 

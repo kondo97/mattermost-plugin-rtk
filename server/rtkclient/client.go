@@ -83,6 +83,9 @@ func (c *client) CreateMeeting() (*Meeting, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, errors.Wrap(err, "failed to decode CreateMeeting response")
 	}
+	if !result.Success {
+		return nil, fmt.Errorf("CreateMeeting: API returned success=false")
+	}
 	return &Meeting{ID: result.Data.ID}, nil
 }
 
@@ -118,6 +121,9 @@ func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string
 	var result apiResponse[addParticipantData]
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to decode GenerateToken response")
+	}
+	if !result.Success {
+		return nil, fmt.Errorf("GenerateToken: API returned success=false: %s", string(respBody))
 	}
 	return &Token{Token: result.Data.Token}, nil
 }

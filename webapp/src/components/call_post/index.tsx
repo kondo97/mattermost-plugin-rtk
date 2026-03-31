@@ -82,7 +82,7 @@ const CallPost = ({post}: Props) => {
                 }));
             }
         });
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [props.call_id, props.end_at, liveCall?.id, dispatch]);
 
     // Only use live Redux state when it matches THIS post's call (pattern U4-4).
     // Without this guard every call post in the channel would appear active
