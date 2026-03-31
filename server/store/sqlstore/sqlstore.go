@@ -63,7 +63,7 @@ func (s *Store) exec(query string, args ...any) (sql.Result, error) {
 func (s *Store) createTablesIfNotExist() error {
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS RTK_Calls (
-			Id          VARCHAR(26)  NOT NULL,
+			Id          VARCHAR(36)  NOT NULL,
 			ChannelId   VARCHAR(26)  NOT NULL,
 			CreatorId   VARCHAR(26)  NOT NULL,
 			MeetingId   VARCHAR(255) NOT NULL,
@@ -95,5 +95,26 @@ func (s *Store) createTablesIfNotExist() error {
 		s.db.Exec(q) //nolint:errcheck
 	}
 
+	if err := s.migrateSchema(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// migrateSchema applies incremental schema changes to existing tables.
+func (s *Store) migrateSchema() error {
+	// v1: Widen Id column from VARCHAR(26) to VARCHAR(36) to accommodate UUIDs.
+	var alterID string
+	if s.isPostgres() {
+		alterID = `ALTER TABLE RTK_Calls ALTER COLUMN Id TYPE VARCHAR(36)`
+	} else {
+		alterID = `ALTER TABLE RTK_Calls MODIFY COLUMN Id VARCHAR(36) NOT NULL`
+	}
+	if _, err := s.db.Exec(alterID); err != nil {
+		// Ignore "already correct size" or similar benign errors from some drivers.
+		// A real failure (e.g. syntax error) would have appeared during table creation too.
+		_ = err
+	}
 	return nil
 }

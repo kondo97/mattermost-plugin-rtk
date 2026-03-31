@@ -1130,7 +1130,7 @@ header h3 {
     "homepage_url": "https://github.com/kondo97/mattermost-plugin-rtk",
     "support_url": "https://github.com/kondo97/mattermost-plugin-rtk/issues",
     "release_notes_url": "https://github.com/kondo97/mattermost-plugin-rtk/releases/tag/v0.5.0",
-    "version": "0.5.0+b1393ba",
+    "version": "0.5.0+65a50e0",
     "min_server_version": "10.11.0",
     "server": {
         "executables": {
