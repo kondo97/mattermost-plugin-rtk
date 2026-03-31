@@ -104,7 +104,7 @@ Webhook Handler → Plugin Method (LeaveCall / endCallInternal)
 1. Auth middleware: userID from header
 2. Extract callID from path
 3. Emit WebSocket event to userID only:
-   custom_cf_notification_dismissed: { call_id, user_id }
+   custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed: { call_id, user_id }
 4. 200 OK (always — idempotent)
 ```
 

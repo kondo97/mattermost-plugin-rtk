@@ -143,27 +143,27 @@
 ### FR-14: End / Leave a Call
 - A user may leave a call at any time by closing the call tab or clicking a "Leave" button.
 - When a user leaves, their user ID shall be removed from the `participants` list in KVStore.
-- A WebSocket event (`custom_cf_user_left`) shall be emitted to all channel members.
+- A WebSocket event (`custom_com.kondo97.mattermost-plugin-rtk_user_left`) shall be emitted to all channel members.
 - When the last participant leaves, the call shall be automatically ended.
 - The call creator (host) may explicitly end the call for all participants via a dedicated "End call" action.
 - When a call ends:
   - `end_at` in KVStore shall be set to the current timestamp.
   - The `custom_cf_call` post shall be updated to the "ended" state (via `post_id` stored in KVStore).
-  - A WebSocket event (`custom_cf_call_ended`) shall be emitted to all channel members.
+  - A WebSocket event (`custom_com.kondo97.mattermost-plugin-rtk_call_ended`) shall be emitted to all channel members.
   - The channel call toast bar shall be dismissed for all clients.
 
 ### FR-15: WebSocket Events
 - The plugin shall emit WebSocket events to all connected clients (browser and mobile) for real-time UI synchronization.
 - Events:
-  - `custom_cf_call_started` — a call has started in a channel (payload: `call_id`, `channel_id`, `creator_id`, `start_at`)
-  - `custom_cf_call_ended` — a call has ended (payload: `call_id`, `channel_id`, `end_at`, `duration_ms`)
-  - `custom_cf_user_joined` — a participant joined (payload: `call_id`, `user_id`)
-  - `custom_cf_user_left` — a participant left (payload: `call_id`, `user_id`)
-  - `custom_cf_notification_dismissed` — a user dismissed the incoming call notification (payload: `call_id`, `user_id`)
+  - `custom_com.kondo97.mattermost-plugin-rtk_call_started` — a call has started in a channel (payload: `call_id`, `channel_id`, `creator_id`, `start_at`)
+  - `custom_com.kondo97.mattermost-plugin-rtk_call_ended` — a call has ended (payload: `call_id`, `channel_id`, `end_at`, `duration_ms`)
+  - `custom_com.kondo97.mattermost-plugin-rtk_user_joined` — a participant joined (payload: `call_id`, `user_id`)
+  - `custom_com.kondo97.mattermost-plugin-rtk_user_left` — a participant left (payload: `call_id`, `user_id`)
+  - `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` — a user dismissed the incoming call notification (payload: `call_id`, `user_id`)
 
 ### FR-16: Mobile Client Support
 
-> **Updated 2026-03-31**: FR-16-2 (push notifications) is no longer implemented. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead.
+> **Updated 2026-03-31**: FR-16-2 (push notifications) is no longer implemented. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) instead.
 
 The plugin shall provide the server-side support necessary for a modified Mattermost Mobile app to deliver native incoming call notifications and participate in calls.
 
@@ -185,11 +185,11 @@ The plugin shall provide the server-side support necessary for a modified Matter
   - ~~`root_id` — thread ID of the call post (if applicable)~~
   - ~~`server_id` — Mattermost server identifier~~
 
-> **Note**: Push notifications have been replaced by WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) for notifying mobile clients of incoming and ended calls.
+> **Note**: Push notifications have been replaced by WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) for notifying mobile clients of incoming and ended calls.
 
 #### FR-16-3: Dismiss Notification API
 - The plugin shall expose an API endpoint to mark an incoming call notification as dismissed for a specific user.
-- Upon dismissal, the server shall emit a `custom_cf_notification_dismissed` WebSocket event (FR-15) so other clients stop showing the ringing notification.
+- Upon dismissal, the server shall emit a `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WebSocket event (FR-15) so other clients stop showing the ringing notification.
 
 #### FR-16-4: Mobile Call Join API
 - The existing `POST /api/v1/calls/{callId}/token` endpoint shall support mobile clients.

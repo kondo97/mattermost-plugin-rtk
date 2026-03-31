@@ -29,7 +29,7 @@ func (p *Plugin) CreateCall(userID, channelID string) (*CreateCallResponse, erro
 // 4. Persist CallSession to KVStore
 // 5. Post custom_cf_call post to channel
 // 6. Send push notifications (REMOVED — mobile uses WebSocket events)
-// 7. Emit custom_cf_call_started WebSocket event
+// 7. Emit custom_com.kondo97.mattermost-plugin-rtk_call_started WebSocket event
 // Returns: call_id, token, feature_flags
 
 func (p *Plugin) JoinCall(userID, callID string) (*JoinCallResponse, error)
@@ -37,12 +37,12 @@ func (p *Plugin) JoinCall(userID, callID string) (*JoinCallResponse, error)
 // 2. Verify call is active (end_at == 0)
 // 3. Call RTKClient.GenerateToken(callID, userID, "group_call_participant")
 // 4. Add userID to participants in KVStore
-// 5. Emit custom_cf_user_joined WebSocket event
+// 5. Emit custom_com.kondo97.mattermost-plugin-rtk_user_joined WebSocket event
 // Returns: token, feature_flags
 
 func (p *Plugin) LeaveCall(userID, callID string) error
 // 1. Remove userID from participants in KVStore
-// 2. Emit custom_cf_user_left WebSocket event
+// 2. Emit custom_com.kondo97.mattermost-plugin-rtk_user_left WebSocket event
 // 3. If participants list empty: call p.EndCallInternal(callID)
 
 func (p *Plugin) EndCall(userID, callID string) error
@@ -52,7 +52,7 @@ func (p *Plugin) EndCall(userID, callID string) error
 func (p *Plugin) EndCallInternal(callID string) error
 // 1. Set end_at = now in KVStore
 // 2. Update custom_cf_call post to ended state
-// 3. Emit custom_cf_call_ended WebSocket event
+// 3. Emit custom_com.kondo97.mattermost-plugin-rtk_call_ended WebSocket event
 // 4. Call RTKClient.EndMeeting(meetingID)
 // (Called by EndCall and LeaveCall auto-end)
 

@@ -8,7 +8,7 @@
 
 ~~**Applies to**: `SendIncomingCall`, `SendCallEnded`, callers in `calls.go`~~
 
-The push notification subsystem has been removed. Mobile clients receive `custom_cf_call_started` and `custom_cf_call_ended` WebSocket events directly.
+The push notification subsystem has been removed. Mobile clients receive `custom_com.kondo97.mattermost-plugin-rtk_call_started` and `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WebSocket events directly.
 
 ---
 

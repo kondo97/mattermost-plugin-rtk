@@ -1,6 +1,6 @@
 # Unit 6: Mobile Support — Logical Components
 
-> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead of push notifications. All components described below no longer exist in the codebase.
+> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) instead of push notifications. All components described below no longer exist in the codebase.
 
 ## Component Overview (REMOVED)
 

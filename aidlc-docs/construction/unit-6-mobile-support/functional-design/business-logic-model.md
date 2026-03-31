@@ -12,9 +12,9 @@ notification subsystem (`server/push/`) was no longer needed.
 ## Current Mobile Support
 
 Mobile clients receive call events through existing WebSocket channels:
-- `custom_cf_call_started` — triggers incoming call UI
-- `custom_cf_call_ended` — dismisses incoming call UI
-- `custom_cf_user_joined` / `custom_cf_user_left` — participant updates
+- `custom_com.kondo97.mattermost-plugin-rtk_call_started` — triggers incoming call UI
+- `custom_com.kondo97.mattermost-plugin-rtk_call_ended` — dismisses incoming call UI
+- `custom_com.kondo97.mattermost-plugin-rtk_user_joined` / `custom_com.kondo97.mattermost-plugin-rtk_user_left` — participant updates
 
 Joining a call from mobile uses the existing `POST /api/v1/calls/{callId}/token`
 endpoint (implemented in Unit 2). No dedicated mobile-specific server code is required.

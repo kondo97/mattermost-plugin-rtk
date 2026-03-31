@@ -1,6 +1,6 @@
 # Unit 6: Mobile Support — Code Generation Plan
 
-> **Updated 2026-03-31**: The `server/push/` package has been **REMOVED**. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`) instead of push notifications. Steps 1-4 below are historical and no longer apply. Steps 5-7 were simplified (no push integration needed).
+> **Updated 2026-03-31**: The `server/push/` package has been **REMOVED**. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) instead of push notifications. Steps 1-4 below are historical and no longer apply. Steps 5-7 were simplified (no push integration needed).
 
 ## Unit Context
 

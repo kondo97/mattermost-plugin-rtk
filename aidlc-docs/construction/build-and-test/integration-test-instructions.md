@@ -117,7 +117,7 @@ In Mattermost System Console → Plugins → Mattermost RTK Plugin:
 
 ### ~~Scenario 5: Unit 6 — Mobile Push Notification~~ — REMOVED
 
-> **Updated 2026-03-31**: Push notification subsystem removed. Mobile clients receive call notifications via WebSocket events (`custom_cf_call_started`, `custom_cf_call_ended`). No push-specific integration test is needed.
+> **Updated 2026-03-31**: Push notification subsystem removed. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`). No push-specific integration test is needed.
 
 ---
 

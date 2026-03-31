@@ -73,7 +73,7 @@ All WS event payloads are validated via TypeScript type guards before dispatch. 
 `FloatingWidget` and `IncomingCallNotification` always call `POST /calls/{id}/token` immediately before `window.open(...)`. Tokens are never logged (SEC-U3-01).
 
 ### BR-007: Notification Dismiss Flow
-`handleIgnore` in `IncomingCallNotification` fires `POST /calls/{id}/dismiss` as fire-and-forget. Redux state is cleared only when the `custom_cf_notification_dismissed` WS event arrives (TOCTOU-safe).
+`handleIgnore` in `IncomingCallNotification` fires `POST /calls/{id}/dismiss` as fire-and-forget. Redux state is cleared only when the `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event arrives (TOCTOU-safe).
 
 ### BR-013: DM/GM-Only Incoming Calls
 `handleCallStarted` only dispatches `setIncomingCall` when `channelType === 'D' || channelType === 'G'` AND `creatorId !== currentUserId`.

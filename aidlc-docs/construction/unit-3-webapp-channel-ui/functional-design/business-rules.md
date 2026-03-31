@@ -12,13 +12,13 @@ The ChannelHeaderButton MUST NOT render if `pluginEnabled === false`. No placeho
 
 The "Starting call..." spinner state (`loading: boolean`) MUST be managed as local component state in ChannelHeaderButton — it MUST NOT be stored in Redux.
 
-**Rationale**: This is a transient UI state specific to the initiating client. Other clients do not need it; they receive the authoritative `custom_cf_call_started` WS event.
+**Rationale**: This is a transient UI state specific to the initiating client. Other clients do not need it; they receive the authoritative `custom_com.kondo97.mattermost-plugin-rtk_call_started` WS event.
 
 ---
 
 ## BR-003: At Most One Active Call Per Channel
 
-`callsByChannel` stores at most one active call per channel. When `custom_cf_call_started` arrives for a channel that already has an entry, the existing entry is replaced with the new call data.
+`callsByChannel` stores at most one active call per channel. When `custom_com.kondo97.mattermost-plugin-rtk_call_started` arrives for a channel that already has an entry, the existing entry is replaced with the new call data.
 
 **Note**: The server enforces this at the API layer (409 on duplicate). The client-side replacement is a defensive guard for out-of-order WS events.
 
@@ -46,7 +46,7 @@ If the user does not interact with the IncomingCallNotification within 30 second
 
 ## BR-007: "Ignore" Triggers Server Dismiss
 
-When the user clicks "Ignore" on the IncomingCallNotification, a `POST /calls/{id}/dismiss` request MUST be sent to the server. The `incomingCall` state is cleared by the resulting `custom_cf_notification_dismissed` WS event — not optimistically by the client.
+When the user clicks "Ignore" on the IncomingCallNotification, a `POST /calls/{id}/dismiss` request MUST be sent to the server. The `incomingCall` state is cleared by the resulting `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event — not optimistically by the client.
 
 ---
 
@@ -58,7 +58,7 @@ When a user dismisses the ToastBar, the dismissed state (`dismissed: boolean`) i
 
 ## BR-009: Toast Bar Clears on Call End
 
-When `custom_cf_call_ended` is received, the corresponding entry is removed from `callsByChannel`. This causes the ToastBar visibility condition to evaluate to false for all users still viewing that channel, regardless of their local `dismissed` state.
+When `custom_com.kondo97.mattermost-plugin-rtk_call_ended` is received, the corresponding entry is removed from `callsByChannel`. This causes the ToastBar visibility condition to evaluate to false for all users still viewing that channel, regardless of their local `dismissed` state.
 
 ---
 
@@ -84,7 +84,7 @@ If `myActiveCall !== null` AND the target call's `channelId !== myActiveCall.cha
 
 ## BR-013: WS Events Update Full Participant List
 
-`custom_cf_user_joined` and `custom_cf_user_left` events include the full `participants` array from the server. The client MUST replace (not diff) the `participants` field in `callsByChannel[channelId]` with the server-provided array. This prevents client-side participant count drift.
+`custom_com.kondo97.mattermost-plugin-rtk_user_joined` and `custom_com.kondo97.mattermost-plugin-rtk_user_left` events include the full `participants` array from the server. The client MUST replace (not diff) the `participants` field in `callsByChannel[channelId]` with the server-provided array. This prevents client-side participant count drift.
 
 ---
 

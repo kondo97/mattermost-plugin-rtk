@@ -74,7 +74,7 @@ HTTP handlers for call management:
 - `handleAdminConfigStatus` — `GET /api/v1/config/admin-status` → system admin only
 
 ### `server/api_mobile.go`
-- `handleDismiss` — `POST /api/v1/calls/{id}/dismiss` → emits `custom_cf_notification_dismissed` WS event to requesting user; always 200
+- `handleDismiss` — `POST /api/v1/calls/{id}/dismiss` → emits `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event to requesting user; always 200
 
 ### `server/api_static.go`
 Serves embedded static assets using `//go:embed`:

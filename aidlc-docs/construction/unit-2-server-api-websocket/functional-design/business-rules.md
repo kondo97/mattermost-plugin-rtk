@@ -26,7 +26,7 @@
 | Rule | Description |
 |---|---|
 | BR-U2-08 | Acquire `callMu` lock before calling `JoinCall`. |
-| BR-U2-09 | If user already in Participants: regenerate token, no WS re-emit, 200 OK. |
+| BR-U2-09 | Token is always regenerated regardless of whether the user is already in Participants. `user_joined` WebSocket event is **always emitted** (even on re-join). Participants list is deduplicated in KVStore (no duplicate entries). |
 | BR-U2-10 | On success: fetch updated session, respond `{ "call": CallSession, "token": string }`. |
 | BR-U2-11 | `ErrCallNotFound` → 404. `ErrRTKNotConfigured` → 503. |
 
@@ -72,7 +72,7 @@
 
 | Rule | Description |
 |---|---|
-| BR-U2-20 | Scoped to requesting user only. Emit `custom_cf_notification_dismissed` to UserID. |
+| BR-U2-20 | Scoped to requesting user only. Emit `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` to UserID. |
 | BR-U2-21 | Always 200 OK (idempotent). |
 
 ---

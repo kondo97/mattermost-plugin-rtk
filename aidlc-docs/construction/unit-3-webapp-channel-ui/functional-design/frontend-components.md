@@ -11,11 +11,11 @@ Plugin Entry Point (index.tsx)
 │   └── Selectors (selectors.ts)
 │
 ├── WebSocket Handlers (websocket_handlers.ts)
-│   ├── handleCallStarted   → custom_cf_call_started
-│   ├── handleUserJoined    → custom_cf_user_joined
-│   ├── handleUserLeft      → custom_cf_user_left
-│   ├── handleCallEnded     → custom_cf_call_ended
-│   └── handleNotifDismissed→ custom_cf_notification_dismissed
+│   ├── handleCallStarted   → custom_com.kondo97.mattermost-plugin-rtk_call_started
+│   ├── handleUserJoined    → custom_com.kondo97.mattermost-plugin-rtk_user_joined
+│   ├── handleUserLeft      → custom_com.kondo97.mattermost-plugin-rtk_user_left
+│   ├── handleCallEnded     → custom_com.kondo97.mattermost-plugin-rtk_call_ended
+│   └── handleNotifDismissed→ custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed
 │
 ├── ChannelHeaderButton (channel_header_button/)
 │   ├── Registered via: registerCallButtonAction
@@ -130,7 +130,7 @@ AND dismissed === false
 **Actions**:
 - "Join" → same check as ChannelHeaderButton: if `myActiveCall` exists in different channel, show `SwitchCallModal`; else call join flow
 - "×" → `setDismissed(true)`
-- On `custom_cf_call_ended` (call removed from Redux): visibility condition evaluates to false automatically; `dismissed` state is irrelevant
+- On `custom_com.kondo97.mattermost-plugin-rtk_call_ended` (call removed from Redux): visibility condition evaluates to false automatically; `dismissed` state is irrelevant
 
 **Sub-components**:
 - `SwitchCallModal` — conditionally rendered inside ToastBar when switching
@@ -242,7 +242,7 @@ useEffect(() => {
 **Actions**:
 - "Ignore":
   1. `POST /plugins/{id}/api/v1/calls/{callId}/dismiss` (fire-and-forget)
-  2. Wait for `custom_cf_notification_dismissed` WS event to clear Redux state
+  2. Wait for `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event to clear Redux state
 - "Join":
   1. Clear the auto-dismiss timeout
   2. If `myActiveCall` exists: show SwitchCallModal (inline, or via state)

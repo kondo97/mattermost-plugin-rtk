@@ -86,7 +86,7 @@ User clicks "Start call"
        -> RTKClient.GenerateToken(meetingID, userID, "group_call_host")
        -> KVStore.SaveCall(session)
        -> Post custom_cf_call to channel
-       -> PublishWebSocketEvent(custom_cf_call_started)
+       -> PublishWebSocketEvent(custom_com.kondo97.mattermost-plugin-rtk_call_started)
        <- {call_id, token, feature_flags}
   -> Redux: startCallSuccess(channelID, callID, token)
   -> FloatingWidget renders (inline RtkMeeting via RTK React SDK)
@@ -101,7 +101,7 @@ User clicks "Join call" in CallPost
        -> KVStore.GetCallByID(callID) — verify active
        -> RTKClient.GenerateToken(callID, userID, "group_call_participant")
        -> KVStore.UpdateCallParticipants (add userID)
-       -> PublishWebSocketEvent(custom_cf_user_joined)
+       -> PublishWebSocketEvent(custom_com.kondo97.mattermost-plugin-rtk_user_joined)
        <- {token, feature_flags}
   -> Redux: joinCallSuccess
   -> New tab opens: /plugins/{id}/call?token=<jwt>
@@ -115,7 +115,7 @@ User closes call tab or clicks Leave in floating widget
   -> fetch+keepalive POST /api/v1/calls/{callId}/leave
        (uses fetch instead of sendBeacon — custom CSRF header required)
        -> KVStore: remove userID from participants
-       -> PublishWebSocketEvent(custom_cf_user_left)
+       -> PublishWebSocketEvent(custom_com.kondo97.mattermost-plugin-rtk_user_left)
        -> If participants empty: EndCallInternal(callID)
   -> Redux (via WS event): userLeft / callEnded
   -> FloatingWidget disappears
@@ -141,7 +141,7 @@ Host clicks "End call" in call UI
        -> EndCallInternal(callID):
             KVStore.EndCall (set end_at)
             Update custom_cf_call post to ended state
-            PublishWebSocketEvent(custom_cf_call_ended)
+            PublishWebSocketEvent(custom_com.kondo97.mattermost-plugin-rtk_call_ended)
   -> All clients: Redux callEnded -> ToastBar dismissed, CallPost -> ended state
 ```
 

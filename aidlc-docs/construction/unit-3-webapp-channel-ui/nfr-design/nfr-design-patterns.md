@@ -95,7 +95,7 @@ export function callsReducer(
 Each WebSocket event payload is validated with a type guard before any Redux dispatch. Unknown or malformed payloads are discarded with a console error. No `eval` or unsafe deserialization.
 
 ```typescript
-// Type guard example for custom_cf_call_started payload
+// Type guard example for custom_com.kondo97.mattermost-plugin-rtk_call_started payload
 interface CallStartedPayload {
     call_id: string;
     channel_id: string;
@@ -123,7 +123,7 @@ export function handleCallStarted(store: Store, currentUserId: string) {
     return (msg: WebSocketMessage) => {
         const data = msg.data;
         if (!isCallStartedPayload(data)) {
-            console.error('[rtk-plugin] invalid custom_cf_call_started payload', data);
+            console.error('[rtk-plugin] invalid custom_com.kondo97.mattermost-plugin-rtk_call_started payload', data);
             return;
         }
         store.dispatch(upsertCall({

@@ -31,7 +31,7 @@ All Unit 3 logical components are client-side (browser). They are organized as l
 **Responsibilities**:
 - Registers 5 handlers for custom WS events emitted by the server
 - Each handler validates the payload (Pattern U3-2) then dispatches to LC-U3-1
-- Handles: `custom_cf_call_started`, `custom_cf_user_joined`, `custom_cf_user_left`, `custom_cf_call_ended`, `custom_cf_notification_dismissed`
+- Handles: `custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_user_joined`, `custom_com.kondo97.mattermost-plugin-rtk_user_left`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`, `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed`
 
 **Error isolation**: Each handler is independently wrapped; a failure in one does not prevent others from executing.
 

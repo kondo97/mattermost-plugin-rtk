@@ -6,7 +6,7 @@
 The CallPost determines its state from `end_at`:
 - `end_at === 0` → active state (green indicator, "Call started", "Join" button)
 - `end_at > 0` → ended state (gray indicator, "Call ended", duration, no "Join" button)
-- Transition is triggered by `custom_cf_call_ended` WS event updating Redux
+- Transition is triggered by `custom_com.kondo97.mattermost-plugin-rtk_call_ended` WS event updating Redux
 
 ### BR-U4-002: Join Button Disabled for Current Participant
 The "Join call" button MUST be `disabled={true}` when `selectMyActiveCall?.callId === post.props.call_id`.

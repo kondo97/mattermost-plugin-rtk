@@ -21,12 +21,12 @@ Represents a call that is currently in progress in a channel. Populated from Web
 
 | Field | Type | Source |
 |---|---|---|
-| `id` | `string` | `call_id` from `custom_cf_call_started` |
+| `id` | `string` | `call_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
 | `channelId` | `string` | `channel_id` from WS events |
-| `creatorId` | `string` | `creator_id` from `custom_cf_call_started` |
+| `creatorId` | `string` | `creator_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
 | `participants` | `string[]` | `participants` array (full list on each WS event) |
-| `startAt` | `number` | `start_at` (Unix ms) from `custom_cf_call_started` |
-| `postId` | `string` | `post_id` from `custom_cf_call_started` |
+| `startAt` | `number` | `start_at` (Unix ms) from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
+| `postId` | `string` | `post_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
 
 ---
 
@@ -36,8 +36,8 @@ Tracks the call the current user is actively participating in. Set from API resp
 
 | Field | Type | Source |
 |---|---|---|
-| `callId` | `string` | From API response or `custom_cf_user_joined` |
-| `channelId` | `string` | From API response or `custom_cf_user_joined` |
+| `callId` | `string` | From API response or `custom_com.kondo97.mattermost-plugin-rtk_user_joined` |
+| `channelId` | `string` | From API response or `custom_com.kondo97.mattermost-plugin-rtk_user_joined` |
 | `token` | `string` | From API response (`POST /calls` or `POST /calls/{id}/token`) |
 
 **Note**: `token` is only set when the current user triggers the join via the UI. WebSocket events received for the current user (e.g., from another session) update `callId`/`channelId` but do not set `token`.
@@ -50,12 +50,12 @@ Represents a ringing DM/GM call notification shown to non-creator members.
 
 | Field | Type | Source |
 |---|---|---|
-| `callId` | `string` | `call_id` from `custom_cf_call_started` |
-| `channelId` | `string` | `channel_id` from `custom_cf_call_started` |
-| `creatorId` | `string` | `creator_id` from `custom_cf_call_started` |
-| `startAt` | `number` | `start_at` from `custom_cf_call_started` |
+| `callId` | `string` | `call_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
+| `channelId` | `string` | `channel_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
+| `creatorId` | `string` | `creator_id` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
+| `startAt` | `number` | `start_at` from `custom_com.kondo97.mattermost-plugin-rtk_call_started` |
 
-**Lifecycle**: Set on `custom_cf_call_started` for DM/GM; cleared on `custom_cf_call_ended`, `custom_cf_notification_dismissed` (for current user), or after 30-second auto-dismiss timer.
+**Lifecycle**: Set on `custom_com.kondo97.mattermost-plugin-rtk_call_started` for DM/GM; cleared on `custom_com.kondo97.mattermost-plugin-rtk_call_ended`, `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` (for current user), or after 30-second auto-dismiss timer.
 
 ---
 
@@ -63,11 +63,11 @@ Represents a ringing DM/GM call notification shown to non-creator members.
 
 | WS Event | Redux Update |
 |---|---|
-| `custom_cf_call_started` | Add entry to `callsByChannel`; if channel type is `D`/`G` and `creator_id != currentUser.id`, set `incomingCall`; if `creator_id == currentUser.id`, set `myActiveCall` (token comes from API response, not WS) |
-| `custom_cf_user_joined` | Update `callsByChannel[channelId].participants`; if `user_id == currentUser.id` and `myActiveCall` not yet set, set `myActiveCall` (no token — secondary path for multi-session) |
-| `custom_cf_user_left` | Update `callsByChannel[channelId].participants`; if `user_id == currentUser.id`, clear `myActiveCall` |
-| `custom_cf_call_ended` | Remove from `callsByChannel`; if `call_id == myActiveCall?.callId`, clear `myActiveCall`; if `call_id == incomingCall?.callId`, clear `incomingCall` |
-| `custom_cf_notification_dismissed` | If `user_id == currentUser.id`, clear `incomingCall` |
+| `custom_com.kondo97.mattermost-plugin-rtk_call_started` | Add entry to `callsByChannel`; if channel type is `D`/`G` and `creator_id != currentUser.id`, set `incomingCall`; if `creator_id == currentUser.id`, set `myActiveCall` (token comes from API response, not WS) |
+| `custom_com.kondo97.mattermost-plugin-rtk_user_joined` | Update `callsByChannel[channelId].participants`; if `user_id == currentUser.id` and `myActiveCall` not yet set, set `myActiveCall` (no token — secondary path for multi-session) |
+| `custom_com.kondo97.mattermost-plugin-rtk_user_left` | Update `callsByChannel[channelId].participants`; if `user_id == currentUser.id`, clear `myActiveCall` |
+| `custom_com.kondo97.mattermost-plugin-rtk_call_ended` | Remove from `callsByChannel`; if `call_id == myActiveCall?.callId`, clear `myActiveCall`; if `call_id == incomingCall?.callId`, clear `incomingCall` |
+| `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` | If `user_id == currentUser.id`, clear `incomingCall` |
 
 ---
 

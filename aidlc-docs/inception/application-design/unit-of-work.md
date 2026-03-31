@@ -62,11 +62,11 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 | `server/plugin.go` | Modified — register API handler in `ServeHTTP` |
 
 **WebSocket Events Emitted**:
-- `custom_cf_call_started` — on CreateCall
-- `custom_cf_user_joined` — on JoinCall
-- `custom_cf_user_left` — on LeaveCall
-- `custom_cf_call_ended` — on EndCall / auto-end
-- `custom_cf_notification_dismissed` — on dismiss
+- `custom_com.kondo97.mattermost-plugin-rtk_call_started` — on CreateCall
+- `custom_com.kondo97.mattermost-plugin-rtk_user_joined` — on JoinCall
+- `custom_com.kondo97.mattermost-plugin-rtk_user_left` — on LeaveCall
+- `custom_com.kondo97.mattermost-plugin-rtk_call_ended` — on EndCall / auto-end
+- `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` — on dismiss
 
 **Carry-over from Unit 1**:
 - Add a `sync.Mutex` (or `sync.RWMutex`) to the `Plugin` struct to guard concurrent KVStore read-modify-write operations (`UpdateCallParticipants`, `EndCall`). The Mattermost plugin runs as a single process, so a plugin-level mutex is the appropriate solution. Without this, concurrent Join/Leave requests on the same call can cause lost updates (last-write-wins race).
@@ -185,7 +185,7 @@ This document defines the 6 units of work for `mattermost-plugin-rtk`. All units
 
 **Original Purpose**: Push notification delivery for mobile users when calls start and end.
 
-**Current State**: No dedicated mobile support code. Mobile clients receive call events through the same WebSocket channel as desktop clients. The `custom_cf_call_started` and `custom_cf_call_ended` events carry sufficient data for mobile apps to display call notifications.
+**Current State**: No dedicated mobile support code. Mobile clients receive call events through the same WebSocket channel as desktop clients. The `custom_com.kondo97.mattermost-plugin-rtk_call_started` and `custom_com.kondo97.mattermost-plugin-rtk_call_ended` events carry sufficient data for mobile apps to display call notifications.
 
 **Removed Files**:
 

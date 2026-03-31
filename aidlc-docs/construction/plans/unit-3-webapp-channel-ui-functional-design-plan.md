@@ -28,11 +28,11 @@ Please fill in the `[Answer]:` tags below and return the file (or paste your ans
 
 ### Q1: Redux State Shape — `incomingCall`
 
-The `incomingCall` state is used for DM/GM ringing (US-024). The server emits `custom_cf_call_started` to the entire channel.
+The `incomingCall` state is used for DM/GM ringing (US-024). The server emits `custom_com.kondo97.mattermost-plugin-rtk_call_started` to the entire channel.
 
 How should the incoming call notification be triggered?
 
-A) Always show the IncomingCallNotification component when `custom_cf_call_started` arrives and the current user is NOT the creator (regardless of channel type)
+A) Always show the IncomingCallNotification component when `custom_com.kondo97.mattermost-plugin-rtk_call_started` arrives and the current user is NOT the creator (regardless of channel type)
 B) Only show for DM and GM channels (channel type `D` or `G`); suppress for public/private team channels
 C) Show for all channels, but only when the user is not already viewing that channel
 X) Other (describe after [Answer]:)
@@ -109,7 +109,7 @@ X) Other (describe after [Answer]:)
 The channel call toast bar (US-008) appears for non-participants when a call is active in the channel they are currently viewing.
 
 A) Show toast bar when: active call in current channel AND current user is NOT a participant. Hide when: user joins, or call ends, or user navigates away.
-B) Show toast bar on `custom_cf_call_started` event only (one-time notification per call, user can dismiss permanently)
+B) Show toast bar on `custom_com.kondo97.mattermost-plugin-rtk_call_started` event only (one-time notification per call, user can dismiss permanently)
 C) Show toast bar when active call exists in channel, always visible to non-participants (persistent, not dismissable)
 X) Other (describe after [Answer]:)
 
@@ -138,8 +138,8 @@ US-024 says the IncomingCallNotification auto-dismisses after 30s.
 
 What triggers the dismiss?
 
-A) A `setTimeout` in the component that dispatches a Redux action to clear `incomingCall` after 30s; also auto-dismisses if the user joins the call or `custom_cf_call_ended` arrives
-B) Call the server `POST /calls/{id}/dismiss` after 30s, which triggers `custom_cf_notification_dismissed` WS event, which clears Redux state
+A) A `setTimeout` in the component that dispatches a Redux action to clear `incomingCall` after 30s; also auto-dismisses if the user joins the call or `custom_com.kondo97.mattermost-plugin-rtk_call_ended` arrives
+B) Call the server `POST /calls/{id}/dismiss` after 30s, which triggers `custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed` WS event, which clears Redux state
 C) Option A for auto-dismiss timer, option B only when user explicitly clicks "Ignore" button
 X) Other (describe after [Answer]:)
 
@@ -147,11 +147,11 @@ X) Other (describe after [Answer]:)
 
 ---
 
-### Q9: WebSocket Event Payload — `custom_cf_call_started`
+### Q9: WebSocket Event Payload — `custom_com.kondo97.mattermost-plugin-rtk_call_started`
 
 The server emits this event to the channel. The Redux handler needs to update `callsByChannel` and potentially set `incomingCall`.
 
-Does the `custom_cf_call_started` payload include the full call object, or just a subset? Confirm from Unit 1 domain entities:
+Does the `custom_com.kondo97.mattermost-plugin-rtk_call_started` payload include the full call object, or just a subset? Confirm from Unit 1 domain entities:
 
 ```json
 {
@@ -176,9 +176,9 @@ X) Other (describe after [Answer]:)
 
 `myActiveCall` tracks the call the current user is actively participating in. How is this set?
 
-A) Set when `custom_cf_user_joined` arrives with `user_id == currentUser.id`; cleared on `custom_cf_user_left` with `user_id == currentUser.id` or `custom_cf_call_ended`
-B) Set when `custom_cf_call_started` arrives and `creator_id == currentUser.id` (or user presses Join); derived by scanning `callsByChannel` for any call where currentUser is in `participants`
-C) Both A and B: set on `custom_cf_call_started` (if creator) and `custom_cf_user_joined` (if joining); cleared on `custom_cf_user_left` / `custom_cf_call_ended`
+A) Set when `custom_com.kondo97.mattermost-plugin-rtk_user_joined` arrives with `user_id == currentUser.id`; cleared on `custom_com.kondo97.mattermost-plugin-rtk_user_left` with `user_id == currentUser.id` or `custom_com.kondo97.mattermost-plugin-rtk_call_ended`
+B) Set when `custom_com.kondo97.mattermost-plugin-rtk_call_started` arrives and `creator_id == currentUser.id` (or user presses Join); derived by scanning `callsByChannel` for any call where currentUser is in `participants`
+C) Both A and B: set on `custom_com.kondo97.mattermost-plugin-rtk_call_started` (if creator) and `custom_com.kondo97.mattermost-plugin-rtk_user_joined` (if joining); cleared on `custom_com.kondo97.mattermost-plugin-rtk_user_left` / `custom_com.kondo97.mattermost-plugin-rtk_call_ended`
 X) Other (describe after [Answer]:)
 
 [Answer]:

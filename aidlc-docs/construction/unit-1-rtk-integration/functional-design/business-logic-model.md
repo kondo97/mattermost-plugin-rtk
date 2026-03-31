@@ -33,7 +33,7 @@ Input: channelID, userID (creator)
    - On error: log warning, continue (no rollback — session remains in KVStore)
    - On success: store returned PostID in session → KVStore.SaveCall(session) (update with PostID)
 
-7. API.PublishWebSocketEvent("custom_cf_call_started", payload)
+7. API.PublishWebSocketEvent("custom_com.kondo97.mattermost-plugin-rtk_call_started", payload)
 
 8. Return (session, token.Token, nil)
 ```
@@ -59,7 +59,7 @@ Input: callID, userID
     - Set initial heartbeat immediately on join to prevent stale-cleanup race condition
    - Update both call:channel:{channelID} and call:id:{callID}
 
-5. API.PublishWebSocketEvent("custom_cf_user_joined", payload) (BR-10)
+5. API.PublishWebSocketEvent("custom_com.kondo97.mattermost-plugin-rtk_user_joined", payload) (BR-10)
 
 6. Return (token.Token, nil)
 ```
@@ -80,7 +80,7 @@ Input: callID, userID
 
 3. KVStore.UpdateCallParticipants(callID, updatedParticipants)
 
-4. API.PublishWebSocketEvent("custom_cf_user_left", payload) (BR-12)
+4. API.PublishWebSocketEvent("custom_com.kondo97.mattermost-plugin-rtk_user_left", payload) (BR-12)
 
 5. If len(Participants) == 0 → EndCallInternal(session) (BR-13)
 
@@ -122,7 +122,7 @@ Input: session *CallSession
 
 5. API.UpdatePost(session.PostID, ended state props: EndAt, DurationMs) (BR-17)
 
-6. API.PublishWebSocketEvent("custom_cf_call_ended", {
+6. API.PublishWebSocketEvent("custom_com.kondo97.mattermost-plugin-rtk_call_ended", {
      call_id, channel_id, end_at, duration_ms
    }) (BR-18)
 ```
