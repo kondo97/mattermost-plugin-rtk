@@ -33,14 +33,14 @@ Unit 4 delivers two new rendering surfaces (CallPost and standalone Call Page), 
 | File | Description |
 |------|-------------|
 | `webapp/src/call_page/main.tsx` | Standalone entry point. Parses URL params, sets `document.title`, mounts `<CallPage />`. No Mattermost framework dependencies. |
-| `webapp/src/call_page/CallPage.tsx` | RTK SDK initialization (`useDyteClient`), heartbeat loop (15s `setInterval`), `sendBeacon` on `beforeunload`, `<RtkMeeting mode="fill" />`. Error/loading states. |
+| `webapp/src/call_page/CallPage.tsx` | RTK SDK initialization (`useRealtimeKitClient`), `fetch+keepalive` on `beforeunload` for leave detection, `<RtkMeeting mode="fill" />`. Error/loading states. RTK SDK Japanese translations via `useLanguage()`. |
 
 ### Tests
 
 | File | Description |
 |------|-------------|
 | `webapp/src/components/call_post/index.test.tsx` | Enzyme shallow tests: active/ended states, isAlreadyInCall, Redux merge, error modal |
-| `webapp/src/call_page/CallPage.test.tsx` | Jest tests: missing token error, loading state, heartbeat interval, sendBeacon, SDK init failure |
+| `webapp/src/call_page/CallPage.test.tsx` | Jest tests: missing token error, loading state, fetch+keepalive leave, SDK init failure |
 
 ---
 
@@ -75,7 +75,7 @@ Two sequential `vite build` invocations controlled by `VITE_BUILD_TARGET` env va
 `post.props` provides the initial render before any WS events arrive. Redux `selectCallByChannel` provides live updates.
 
 ### Call Tab URL Parameters (BR-U4-018/019)
-All 4 Unit 3 components + CallPost now include `call_id` and `channel_name` in the call tab URL via `buildCallTabUrl`. This enables heartbeat/leave from the call page and correct tab title.
+All 4 Unit 3 components + CallPost now include `call_id` and `channel_name` in the call tab URL via `buildCallTabUrl`. This enables leave from the call page and correct tab title.
 
 ### Makefile Reordering
 `dist` target now runs `webapp` → `copy-call-js` → `server`. Previously `server` ran before `webapp`, which would have embedded a stale placeholder `call.js` into the Go binary.
@@ -87,9 +87,9 @@ All 4 Unit 3 components + CallPost now include `call_id` and `channel_name` in t
 | NFR ID | Status | Notes |
 |--------|--------|-------|
 | PERF-U4-05 | Compliant | CallPost uses `selectCallByChannel` (scoped selector) |
-| REL-U4-01 | Compliant | Heartbeat is fire-and-forget, no error surfacing |
-| REL-U4-02 | Compliant | `sendBeacon` used for tab-close leave |
-| REL-U4-03 | Compliant | `clearInterval` in useEffect cleanup |
+| REL-U4-01 | N/A | Heartbeat not implemented (deferred) |
+| REL-U4-02 | Compliant | `fetch+keepalive` used for tab-close leave (custom CSRF header) |
+| REL-U4-03 | N/A | No interval to clear (heartbeat deferred) |
 | REL-U4-04 | Compliant | `removeEventListener` in useEffect cleanup |
 | REL-U4-05 | Compliant | CallPost falls back to `post.props` when Redux has no data |
 | REL-U4-06 | Compliant | Error screen rendered when `token` is absent |

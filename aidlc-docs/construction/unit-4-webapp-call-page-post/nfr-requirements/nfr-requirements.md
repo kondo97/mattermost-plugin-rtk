@@ -6,7 +6,7 @@
 |---|---|---|
 | PERF-U4-01 | `call.js` bundle size | Must be kept reasonable; UI Kit + React bundled together. Tree-shaking via Vite/Rollup; no explicit size limit defined for MVP but avoid unnecessary dependencies |
 | PERF-U4-02 | `main.js` bundle size impact | Adding CallPost registration adds negligible overhead; React/Redux already externalized |
-| PERF-U4-03 | Heartbeat API overhead | Fire-and-forget; < 1ms client-side overhead per tick; 15s interval means ~4 requests/min per active call page tab |
+| PERF-U4-03 | ~~Heartbeat API overhead~~ | **Deferred / not implemented** — heartbeat mechanism replaced by RTK webhook |
 | PERF-U4-04 | Call page initialization time | RTK SDK initializes on `authToken` receipt; no additional round-trips required beyond the initial token |
 | PERF-U4-05 | CallPost re-render scope | Must use `selectCallByChannel(channelId)` from Unit 3; scoped selector prevents re-render on unrelated channel state changes |
 
@@ -16,9 +16,9 @@
 
 | ID | Requirement | Decision |
 |---|---|---|
-| REL-U4-01 | Heartbeat failure handling | Heartbeat is best-effort; HTTP errors are silently ignored. A failed heartbeat does not affect the local in-call state. Server-side stale detection is handled by the RTK webhook (Unit 2). |
-| REL-U4-02 | sendBeacon reliability | `navigator.sendBeacon` is used (not `fetch`) because browsers guarantee delivery on tab close. If `sendBeacon` is unavailable (very old browsers), the RTK webhook handles cleanup. |
-| REL-U4-03 | heartbeat interval cleanup | `setInterval` MUST be cleared in `useEffect` cleanup on CallPage unmount; no leaked intervals |
+| REL-U4-01 | ~~Heartbeat failure handling~~ | **Deferred / not implemented** — heartbeat mechanism replaced by RTK webhook. |
+| REL-U4-02 | fetch+keepalive reliability | **Updated 2026-03-30**: `fetch` with `keepalive: true` is used (not `navigator.sendBeacon`) to allow custom `X-Requested-With` header while surviving tab close. If fetch+keepalive fails, the RTK webhook handles cleanup. |
+| REL-U4-03 | ~~heartbeat interval cleanup~~ | **Deferred / not implemented** — no heartbeat interval exists. |
 | REL-U4-04 | beforeunload handler cleanup | `window.removeEventListener('beforeunload', handler)` MUST be called in `useEffect` cleanup to prevent duplicate handlers on re-mount |
 | REL-U4-05 | CallPost render with missing Redux data | If `selectCallByChannel(channelId)` returns `undefined` (before first WS event), CallPost MUST fall back to `post.props` data; MUST NOT throw or render empty |
 | REL-U4-06 | Call page missing token | If `token` is absent from URL params, CallPage renders an error screen ("Missing call token") instead of attempting RTK initialization |
@@ -34,7 +34,7 @@
 | SEC-U4-01 | Token in URL — no logging | The `token` URL parameter MUST NOT be logged in `console.log`, `console.error`, or any other output on the call page. `call_id` and `channel_name` MAY be logged. | Carry-over SEC-U3-01 |
 | SEC-U4-02 | CSP — call page | The existing CSP on `call.html` is `default-src 'self'; connect-src *`. The RTK UI Kit uses CSS-in-JS which requires `style-src 'unsafe-inline'`. The CSP in `api_static.go` MUST be updated to: `default-src 'self'; connect-src *; style-src 'self' 'unsafe-inline'`. |
 | SEC-U4-03 | Token URL exposure | The RTK JWT in the URL will appear in browser history and server access logs. This is an accepted risk for MVP (same pattern used by other RTK-based applications). The token is short-lived (1 hour per Unit 2 design). |
-| SEC-U4-04 | sendBeacon authentication | `navigator.sendBeacon` cannot set custom headers. The `/calls/{id}/leave` endpoint MUST authenticate the request via the `call_id` in KVStore only (no cookie required). This is already handled by Unit 2 design. |
+| SEC-U4-04 | fetch+keepalive authentication | **Updated 2026-03-30**: Implementation uses `fetch` with `keepalive: true` and custom `X-Requested-With` header (not `sendBeacon`). The `/calls/{id}/leave` endpoint authenticates via Mattermost session cookie (same-origin). |
 | SEC-U4-05 | No inline secrets in call.html | `call.html` MUST NOT contain tokens or credentials inline. All secrets pass via URL params to the JavaScript bundle only. |
 | SEC-U4-06 | `channel_name` URL encoding | `channel_name` MUST be `encodeURIComponent`-encoded before appending to the URL to prevent URL injection. |
 
@@ -61,7 +61,7 @@
 | MAINT-U4-03 | Vite config documentation | `vite.config.ts` MUST have comments explaining the externals strategy for `main` vs `call` entries |
 | MAINT-U4-04 | Separation of call page code | All call page source code MUST live under `webapp/src/call_page/`. No mixing with Mattermost plugin components under `webapp/src/components/`. |
 | MAINT-U4-05 | Test coverage — CallPost | CallPost MUST have Enzyme shallow tests for active state, ended state, join-disabled state, and error modal |
-| MAINT-U4-06 | Test coverage — CallPage | CallPage logic (heartbeat interval, sendBeacon, URL param parsing, error screen) MUST have Jest unit tests; RTK SDK (`useDyteClient`) MUST be mocked |
+| MAINT-U4-06 | Test coverage — CallPage | CallPage logic (fetch+keepalive on unload, URL param parsing, error screen) MUST have Jest unit tests; RTK SDK (`useRealtimeKitClient`) MUST be mocked |
 
 ---
 
