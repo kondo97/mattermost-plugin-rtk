@@ -219,6 +219,9 @@ func (c *client) GetMeetingParticipants(meetingID string) ([]string, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrMeetingNotFound
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GetMeetingParticipants: unexpected status %d", resp.StatusCode)
 	}

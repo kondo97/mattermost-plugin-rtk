@@ -29,6 +29,7 @@ const FloatingWidget = () => {
     const [meeting, initMeeting] = useRealtimeKitClient();
     const rtkT = useLanguage(intl.locale === 'ja' ? jaDict : undefined);
     const [joinError, setJoinError] = useState<string | null>(null);
+    const [isJoining, setIsJoining] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -45,9 +46,16 @@ const FloatingWidget = () => {
 
     const attemptInit = useCallback((token: string) => {
         setJoinError(null);
+        setIsJoining(true);
         initMeeting({
             authToken: token,
             defaults: {audio: true, video: true},
+        }).then(() => {
+            // initMeeting resolves after the room is joined. Clear the joining
+            // state here so the UI transitions immediately, without relying on
+            // the roomJoined event which may fire before our listener is
+            // registered (React defers effects until after paint).
+            setIsJoining(false);
         }).catch((err: Error) => {
             console.error('[rtk-plugin] Widget RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console
             if (retryCountRef.current < MAX_RETRIES) {
@@ -55,6 +63,7 @@ const FloatingWidget = () => {
                 console.log(`[rtk-plugin] Retrying initMeeting in ${RETRY_DELAY_MS}ms...`); // eslint-disable-line no-console
                 retryTimeoutRef.current = setTimeout(() => attemptInit(token), RETRY_DELAY_MS);
             } else {
+                setIsJoining(false);
                 setJoinError(err.message);
             }
         });
@@ -80,7 +89,7 @@ const FloatingWidget = () => {
         if (!meeting) {
             return undefined;
         }
-        console.log('[rtk-plugin] meeting initialized, roomJoined=', meeting.self.roomJoined); // eslint-disable-line no-console
+        console.log('[rtk-plugin] meeting initialized'); // eslint-disable-line no-console
 
         // Capture callId at effect time so the handler doesn't close over a stale ref
         const activeCallId = myActiveCall?.callId;
@@ -88,6 +97,7 @@ const FloatingWidget = () => {
         const onRoomJoined = () => {
             console.log('[rtk-plugin] roomJoined event fired'); // eslint-disable-line no-console
             setJoinError(null);
+            setIsJoining(false);
         };
         const onRoomLeft = () => {
             console.log('[rtk-plugin] roomLeft event fired'); // eslint-disable-line no-console
@@ -320,7 +330,11 @@ const FloatingWidget = () => {
                                     </button>
                                 </div>
                             </div>
-                        ) : meeting ? (
+                        ) : isJoining || !meeting ? (
+                            <div style={messageStyle}>
+                                {intl.formatMessage({id: 'plugin.rtk.floating_widget.connecting'})}
+                            </div>
+                        ) : (
                             <RtkMeeting
                                 meeting={meeting}
                                 t={rtkT}
@@ -328,10 +342,6 @@ const FloatingWidget = () => {
                                 showSetupScreen={false}
                                 style={{width: '100%', height: '100%'}}
                             />
-                        ) : (
-                            <div style={messageStyle}>
-                                {intl.formatMessage({id: 'plugin.rtk.floating_widget.connecting'})}
-                            </div>
                         )}
                     </RealtimeKitProvider>
                 </div>

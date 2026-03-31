@@ -12,7 +12,6 @@ const (
 	keyCallID        = "call:id:%s"
 	keyCallMeeting   = "call:meeting:%s"
 	keyActiveCalls   = "active_calls"
-	keyVoIPToken     = "voip:%s"
 	keyWebhookID     = "webhook:id"
 	keyWebhookSecret = "webhook:secret"
 )
@@ -174,24 +173,6 @@ func (kv Client) RemoveActiveCallID(callID string) error {
 		return errors.Wrap(err, "failed to remove active call ID")
 	}
 	return nil
-}
-
-// StoreVoIPToken stores a VoIP device token for a user.
-func (kv Client) StoreVoIPToken(userID, token string) error {
-	if _, err := kv.client.KV.Set(fmt.Sprintf(keyVoIPToken, userID), token); err != nil {
-		return errors.Wrap(err, "failed to store VoIP token")
-	}
-	return nil
-}
-
-// GetVoIPToken retrieves the VoIP device token for a user.
-func (kv Client) GetVoIPToken(userID string) (string, error) {
-	var token string
-	err := kv.client.KV.Get(fmt.Sprintf(keyVoIPToken, userID), &token)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get VoIP token")
-	}
-	return token, nil
 }
 
 // StoreWebhookID persists the registered RTK webhook ID.

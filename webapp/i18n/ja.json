@@ -1,5 +1,5 @@
 {
-    "plugin.rtk.channel_header.start_call": "通話を開始",
+    "plugin.rtk.channel_header.start_call": "通話の開始",
     "plugin.rtk.channel_header.join_call": "通話に参加",
     "plugin.rtk.channel_header.in_call": "通話中",
     "plugin.rtk.channel_header.starting_call": "通話を開始中...",
@@ -39,6 +39,5 @@
     "plugin.rtk.call_post.participants": "{count}人が参加中",
     "plugin.rtk.call_post.error_close": "OK",
     "plugin.rtk.admin.credential.loading": "読み込み中...",
-    "plugin.rtk.admin.credential.env_var_value": "環境変数 {envVar} で設定済み",
-    "plugin.rtk.admin.credential.env_var_notice": "この値は環境変数 {envVar} で設定されています。環境変数が設定されている間、ここに入力した値は無視されます。"
+    "plugin.rtk.admin.credential.env_var_value": "環境変数 {envVar} で設定済み"
 }

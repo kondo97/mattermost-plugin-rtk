@@ -57,22 +57,14 @@ const EnvVarCredentialSetting: React.FC<Props> = ({id, value, disabled, onChange
     if (viaEnv) {
         const envVarName = ENV_VAR_NAMES[id] ?? id;
         return (
-            <div>
-                <input
-                    className='form-control'
-                    type='text'
-                    value={formatMessage({id: 'plugin.rtk.admin.credential.env_var_value'}, {envVar: envVarName})}
-                    disabled={true}
-                    readOnly={true}
-                    style={{color: 'var(--online-indicator)', fontStyle: 'italic'}}
-                />
-                <p className='help-text'>
-                    <span style={{color: 'var(--online-indicator)', fontWeight: 600}}>
-                        {'✓ '}
-                    </span>
-                    {formatMessage({id: 'plugin.rtk.admin.credential.env_var_notice'}, {envVar: envVarName})}
-                </p>
-            </div>
+            <input
+                className='form-control'
+                type='text'
+                value={formatMessage({id: 'plugin.rtk.admin.credential.env_var_value'}, {envVar: envVarName})}
+                disabled={true}
+                readOnly={true}
+                style={{color: 'var(--online-indicator)', fontStyle: 'italic'}}
+            />
         );
     }
 

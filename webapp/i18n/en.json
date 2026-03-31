@@ -39,6 +39,5 @@
     "plugin.rtk.call_post.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.call_post.error_close": "OK",
     "plugin.rtk.admin.credential.loading": "Loading...",
-    "plugin.rtk.admin.credential.env_var_value": "Set via environment variable {envVar}",
-    "plugin.rtk.admin.credential.env_var_notice": "This value is configured via the environment variable {envVar}. Any value entered here is ignored while the environment variable is set."
+    "plugin.rtk.admin.credential.env_var_value": "Set via environment variable {envVar}"
 }
