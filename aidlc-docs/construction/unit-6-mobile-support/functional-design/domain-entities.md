@@ -1,6 +1,82 @@
 # Unit 6: Mobile Support — Domain Entities
 
-> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events instead of push notifications. All entities described below no longer exist in the codebase. This document is retained for historical reference.
+> **Updated 2026-04-01**: Push notifications reinstated. The implementation uses
+> plugin-level methods on the `Plugin` struct (no separate package).
+> All entities below reflect the current codebase.
+
+## Overview
+
+Unit 6 adds push notification delivery to the Plugin Core. There is no separate
+package — all logic lives in `server/push.go` as methods on `*Plugin`.
+
+---
+
+## Entity 1: PushNotification (model.PushNotification)
+
+**Package**: `github.com/mattermost/mattermost/server/public/model`
+**File**: used in `server/push.go`
+
+The standard Mattermost push notification payload dispatched via `plugin.API.SendPushNotification`.
+
+| Field | Type | Value for RTK calls |
+|---|---|---|
+| `Version` | `string` | `model.PushMessageV2` (`"v2"`) |
+| `Type` | `string` | `model.PushTypeMessage` (`"message"`) |
+| `SubType` | `PushSubType` | `model.PushSubTypeCalls` (`"calls"`) |
+| `TeamId` | `string` | `channel.TeamId` (empty for DM/GM) |
+| `ChannelId` | `string` | Call's channel ID |
+| `PostId` | `string` | Call post ID |
+| `SenderId` | `string` | Caller's user ID |
+| `ChannelType` | `model.ChannelType` | `D` or `G` |
+| `Message` | `string` | `"\u200b<Name> is calling you"` or `"Incoming call"` |
+| `SenderName` | `string` | Caller's display name |
+| `ChannelName` | `string` | Sender name (DM) or comma-joined member names (GM) |
+| `IsIdLoaded` | `bool` | `true` when IdLoaded is configured and licensed |
+
+---
+
+## Entity 2: Plugin (Modified — push methods added)
+
+**File**: `server/push.go`
+
+New methods added to the existing `Plugin` struct:
+
+```
+Plugin
+  ...existing fields (unchanged)...
+
+  + NotificationWillBePushed(notification *model.PushNotification, userID string)
+        (*model.PushNotification, string)
+  + sendPushNotifications(channelID, postID string, sender *model.User)
+  + checkIDLoadedLicense() bool
+  + getNameFormat(userID string) string
+```
+
+No new fields are added to `Plugin`. The push sender uses `p.API` directly.
+
+---
+
+## Entity 3: Helper Functions (package-level)
+
+**File**: `server/push.go`
+
+| Function | Signature | Description |
+|---|---|---|
+| `getChannelNameForNotification` | `(channel, sender, members, nameFormat, receiverID) string` | Builds channel name for notification |
+| `buildPushMessage` | `(senderName string) string` | Returns `"\u200b<name> is calling you"` |
+| `buildGenericPushMessage` | `() string` | Returns `"Incoming call"` |
+
+---
+
+## Comparison with Previous Design (Archived)
+
+The original Unit 6 design used a separate `server/push/` package with a `PushSender`
+interface and `Sender` struct to enable mock injection. That design was removed
+(2026-03-31) because the separate package added complexity without benefit — the
+`plugintest.API` mock already covers `SendPushNotification` in tests.
+
+The reinstated design (2026-04-01) places all logic directly on `*Plugin`, which is
+consistent with the rest of the codebase (`calls.go`, `api_mobile.go`, etc.).
 
 ## Overview
 

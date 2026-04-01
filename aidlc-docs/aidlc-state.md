@@ -3,7 +3,7 @@
 ## Project Information
 - **Project Type**: Brownfield
 - **Start Date**: 2026-03-19T00:00:00Z
-- **Current Stage**: CONSTRUCTION PHASE - Units 1-5 COMPLETE, Unit 6 REMOVED → Build and Test NEXT
+- **Current Stage**: CONSTRUCTION PHASE - Units 1-6 COMPLETE → Build and Test NEXT
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -69,12 +69,12 @@
   - [x] NFR Design
   - [-] Infrastructure Design (SKIP)
   - [x] Code Generation
-- [x] Unit 6: Mobile Support (REMOVED — push subsystem deleted; WS events used instead)
+- [x] Unit 6: Mobile Support — Push Notifications (Reinstated 2026-04-01)
   - [x] Functional Design
   - [x] NFR Requirements
   - [x] NFR Design
   - [-] Infrastructure Design (SKIP)
-  - [x] Code Generation (subsequently removed)
+  - [x] Code Generation
 - [ ] Build and Test
 
 ## Known Constraints

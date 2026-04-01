@@ -148,6 +148,14 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		if err := p.kvStore.SaveCall(session); err != nil {
 			p.API.LogWarn("CreateCall: failed to update PostID (best effort)", "call_id", session.ID, "err", err.Error())
 		}
+		// Send mobile push notifications asynchronously to avoid holding callMu
+		// during slow external API calls (GetChannel, GetUsersInChannel, SendPushNotification).
+		senderUser, senderErr := p.API.GetUser(userID)
+		if senderErr == nil {
+			go p.sendPushNotifications(channelID, createdPost.Id, senderUser)
+		} else {
+			p.API.LogWarn("CreateCall: GetUser failed for push notifications (best effort)", "call_id", session.ID, "err", senderErr.Error())
+		}
 	}
 
 	// BR-04: emit WebSocket event

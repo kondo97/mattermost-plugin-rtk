@@ -35,7 +35,7 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 		api.On("LogWarn", anyArgs(n)...).Maybe().Return()
 		api.On("LogError", anyArgs(n)...).Maybe().Return()
 	}
-	// Default GetUser mock for getUserDisplayName
+	// Default GetUser mock for getUserDisplayName and push notification sender lookup
 	api.On("GetUser", mock.Anything).Maybe().Return(&model.User{
 		Username:  "testuser",
 		FirstName: "Test",
@@ -72,6 +72,10 @@ func TestCreateCall_Success(t *testing.T) {
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(createdPost, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
+	// sendPushNotifications will call GetConfig; return push disabled to keep this test focused
+	api.On("GetConfig").Maybe().Return(&model.Config{
+		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
+	})
 
 	session, tok, err := p.CreateCall(channelID, userID)
 	require.NoError(t, err)
