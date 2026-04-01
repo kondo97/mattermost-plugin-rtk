@@ -8,16 +8,33 @@ import (
 )
 
 // NotificationWillBePushed intercepts push notifications before they are sent to mobile devices.
-// For call start posts in DM/GM channels, we suppress Mattermost's default notification
-// because the plugin sends its own notification with SubType=calls to trigger the ringing UI.
+// For call start posts in DM/GM channels where the plugin can send its own push notification,
+// we suppress Mattermost's default notification and send one with SubType=calls instead
+// (which triggers the native call ringing UI on iOS/Android).
+// Falls back to passing the original notification through if push is unavailable.
 func (p *Plugin) NotificationWillBePushed(notification *model.PushNotification, userID string) (*model.PushNotification, string) {
+	// Only handle call start posts.
 	if notification.PostType != callPostType {
 		return nil, ""
 	}
-	if notification.ChannelType == model.ChannelTypeDirect || notification.ChannelType == model.ChannelTypeGroup {
-		return nil, "rtk plugin will handle this notification"
+	// Only consider overriding notifications for DM/GM channels.
+	if notification.ChannelType != model.ChannelTypeDirect && notification.ChannelType != model.ChannelTypeGroup {
+		return nil, ""
 	}
-	return nil, ""
+	// Check whether the plugin is actually able to send push notifications.
+	// If not, fall back to letting the server send its default notification.
+	cfg := p.API.GetConfig()
+	if cfg == nil {
+		return notification, ""
+	}
+	if cfg.EmailSettings.SendPushNotifications == nil || !*cfg.EmailSettings.SendPushNotifications {
+		return notification, ""
+	}
+	if cfg.EmailSettings.PushNotificationServer == nil || *cfg.EmailSettings.PushNotificationServer == "" {
+		return notification, ""
+	}
+	// Plugin can send its own calls-specific push notification; suppress the default one.
+	return nil, "rtk plugin will handle this notification"
 }
 
 // sendPushNotifications sends a mobile push notification to all eligible members
@@ -54,6 +71,9 @@ func (p *Plugin) sendPushNotifications(channelID, postID string, sender *model.U
 		pushContents = *cfg.EmailSettings.PushNotificationContents
 	}
 
+	// Compute once before the loop to avoid repeated license API calls.
+	idLoadedEnabled := pushContents == model.IdLoadedNotification && p.checkIDLoadedLicense()
+
 	for _, member := range members {
 		if member.Id == sender.Id {
 			continue
@@ -71,7 +91,7 @@ func (p *Plugin) sendPushNotifications(channelID, postID string, sender *model.U
 			Message:     buildGenericPushMessage(),
 		}
 
-		if pushContents == model.IdLoadedNotification && p.checkIDLoadedLicense() {
+		if idLoadedEnabled {
 			msg.IsIdLoaded = true
 		} else {
 			nameFormat := p.getNameFormat(member.Id)
@@ -140,6 +160,8 @@ func buildPushMessage(senderName string) string {
 }
 
 // buildGenericPushMessage returns a generic push notification message for incoming calls.
+// The leading zero-width space (\u200b) signals the mobile app to trigger the call ringing UI
+// regardless of the PushNotificationContents server setting.
 func buildGenericPushMessage() string {
-	return "Incoming call"
+	return "\u200bIncoming call"
 }

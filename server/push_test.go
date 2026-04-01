@@ -26,7 +26,13 @@ func TestNotificationWillBePushed_NonCallPost_PassThrough(t *testing.T) {
 }
 
 func TestNotificationWillBePushed_CallPost_DM_Suppressed(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
+	p, api := newTestPlugin(t, nil, nil)
+	api.On("GetConfig").Return(&model.Config{
+		EmailSettings: model.EmailSettings{
+			SendPushNotifications:  model.NewPointer(true),
+			PushNotificationServer: model.NewPointer("https://push.mattermost.com"),
+		},
+	})
 
 	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeDirect}
 	result, reason := p.NotificationWillBePushed(notif, "user1")
@@ -36,13 +42,34 @@ func TestNotificationWillBePushed_CallPost_DM_Suppressed(t *testing.T) {
 }
 
 func TestNotificationWillBePushed_CallPost_GM_Suppressed(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
+	p, api := newTestPlugin(t, nil, nil)
+	api.On("GetConfig").Return(&model.Config{
+		EmailSettings: model.EmailSettings{
+			SendPushNotifications:  model.NewPointer(true),
+			PushNotificationServer: model.NewPointer("https://push.mattermost.com"),
+		},
+	})
 
 	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeGroup}
 	result, reason := p.NotificationWillBePushed(notif, "user1")
 
 	assert.Nil(t, result)
 	assert.NotEmpty(t, reason, "should suppress GM call notification with a reason")
+}
+
+func TestNotificationWillBePushed_CallPost_DM_PushDisabled_PassThrough(t *testing.T) {
+	p, api := newTestPlugin(t, nil, nil)
+	api.On("GetConfig").Return(&model.Config{
+		EmailSettings: model.EmailSettings{
+			SendPushNotifications: model.NewPointer(false),
+		},
+	})
+
+	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeDirect}
+	result, reason := p.NotificationWillBePushed(notif, "user1")
+
+	assert.Equal(t, notif, result, "should pass through when push is disabled")
+	assert.Empty(t, reason)
 }
 
 func TestNotificationWillBePushed_CallPost_PublicChannel_PassThrough(t *testing.T) {
@@ -189,6 +216,7 @@ func TestBuildPushMessage(t *testing.T) {
 func TestBuildGenericPushMessage(t *testing.T) {
 	msg := buildGenericPushMessage()
 	assert.NotEmpty(t, msg)
+	assert.Contains(t, msg, "\u200b", "zero-width space required to trigger mobile call ringing UI")
 }
 
 func TestGetChannelNameForNotification_DM(t *testing.T) {
