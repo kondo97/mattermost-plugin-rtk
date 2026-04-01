@@ -1,6 +1,131 @@
 # Unit 6: Mobile Support — Business Rules
 
-> **Updated 2026-03-31**: The `server/push/` package has been REMOVED. Mobile clients receive call notifications via WebSocket events (`custom_com.kondo97.mattermost-plugin-rtk_call_started`, `custom_com.kondo97.mattermost-plugin-rtk_call_ended`) instead of push notifications. All rules below are no longer enforced. This document is retained for historical reference.
+> **Updated 2026-04-01**: Push notifications reinstated. The plugin now implements
+> `server/push.go` with `NotificationWillBePushed` hook and `sendPushNotifications`
+> function, following the Mattermost Calls plugin pattern. Rules below reflect the
+> current implementation.
+
+## Push Notification Rules
+
+### BR-P01: sendPushNotifications is best-effort
+
+`sendPushNotifications` is called from `CreateCall` after post creation.
+Delivery failures per recipient are logged as errors; the function always returns
+without propagating errors. Call creation is never blocked by push failures.
+
+**Rationale**: Aligns with Mattermost Calls plugin pattern.
+
+---
+
+### BR-P02: Push is limited to DM and GM channels only
+
+`sendPushNotifications` checks `channel.Type`:
+- `model.ChannelTypeDirect` — send
+- `model.ChannelTypeGroup` — send
+- All other types — return immediately (no push sent)
+
+`NotificationWillBePushed` suppresses the default Mattermost notification only for
+DM/GM call posts (plugin sends its own). For other channel types, the default
+notification is passed through unmodified.
+
+**Rationale**: Aligns with Mattermost Calls plugin behavior.
+
+---
+
+### BR-P03: Recipient scope — up to 8 channel members except the caller
+
+`GetUsersInChannel(channelID, ChannelSortByUsername, 0, 8)` is called once.
+Members where `member.Id == sender.Id` are skipped.
+
+**Rationale**: Aligns with Mattermost Calls plugin limit.
+Platform-level filtering (device availability, online status) is handled by the
+Mattermost push proxy.
+
+---
+
+### BR-P04: Per-member send failure does not abort the loop
+
+If `SendPushNotification` returns an error for one member, an error is logged
+and the loop continues to the next member.
+
+**Rationale**: Consistent with best-effort delivery model (BR-P01).
+
+---
+
+### BR-P05: team_id is empty string for DM/GM channels
+
+DM and GM channels have `channel.TeamId == ""`. The empty string is passed directly
+in the push notification payload.
+
+**Rationale**: The Mattermost push proxy handles routing for DM/GM channels without
+requiring a team ID.
+
+---
+
+### BR-P06: PushNotificationContents server setting is respected
+
+| Setting | Behaviour |
+|---|---|
+| `full` (default) | `Message = "\u200b<SenderName> is calling you"`, `SenderName` and `ChannelName` populated |
+| `generic_no_channel` | Same as full but `ChannelName = ""` for GM channels |
+| `generic` | `Message = "Incoming call"`, `SenderName` and `ChannelName` populated |
+| `id_loaded` (+ license) | `IsIdLoaded = true`; no names on wire |
+
+---
+
+### BR-P07: Zero-width space prefix triggers mobile call ringing UI
+
+`buildPushMessage` prepends `\u200b` (zero-width space) to the message text.
+The Mattermost mobile app uses this prefix to detect call notifications and
+trigger the native calling UI (ringing screen, push-to-VoIP on iOS).
+
+---
+
+### BR-P08: Name format follows user preference then server default
+
+`getNameFormat(userID)` checks `display_settings / name_format` preference.
+Falls back to `TeamSettings.TeammateNameDisplay`, then to `model.ShowUsername`.
+
+---
+
+### BR-P09: NotificationWillBePushed hook suppresses default call post notification
+
+When Mattermost generates a push notification for a `custom_cf_call` post in a
+DM/GM channel, the hook returns `(nil, "rtk plugin will handle this notification")`
+to suppress it. The plugin's `sendPushNotifications` sends the replacement with the
+proper `SubType: calls` payload.
+
+For non-DM/GM channels, the hook returns `(nil, "")` (pass through unchanged).
+
+---
+
+### BR-P10: Push is only sent when server push is configured
+
+`sendPushNotifications` exits immediately if:
+- `EmailSettings.SendPushNotifications` is nil or false
+- `EmailSettings.PushNotificationServer` is nil or empty
+
+---
+
+## Security Compliance Summary
+
+| Rule | Status | Notes |
+|---|---|---|
+| SECURITY-01 | N/A | No new data stores |
+| SECURITY-02 | N/A | No new network intermediaries |
+| SECURITY-03 | Compliant | Errors logged without tokens or PII |
+| SECURITY-04 | N/A | No new HTML-serving endpoints |
+| SECURITY-05 | Compliant | No user-supplied input in push sender; inputs are internal session/channel data |
+| SECURITY-06 | N/A | No IAM policies |
+| SECURITY-07 | N/A | No network configuration |
+| SECURITY-08 | Compliant | Push targets derived from channel membership; no user-controlled routing |
+| SECURITY-09 | N/A | No new deployments or default credentials |
+| SECURITY-10 | N/A | No new dependencies |
+| SECURITY-11 | Compliant | Push logic is isolated in `push.go`; DM/GM-only restriction limits misuse scope |
+| SECURITY-12 | N/A | No authentication logic |
+| SECURITY-13 | N/A | No deserialization of untrusted data |
+| SECURITY-14 | N/A | No new alerting infrastructure |
+| SECURITY-15 | Compliant | All external API calls have explicit error handling; fail-safe per BR-P01/BR-P04 |
 
 ## Push Notification Rules (REMOVED)
 

@@ -1,5 +1,13 @@
 # AI-DLC Audit Log
 
+## Unit 6 - Push Notifications Reinstated (2026-04-01)
+**Timestamp**: 2026-04-01T01:15:55Z
+**User Input**: "モバイル端末のためにPush通知を実装してください。" / "aidlc-docsを更新して"
+**AI Response**: Implemented mobile push notifications in `server/push.go` following the Mattermost Calls plugin pattern. Created `NotificationWillBePushed` hook (suppresses default Mattermost notification for DM/GM call posts), `sendPushNotifications` function (sends `SubType: calls` push notification to DM/GM members on call start, respecting `PushNotificationContents` setting and IdLoaded license), and 14 unit tests in `server/push_test.go`. Modified `server/calls.go` to call `sendPushNotifications` after post creation (best-effort). Updated aidlc-docs: aidlc-state.md (Unit 6 COMPLETE), code-summary.md, business-rules.md, business-logic-model.md, domain-entities.md.
+**Context**: CONSTRUCTION PHASE - Unit 6 Mobile Support reinstated and completed. All server tests pass.
+
+---
+
 ## Unit 3 - Code Generation Complete (All 81 Tests Pass)
 **Timestamp**: 2026-03-23T10:25:00Z
 **User Input**: (continuation from previous session — code generation was already approved)

@@ -48,6 +48,10 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
 	api.On("PublishWebSocketEvent", wsEventCallStarted, mock.Anything, mock.Anything).Return()
+	// sendPushNotifications will call GetConfig; return push disabled to keep this test focused
+	api.On("GetConfig").Maybe().Return(&model.Config{
+		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
+	})
 
 	body, _ := json.Marshal(map[string]string{"channel_id": "chan1"})
 	w := serveWithUser(t, p, http.MethodPost, "/api/v1/calls", "user1", body)
