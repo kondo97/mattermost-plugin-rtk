@@ -147,6 +147,9 @@ func TestJoinCall_Success(t *testing.T) {
 	assert.Equal(t, callID, sess.ID)
 }
 
+// TestJoinCall_UpdatesPostParticipants verifies that JoinCall updates the post and emits the
+// user_joined WebSocket event immediately. handleWebhookParticipantJoined also fires later
+// (when the RTK SDK actually connects) and performs an idempotent update.
 func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)

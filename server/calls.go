@@ -214,10 +214,13 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 		return nil, "", fmt.Errorf("failed to update participants: %w", err)
 	}
 
-	// Update post participants — best effort
+	// BR-10: update post participants — best effort
 	p.updatePostParticipants(session.PostID, session.Participants)
 
-	// BR-10: emit WebSocket event
+	// BR-10: emit WebSocket event so all clients see the updated participant list immediately.
+	// handleWebhookParticipantJoined will also fire later (when the RTK SDK actually connects)
+	// and performs an idempotent update — this is safe because UpdatePost and PublishWebSocketEvent
+	// with the same data are both no-ops from the client's perspective.
 	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
 		"call_id":      callID,
 		"channel_id":   session.ChannelID,
@@ -268,7 +271,7 @@ func (p *Plugin) LeaveCall(callID, userID string) error {
 
 	// BR-13: auto-end if last participant left
 	if len(updated) == 0 {
-		if err := p.endCallInternal(session); err != nil {
+		if err := p.endCallInternal(session, "last_participant_left"); err != nil {
 			p.API.LogError("LeaveCall: endCallInternal failed", "call_id", callID, "err", err.Error())
 			return fmt.Errorf("failed to end call: %w", err)
 		}
@@ -296,11 +299,15 @@ func (p *Plugin) EndCall(callID, requestingUserID string) error {
 		return ErrUnauthorized
 	}
 
-	return p.endCallInternal(session)
+	return p.endCallInternal(session, "explicit_end")
 }
 
-// endCallInternal is the shared implementation called by EndCall and LeaveCall (auto-end).
-func (p *Plugin) endCallInternal(session *kvstore.CallSession) error {
+// endCallInternal is the shared implementation called by EndCall, LeaveCall (auto-end),
+// the cleanup loop, and webhook handlers.
+// reason identifies the code path that triggered the end (for diagnostics).
+func (p *Plugin) endCallInternal(session *kvstore.CallSession, reason string) error {
+	p.API.LogInfo("endCallInternal triggered", "call_id", session.ID, "channel_id", session.ChannelID, "reason", reason)
+
 	// BR-26: set EndAt
 	endAt := nowMs()
 	if err := p.kvStore.EndCall(session.ID, endAt); err != nil {

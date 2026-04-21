@@ -108,14 +108,11 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
             return;
         }
         const {data} = result;
-        dispatch(upsertCall({
-            id: data.call.id,
-            channelId: data.call.channel_id,
-            creatorId: data.call.creator_id,
-            participants: data.call.participants,
-            startAt: data.call.start_at,
-            postId: data.call.post_id,
-        }));
+
+        // Do NOT dispatch upsertCall here. The participant update will arrive via
+        // the user_joined WebSocket event, which is emitted by the server only after
+        // the RTK webhook confirms the user has actually connected via WebRTC.
+        // This prevents the post from showing "participating" before the SDK joins.
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,
@@ -129,6 +126,10 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
         }
 
         if (activeCall) {
+            // Already connecting to this call (token issued but RTK webhook not yet received)
+            if (myActiveCall?.callId === activeCall.id) {
+                return;
+            }
             // Join call — check if already in a different call
             if (myActiveCall && myActiveCall.callId !== activeCall.id) {
                 setPendingJoinCallId(activeCall.id);

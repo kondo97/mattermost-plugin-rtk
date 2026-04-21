@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/mattermost/mattermost/server/public/model"
 )
 
 // rtkWebhookEvent is the top-level RTK webhook payload.
@@ -54,6 +56,8 @@ func (p *Plugin) handleRTKWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch event.Event {
+	case "meeting.participantJoined":
+		p.handleWebhookParticipantJoined(event)
 	case "meeting.participantLeft":
 		p.handleWebhookParticipantLeft(event)
 	case "meeting.ended":
@@ -63,6 +67,47 @@ func (p *Plugin) handleRTKWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (p *Plugin) handleWebhookParticipantJoined(event rtkWebhookEvent) {
+	meetingID := event.Meeting.ID
+	userID := event.Participant.CustomParticipantID
+	if meetingID == "" || userID == "" {
+		return
+	}
+
+	session, err := p.kvStore.GetCallByMeetingID(meetingID)
+	if err != nil {
+		p.API.LogError("handleWebhookParticipantJoined: GetCallByMeetingID failed", "meeting_id", meetingID, "error", err.Error())
+		return
+	}
+	if session == nil || session.EndAt != 0 {
+		return
+	}
+
+	// Re-read inside a fresh fetch to get the latest participants list
+	// (JoinCall already updated KVStore before returning the token).
+	fresh, err := p.kvStore.GetCallByID(session.ID)
+	if err != nil {
+		p.API.LogError("handleWebhookParticipantJoined: GetCallByID failed", "call_id", session.ID, "error", err.Error())
+		return
+	}
+	if fresh == nil || fresh.EndAt != 0 {
+		return
+	}
+
+	// Update post participants — best effort
+	p.updatePostParticipants(fresh.PostID, fresh.Participants)
+
+	// Emit WebSocket event now that the participant is actually in the room
+	p.API.PublishWebSocketEvent(wsEventUserJoined, map[string]any{
+		"call_id":      fresh.ID,
+		"channel_id":   fresh.ChannelID,
+		"user_id":      userID,
+		"participants": fresh.Participants,
+	}, &model.WebsocketBroadcast{ChannelId: fresh.ChannelID})
+
+	p.API.LogInfo("user connected to call", "call_id", fresh.ID, "user_id", userID, "channel_id", fresh.ChannelID)
 }
 
 func (p *Plugin) handleWebhookParticipantLeft(event rtkWebhookEvent) {
@@ -92,6 +137,8 @@ func (p *Plugin) handleWebhookMeetingEnded(event rtkWebhookEvent) {
 		return
 	}
 
+	p.API.LogInfo("handleWebhookMeetingEnded: received meeting.ended webhook", "meeting_id", meetingID)
+
 	session, err := p.kvStore.GetCallByMeetingID(meetingID)
 	if err != nil {
 		p.API.LogError("handleWebhookMeetingEnded: GetCallByMeetingID failed", "meeting_id", meetingID, "error", err.Error())
@@ -115,7 +162,7 @@ func (p *Plugin) handleWebhookMeetingEnded(event rtkWebhookEvent) {
 		return // already ended by another path
 	}
 
-	if err := p.endCallInternal(fresh); err != nil {
+	if err := p.endCallInternal(fresh, "rtk_webhook"); err != nil {
 		p.API.LogError("handleWebhookMeetingEnded: endCallInternal failed", "call_id", fresh.ID, "error", err.Error())
 	}
 }

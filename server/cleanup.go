@@ -45,9 +45,16 @@ func (p *Plugin) reconcileActiveCalls() {
 	}
 }
 
+// cleanupFailThreshold is the number of consecutive cleanup cycles that must
+// observe a missing RTK meeting before the call is force-ended. This prevents
+// a transient RTK API 404 (e.g. during a Dyte server restart/failover) from
+// terminating an otherwise-healthy call.
+const cleanupFailThreshold = 2
+
 // reconcileCall checks a single call against the RTK API and force-ends it if
-// the meeting is gone. Transient API errors are logged and skipped so that a
-// temporary network blip does not accidentally terminate live calls.
+// the meeting has been missing for cleanupFailThreshold consecutive cycles.
+// Transient API errors are logged and skipped so that a temporary network blip
+// does not accidentally terminate live calls.
 func (p *Plugin) reconcileCall(callID string) {
 	session, err := p.kvStore.GetCallByID(callID)
 	if err != nil {
@@ -62,7 +69,16 @@ func (p *Plugin) reconcileCall(callID string) {
 
 	_, err = p.rtkClient.GetMeetingParticipants(session.MeetingID)
 	if err == nil {
-		// Meeting is still alive — nothing to do.
+		// Meeting is still alive — reset fail counter and return.
+		if session.CleanupFailCount > 0 {
+			p.callMu.Lock()
+			defer p.callMu.Unlock()
+			fresh, ferr := p.kvStore.GetCallByID(callID)
+			if ferr == nil && fresh != nil && fresh.EndAt == 0 && fresh.CleanupFailCount > 0 {
+				fresh.CleanupFailCount = 0
+				_ = p.kvStore.SaveCall(fresh)
+			}
+		}
 		return
 	}
 	if !errors.Is(err, rtkclient.ErrMeetingNotFound) {
@@ -71,9 +87,8 @@ func (p *Plugin) reconcileCall(callID string) {
 		return
 	}
 
-	// Meeting is gone on the RTK side — force-end the call.
-	p.API.LogInfo("cleanup: RTK meeting not found, force-ending stale call", "call_id", callID, "meeting_id", session.MeetingID)
-
+	// Meeting returned 404 — acquire lock, increment fail counter, and
+	// force-end only after reaching the threshold.
 	p.callMu.Lock()
 	defer p.callMu.Unlock()
 
@@ -82,7 +97,20 @@ func (p *Plugin) reconcileCall(callID string) {
 	if err != nil || fresh == nil || fresh.EndAt != 0 {
 		return
 	}
-	if err := p.endCallInternal(fresh); err != nil {
+
+	fresh.CleanupFailCount++
+	if fresh.CleanupFailCount < cleanupFailThreshold {
+		p.API.LogWarn("cleanup: RTK meeting not found (waiting for next cycle before force-ending)",
+			"call_id", callID, "meeting_id", fresh.MeetingID, "fail_count", fresh.CleanupFailCount, "threshold", cleanupFailThreshold)
+		if serr := p.kvStore.SaveCall(fresh); serr != nil {
+			p.API.LogWarn("cleanup: SaveCall failed when persisting fail count (best effort)", "call_id", callID, "err", serr.Error())
+		}
+		return
+	}
+
+	p.API.LogInfo("cleanup: RTK meeting not found consecutively, force-ending stale call",
+		"call_id", callID, "meeting_id", fresh.MeetingID, "fail_count", fresh.CleanupFailCount)
+	if err := p.endCallInternal(fresh, "cleanup_loop_404"); err != nil {
 		p.API.LogError("cleanup: endCallInternal failed", "call_id", callID, "err", err.Error())
 	}
 }

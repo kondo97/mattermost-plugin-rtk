@@ -71,6 +71,65 @@ func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, api := newTestPlugin(t, nil, mockStore)
+	p.router = p.initRouter()
+
+	session := &kvstore.CallSession{
+		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
+		Participants: []string{"user1", "user2"}, PostID: "post1",
+	}
+
+	event := rtkWebhookEvent{
+		Event:       "meeting.participantJoined",
+		Meeting:     rtkWebhookMeeting{ID: "mtg1"},
+		Participant: rtkWebhookParticipant{CustomParticipantID: "user2"},
+	}
+	body, _ := json.Marshal(event)
+
+	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
+	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
+	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
+
+	existingPost := &model.Post{Id: "post1", Props: model.StringInterface{"call_id": "call1"}}
+	api.On("GetPost", "post1").Return(existingPost, nil)
+	api.On("UpdatePost", mock.MatchedBy(func(post *model.Post) bool {
+		participants, ok := post.Props["participants"].([]string)
+		return ok && len(participants) == 2
+	})).Return(existingPost, nil)
+	api.On("PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything).Return()
+
+	w := sendWebhook(t, p, body, signBody(body))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	api.AssertCalled(t, "GetPost", "post1")
+	api.AssertCalled(t, "UpdatePost", mock.Anything)
+	api.AssertCalled(t, "PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything)
+}
+
+func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, _ := newTestPlugin(t, nil, mockStore)
+	p.router = p.initRouter()
+
+	event := rtkWebhookEvent{
+		Event:       "meeting.participantJoined",
+		Meeting:     rtkWebhookMeeting{ID: "mtg1"},
+		Participant: rtkWebhookParticipant{CustomParticipantID: "user1"},
+	}
+	body, _ := json.Marshal(event)
+
+	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
+	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(nil, nil)
+
+	w := sendWebhook(t, p, body, signBody(body))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)

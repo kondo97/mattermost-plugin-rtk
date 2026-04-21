@@ -1129,8 +1129,7 @@ header h3 {
     "description": "Integrates Cloudflare RealtimeKit for video and voice calls within Mattermost channels.",
     "homepage_url": "https://github.com/kondo97/mattermost-plugin-rtk",
     "support_url": "https://github.com/kondo97/mattermost-plugin-rtk/issues",
-    "release_notes_url": "https://github.com/kondo97/mattermost-plugin-rtk/releases/tag/v0.5.0",
-    "version": "0.5.0+91dcc66",
+    "version": "0.0.0+9abac44",
     "min_server_version": "10.11.0",
     "server": {
         "executables": {
