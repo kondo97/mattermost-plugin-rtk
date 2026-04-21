@@ -68,7 +68,7 @@
                 "key": "WaitingRoomEnabled",
                 "display_name": "Enable Waiting Room",
                 "type": "bool",
-                "default": "true",
+                "default": "false",
                 "help_text": "Require host approval before participants can join a call."
             },
             {
