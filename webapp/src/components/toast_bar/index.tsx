@@ -7,6 +7,7 @@ import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {setMyActiveCall} from 'redux/calls_slice';
 import type {FeatureFlags} from 'redux/calls_slice';
+import {playJoinSound} from 'utils/sounds';
 import {
     selectCallByChannel,
     selectIsCurrentUserParticipant,
@@ -56,6 +57,7 @@ const ToastBar = ({currentChannelId, currentUserId}: Props) => {
             return;
         }
         const {data} = result;
+        playJoinSound();
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,

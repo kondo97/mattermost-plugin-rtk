@@ -23,6 +23,7 @@ jest.mock('utils/call_tab', () => ({
     buildCallTabUrl: jest.fn(() => 'mock-url'),
     getChannelDisplayName: jest.fn(() => 'general'),
 }));
+jest.mock('utils/sounds', () => ({playJoinSound: jest.fn()}));
 
 const mockDispatch = jest.fn();
 
@@ -109,6 +110,33 @@ describe('CallPost', () => {
         const wrapper = shallow(<CallPost post={makePost()}/>);
         const active = wrapper.find('CallPostActive');
         expect(active.prop('isAlreadyInCall')).toBe(false);
+    });
+
+    it('plays join sound on successful join', async () => {
+        const {pluginFetch} = require('client');
+        const {playJoinSound} = require('utils/sounds');
+
+        const initialCallData = {id: 'call1', channel_id: 'channel1', creator_id: 'user1', participants: [], start_at: 1000000, post_id: 'post1'};
+        pluginFetch.mockResolvedValueOnce({data: initialCallData});
+        pluginFetch.mockResolvedValueOnce({
+            data: {
+                call: {id: 'call1', channel_id: 'channel1'},
+                token: 'tok1',
+            },
+        });
+        setSelectors(undefined, null);
+
+        let wrapper: ReturnType<typeof mount>;
+        await act(async () => {
+            wrapper = mount(<CallPost post={makePost()}/>);
+        });
+
+        const active = wrapper!.find('CallPostActive');
+        await act(async () => {
+            (active.prop('onJoin') as (() => void) | undefined)?.();
+        });
+
+        expect(playJoinSound).toHaveBeenCalledTimes(1);
     });
 
     it('renders error modal when errorMsg is set after API failure', async () => {

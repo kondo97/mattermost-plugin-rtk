@@ -9,6 +9,7 @@ import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
 import type {FeatureFlags} from 'redux/calls_slice';
+import {playJoinSound} from 'utils/sounds';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 
 import SwitchCallModal from 'components/switch_call_modal';
@@ -115,6 +116,7 @@ const CallPost = ({post}: Props) => {
         // the user_joined WebSocket event, which is emitted by the server only after
         // the RTK webhook confirms the user has actually connected via WebRTC.
         // This prevents the post from showing "participating" before the SDK joins.
+        playJoinSound();
         dispatch(setMyActiveCall({
             callId: data.call.id,
             channelId: data.call.channel_id,

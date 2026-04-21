@@ -32,6 +32,9 @@ jest.mock('react-intl', () => ({
 // Mock SwitchCallModal
 jest.mock('components/switch_call_modal', () => () => null);
 
+// Mock sound utility
+jest.mock('utils/sounds', () => ({playJoinSound: jest.fn()}));
+
 const mockDispatch = jest.fn();
 const channel = {id: 'channel1'} as never;
 const currentUserId = 'currentUser';
@@ -129,6 +132,36 @@ describe('ChannelHeaderButton visual states', () => {
         expect(btn.prop('disabled')).toBe(true);
         const label = wrapper.find('[data-testid="channel-header-call-button-label"]');
         expect(label.text()).toBe('plugin.rtk.channel_header.in_call');
+    });
+
+    it('State 5a: plays join sound on successful start call', async () => {
+        const {pluginFetch} = require('client');
+        const {playJoinSound} = require('utils/sounds');
+        pluginFetch.mockResolvedValueOnce({
+            data: {
+                call: {id: 'call1', channel_id: 'channel1', creator_id: 'user1', meeting_id: 'mtg1', participants: [], start_at: 1000, end_at: 0, post_id: 'post1'},
+                token: 'tok1',
+            },
+        });
+
+        setSelectors({pluginEnabled: true, activeCall: undefined, isParticipant: false});
+
+        let wrapper: ReturnType<typeof mount>;
+        await act(async () => {
+            wrapper = mount(
+                <ChannelHeaderButton
+                    channel={channel}
+                    currentUserId={currentUserId}
+                />,
+            );
+        });
+
+        const btn = wrapper!.find('[data-testid="channel-header-call-button"]');
+        await act(async () => {
+            btn.prop('onClick')?.({} as React.MouseEvent);
+        });
+
+        expect(playJoinSound).toHaveBeenCalledTimes(1);
     });
 
     it('State 5: renders error modal when errorMsg is set', async () => {
