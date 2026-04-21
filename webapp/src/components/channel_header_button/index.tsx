@@ -6,6 +6,7 @@ import React, {useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
+import type {FeatureFlags} from 'redux/calls_slice';
 import {
     selectCallByChannel,
     selectIsCurrentUserParticipant,
@@ -29,6 +30,7 @@ interface CallResponse {
         post_id: string;
     };
     token: string;
+    feature_flags?: Record<string, boolean>;
 }
 
 interface Props {
@@ -117,6 +119,7 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
+            featureFlags: data.feature_flags as FeatureFlags | undefined,
         }));
     };
 
@@ -165,6 +168,7 @@ const ChannelHeaderButton = ({channel, currentUserId}: Props) => {
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
+            featureFlags: data.feature_flags as FeatureFlags | undefined,
         }));
     };
 

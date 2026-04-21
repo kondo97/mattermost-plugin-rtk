@@ -8,6 +8,7 @@ import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {setMyActiveCall, upsertCall} from 'redux/calls_slice';
+import type {FeatureFlags} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 
 import SwitchCallModal from 'components/switch_call_modal';
@@ -36,6 +37,7 @@ interface CallResponse {
         post_id: string;
     };
     token: string;
+    feature_flags?: Record<string, boolean>;
 }
 
 // Post type injected by Mattermost post renderer
@@ -117,6 +119,7 @@ const CallPost = ({post}: Props) => {
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
+            featureFlags: data.feature_flags as FeatureFlags | undefined,
         }));
     };
 

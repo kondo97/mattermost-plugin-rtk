@@ -44,12 +44,19 @@ const FloatingWidget = () => {
     const retryCountRef = useRef(0);
     const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const attemptInit = useCallback((token: string) => {
+    const attemptInit = useCallback((token: string, flags?: import('redux/calls_slice').FeatureFlags) => {
         setJoinError(null);
         setIsJoining(true);
         initMeeting({
             authToken: token,
-            defaults: {audio: true, video: true},
+            defaults: {audio: true, video: flags?.video ?? true},
+            modules: {
+                recording: flags?.recording ?? true,
+                chat: flags?.chat ?? true,
+                poll: flags?.polls ?? true,
+                plugin: flags?.plugins ?? true,
+                participant: flags?.participants ?? true,
+            },
         }).then(() => {
             // initMeeting resolves after the room is joined. Clear the joining
             // state here so the UI transitions immediately, without relying on
@@ -75,7 +82,7 @@ const FloatingWidget = () => {
             return undefined;
         }
         retryCountRef.current = 0;
-        attemptInit(myActiveCall.token);
+        attemptInit(myActiveCall.token, myActiveCall.featureFlags);
         return () => {
             if (retryTimeoutRef.current !== null) {
                 clearTimeout(retryTimeoutRef.current);
@@ -313,7 +320,7 @@ const FloatingWidget = () => {
                                         onClick={() => {
                                             if (myActiveCall?.token) {
                                                 retryCountRef.current = 0;
-                                                attemptInit(myActiveCall.token);
+                                                attemptInit(myActiveCall.token, myActiveCall.featureFlags);
                                             }
                                         }}
                                         style={{

@@ -14,10 +14,24 @@ export interface ActiveCall {
     postId: string;
 }
 
+export interface FeatureFlags {
+    recording: boolean;
+    screenShare: boolean;
+    polls: boolean;
+    transcription: boolean;
+    waitingRoom: boolean;
+    video: boolean;
+    chat: boolean;
+    plugins: boolean;
+    participants: boolean;
+    raiseHand: boolean;
+}
+
 export interface MyActiveCall {
     callId: string;
     channelId: string;
     token: string; // JWT for reopening the call tab — MUST NOT be logged
+    featureFlags?: FeatureFlags;
 }
 
 export interface IncomingCall {

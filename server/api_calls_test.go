@@ -61,6 +61,7 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, tokenStr, resp["token"])
 	assert.NotNil(t, resp["call"])
+	assert.NotNil(t, resp["feature_flags"], "feature_flags must be present in create call response")
 }
 
 func TestHandleCreateCall_MissingChannelID(t *testing.T) {
@@ -126,6 +127,7 @@ func TestHandleJoinCall_Success(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, tokenStr, resp["token"])
+	assert.NotNil(t, resp["feature_flags"], "feature_flags must be present in join call response")
 }
 
 func TestHandleJoinCall_NotFound(t *testing.T) {

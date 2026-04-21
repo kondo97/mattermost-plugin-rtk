@@ -12,14 +12,28 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import jaDict from '../utils/rtk_lang_ja';
 
+interface FeatureFlags {
+    recording?: boolean;
+    screenShare?: boolean;
+    polls?: boolean;
+    transcription?: boolean;
+    waitingRoom?: boolean;
+    video?: boolean;
+    chat?: boolean;
+    plugins?: boolean;
+    participants?: boolean;
+    raiseHand?: boolean;
+}
+
 interface Props {
     token: string;
     callId: string;
     embedded?: boolean;
     locale?: string;
+    featureFlags?: FeatureFlags;
 }
 
-const CallPage = ({token, callId, embedded = false, locale}: Props) => {
+const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props) => {
     const [meeting, initMeeting] = useRealtimeKitClient();
     const rtkT = useLanguage(locale === 'ja' ? jaDict : undefined);
     const [initError, setInitError] = useState<string | null>(null);
@@ -33,7 +47,14 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
         setInitError(null);
         initMeeting({
             authToken,
-            defaults: {audio: true, video: true},
+            defaults: {audio: true, video: featureFlags?.video ?? true},
+            modules: {
+                recording: featureFlags?.recording ?? true,
+                chat: featureFlags?.chat ?? true,
+                poll: featureFlags?.polls ?? true,
+                plugin: featureFlags?.plugins ?? true,
+                participant: featureFlags?.participants ?? true,
+            },
         }).catch((err: Error) => {
             // Token intentionally not logged — SEC-U4-01
             console.error('[rtk-plugin] RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console

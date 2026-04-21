@@ -6,6 +6,7 @@ import React, {useEffect, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {clearIncomingCall, setMyActiveCall} from 'redux/calls_slice';
+import type {FeatureFlags} from 'redux/calls_slice';
 import {selectIncomingCall, selectMyActiveCall} from 'redux/selectors';
 
 import SwitchCallModal from 'components/switch_call_modal';
@@ -15,6 +16,7 @@ const INCOMING_CALL_TIMEOUT_MS = 30_000;
 interface CallResponse {
     call: {id: string; channel_id: string};
     token: string;
+    feature_flags?: Record<string, boolean>;
 }
 
 interface Props {
@@ -64,6 +66,7 @@ const IncomingCallNotification = ({currentUserId: _currentUserId}: Props) => {
             callId: data.call.id,
             channelId: data.call.channel_id,
             token: data.token,
+            featureFlags: data.feature_flags as FeatureFlags | undefined,
         }));
         dispatch(clearIncomingCall());
     };

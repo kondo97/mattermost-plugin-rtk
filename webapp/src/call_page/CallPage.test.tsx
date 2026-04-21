@@ -89,6 +89,52 @@ describe('CallPage', () => {
         );
     });
 
+    it('passes feature flags to initMeeting modules', () => {
+        mockInitMeeting.mockResolvedValue(undefined);
+        const flags = {recording: false, screenShare: true, polls: false, transcription: false, waitingRoom: false, video: false, chat: true, plugins: true, participants: true, raiseHand: true};
+        render(
+            <CallPage
+                token='my-token'
+                callId='call1'
+                featureFlags={flags}
+            />,
+        );
+        expect(mockInitMeeting).toHaveBeenCalledWith(
+            expect.objectContaining({
+                defaults: expect.objectContaining({video: false}),
+                modules: expect.objectContaining({
+                    recording: false,
+                    chat: true,
+                    poll: false,
+                    plugin: true,
+                    participant: true,
+                }),
+            }),
+        );
+    });
+
+    it('uses default true for modules when featureFlags is undefined', () => {
+        mockInitMeeting.mockResolvedValue(undefined);
+        render(
+            <CallPage
+                token='my-token'
+                callId='call1'
+            />,
+        );
+        expect(mockInitMeeting).toHaveBeenCalledWith(
+            expect.objectContaining({
+                defaults: expect.objectContaining({video: true}),
+                modules: expect.objectContaining({
+                    recording: true,
+                    chat: true,
+                    poll: true,
+                    plugin: true,
+                    participant: true,
+                }),
+            }),
+        );
+    });
+
     it('does NOT call initMeeting when token is empty', () => {
         render(
             <CallPage
