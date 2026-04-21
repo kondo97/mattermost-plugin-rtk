@@ -49,9 +49,6 @@ This runs the following sequence automatically:
   - `webapp/dist/call.js` — RTK call page bundle
   - `server/dist/plugin-linux-amd64`
   - `server/dist/plugin-linux-arm64`
-  - `server/dist/plugin-darwin-amd64`
-  - `server/dist/plugin-darwin-arm64`
-  - `server/dist/plugin-windows-amd64.exe`
   - `dist/com.kondo97.mattermost-plugin-rtk-{version}.tar.gz`
 
 ### 5. Developer Build (Current Platform Only)
