@@ -104,15 +104,8 @@ func (c *configuration) IsTranscriptionEnabled() bool {
 }
 
 // IsWaitingRoomEnabled reports whether the waiting room feature is enabled.
-// Defaults to false (opt-in) unlike other feature flags.
 func (c *configuration) IsWaitingRoomEnabled() bool {
-	if val, ok := os.LookupEnv("RTK_WAITING_ROOM_ENABLED"); ok {
-		return strings.EqualFold(val, "true")
-	}
-	if c.WaitingRoomEnabled == nil {
-		return false // default OFF
-	}
-	return *c.WaitingRoomEnabled
+	return isFeatureFlagEnabled("RTK_WAITING_ROOM_ENABLED", c.WaitingRoomEnabled)
 }
 
 // IsVideoEnabled reports whether the video feature is enabled.

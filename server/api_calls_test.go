@@ -42,7 +42,7 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	meetingID := "mtg1"
 	tokenStr := "tok1"
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
+	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)

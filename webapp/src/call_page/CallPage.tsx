@@ -55,6 +55,10 @@ const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props
                 plugin: featureFlags?.plugins ?? true,
                 participant: featureFlags?.participants ?? true,
             },
+        }).then((mtg) => {
+            if (featureFlags?.screenShare === false) {
+                mtg?.self?.disableScreenShare?.();
+            }
         }).catch((err: Error) => {
             // Token intentionally not logged — SEC-U4-01
             console.error('[rtk-plugin] RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console

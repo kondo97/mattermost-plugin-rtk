@@ -38,9 +38,12 @@ type apiResponse[T any] struct {
 
 // createMeetingRequest is the request body for creating a meeting.
 type createMeetingRequest struct {
-	Title             string `json:"title"`
-	RecordOnStart     bool   `json:"record_on_start"`
-	LiveStreamOnStart bool   `json:"live_stream_on_start"`
+	Title                string `json:"title"`
+	RecordOnStart        bool   `json:"record_on_start"`
+	LiveStreamOnStart    bool   `json:"live_stream_on_start"`
+	WaitingRoomEnabled   bool   `json:"waiting_room_enabled"`
+	TranscriptionEnabled bool   `json:"transcription_enabled"`
+	RaiseHandEnabled     bool   `json:"raise_hand_enabled"`
 }
 
 // createMeetingData is the data field in the create meeting response.
@@ -62,9 +65,14 @@ type addParticipantData struct {
 }
 
 // CreateMeeting creates a new RTK meeting and returns the meeting ID.
-func (c *client) CreateMeeting() (*Meeting, error) {
+func (c *client) CreateMeeting(opts CreateMeetingOptions) (*Meeting, error) {
 	url := fmt.Sprintf("%s/meetings", c.baseURL)
-	body, err := json.Marshal(createMeetingRequest{Title: ""})
+	body, err := json.Marshal(createMeetingRequest{
+		Title:                "",
+		WaitingRoomEnabled:   opts.WaitingRoomEnabled,
+		TranscriptionEnabled: opts.TranscriptionEnabled,
+		RaiseHandEnabled:     opts.RaiseHandEnabled,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal CreateMeeting request")
 	}

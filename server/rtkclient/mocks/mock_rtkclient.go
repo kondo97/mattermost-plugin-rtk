@@ -41,18 +41,18 @@ func (m *MockRTKClient) EXPECT() *MockRTKClientMockRecorder {
 }
 
 // CreateMeeting mocks base method.
-func (m *MockRTKClient) CreateMeeting() (*rtkclient.Meeting, error) {
+func (m *MockRTKClient) CreateMeeting(opts rtkclient.CreateMeetingOptions) (*rtkclient.Meeting, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMeeting")
+	ret := m.ctrl.Call(m, "CreateMeeting", opts)
 	ret0, _ := ret[0].(*rtkclient.Meeting)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateMeeting indicates an expected call of CreateMeeting.
-func (mr *MockRTKClientMockRecorder) CreateMeeting() *gomock.Call {
+func (mr *MockRTKClientMockRecorder) CreateMeeting(opts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMeeting", reflect.TypeOf((*MockRTKClient)(nil).CreateMeeting))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMeeting", reflect.TypeOf((*MockRTKClient)(nil).CreateMeeting), opts)
 }
 
 // DeleteWebhook mocks base method.

@@ -10,6 +10,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {clearMyActiveCall} from 'redux/calls_slice';
+import type {FeatureFlags} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import jaDict from 'utils/rtk_lang_ja';
 
@@ -44,7 +45,7 @@ const FloatingWidget = () => {
     const retryCountRef = useRef(0);
     const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const attemptInit = useCallback((token: string, flags?: import('redux/calls_slice').FeatureFlags) => {
+    const attemptInit = useCallback((token: string, flags?: FeatureFlags) => {
         setJoinError(null);
         setIsJoining(true);
         initMeeting({
@@ -57,11 +58,14 @@ const FloatingWidget = () => {
                 plugin: flags?.plugins ?? true,
                 participant: flags?.participants ?? true,
             },
-        }).then(() => {
+        }).then((mtg) => {
             // initMeeting resolves after the room is joined. Clear the joining
             // state here so the UI transitions immediately, without relying on
             // the roomJoined event which may fire before our listener is
             // registered (React defers effects until after paint).
+            if (flags?.screenShare === false) {
+                mtg?.self?.disableScreenShare?.();
+            }
             setIsJoining(false);
         }).catch((err: Error) => {
             console.error('[rtk-plugin] Widget RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console

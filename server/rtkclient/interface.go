@@ -5,10 +5,17 @@ import "errors"
 // ErrMeetingNotFound is returned when the requested RTK meeting does not exist (HTTP 404).
 var ErrMeetingNotFound = errors.New("meeting not found")
 
+// CreateMeetingOptions holds optional server-side settings for a new RTK meeting.
+type CreateMeetingOptions struct {
+	WaitingRoomEnabled   bool
+	TranscriptionEnabled bool
+	RaiseHandEnabled     bool
+}
+
 // RTKClient defines the interface for interacting with the Cloudflare RealtimeKit API.
 type RTKClient interface {
 	// CreateMeeting creates a new RTK meeting and returns the meeting.
-	CreateMeeting() (*Meeting, error)
+	CreateMeeting(opts CreateMeetingOptions) (*Meeting, error)
 	// GenerateToken adds a participant to a meeting and returns an auth token.
 	GenerateToken(meetingID, userID, displayName, preset string) (*Token, error)
 	// EndMeeting terminates an RTK meeting.
