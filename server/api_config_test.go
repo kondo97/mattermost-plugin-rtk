@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// allFlagsTrue asserts that feature_flags is present and all 10 flags are true.
+// allFlagsTrue asserts that feature_flags is present and all 4 flags are true.
 func allFlagsTrue(t *testing.T, resp map[string]any) {
 	t.Helper()
 	flags, ok := resp["feature_flags"].(map[string]any)
 	require.True(t, ok, "feature_flags should be a map")
-	for _, key := range []string{"recording", "screenShare", "polls", "transcription", "waitingRoom", "video", "chat", "plugins", "participants", "raiseHand"} {
+	for _, key := range []string{"screenShare", "video", "participants"} {
 		assert.Equal(t, true, flags[key], "feature flag %q should be true by default", key)
 	}
 }
@@ -55,9 +55,9 @@ func TestHandleConfigStatus_Disabled(t *testing.T) {
 func TestHandleConfigStatus_FeatureFlagDisabled(t *testing.T) {
 	p, _ := newTestPlugin(t, nil, nil)
 	p.setConfiguration(&configuration{
-		CloudflareOrgID:  "org1",
-		CloudflareAPIKey: "key1",
-		RecordingEnabled: boolPtr(false),
+		CloudflareOrgID:    "org1",
+		CloudflareAPIKey:   "key1",
+		ScreenShareEnabled: boolPtr(false),
 	})
 	p.router = p.initRouter()
 
@@ -68,7 +68,7 @@ func TestHandleConfigStatus_FeatureFlagDisabled(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	flags, ok := resp["feature_flags"].(map[string]any)
 	require.True(t, ok, "feature_flags should be a map")
-	assert.Equal(t, false, flags["recording"])
+	assert.Equal(t, false, flags["screenShare"])
 	assert.Equal(t, true, flags["video"]) // other flags still ON
 }
 

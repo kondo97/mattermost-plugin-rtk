@@ -7,9 +7,6 @@ var ErrMeetingNotFound = errors.New("meeting not found")
 
 // CreateMeetingOptions holds optional server-side settings for a new RTK meeting.
 type CreateMeetingOptions struct {
-	WaitingRoomEnabled   bool
-	TranscriptionEnabled bool
-	RaiseHandEnabled     bool
 }
 
 // RTKClient defines the interface for interacting with the Cloudflare RealtimeKit API.

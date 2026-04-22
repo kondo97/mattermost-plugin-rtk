@@ -11,16 +11,9 @@ import (
 // Credentials are never included in this map (SEC-03).
 func configFeatureFlags(cfg *configuration) map[string]bool {
 	return map[string]bool{
-		"recording":     cfg.IsRecordingEnabled(),
-		"screenShare":   cfg.IsScreenShareEnabled(),
-		"polls":         cfg.IsPollsEnabled(),
-		"transcription": cfg.IsTranscriptionEnabled(),
-		"waitingRoom":   cfg.IsWaitingRoomEnabled(),
-		"video":         cfg.IsVideoEnabled(),
-		"chat":          cfg.IsChatEnabled(),
-		"plugins":       cfg.IsPluginsEnabled(),
-		"participants":  cfg.IsParticipantsEnabled(),
-		"raiseHand":     cfg.IsRaiseHandEnabled(),
+		"screenShare":  cfg.IsScreenShareEnabled(),
+		"video":        cfg.IsVideoEnabled(),
+		"participants": cfg.IsParticipantsEnabled(),
 	}
 }
 

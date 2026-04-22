@@ -29,16 +29,9 @@ type configuration struct {
 
 	// Feature flags — all default to enabled (nil means not configured, treated as true).
 	// Override via environment variables (e.g. RTK_RECORDING_ENABLED=false).
-	RecordingEnabled     *bool `json:"RecordingEnabled"`
 	ScreenShareEnabled   *bool `json:"ScreenShareEnabled"`
-	PollsEnabled         *bool `json:"PollsEnabled"`
-	TranscriptionEnabled *bool `json:"TranscriptionEnabled"`
-	WaitingRoomEnabled   *bool `json:"WaitingRoomEnabled"`
 	VideoEnabled         *bool `json:"VideoEnabled"`
-	ChatEnabled          *bool `json:"ChatEnabled"`
-	PluginsEnabled       *bool `json:"PluginsEnabled"`
 	ParticipantsEnabled  *bool `json:"ParticipantsEnabled"`
-	RaiseHandEnabled     *bool `json:"RaiseHandEnabled"`
 }
 
 // OrgIDFromEnv reports whether RTK_ORG_ID is set as an environment variable.
@@ -83,29 +76,9 @@ func isFeatureFlagEnabled(envVar string, field *bool) bool {
 	return *field
 }
 
-// IsRecordingEnabled reports whether the recording feature is enabled.
-func (c *configuration) IsRecordingEnabled() bool {
-	return isFeatureFlagEnabled("RTK_RECORDING_ENABLED", c.RecordingEnabled)
-}
-
 // IsScreenShareEnabled reports whether the screen share feature is enabled.
 func (c *configuration) IsScreenShareEnabled() bool {
 	return isFeatureFlagEnabled("RTK_SCREEN_SHARE_ENABLED", c.ScreenShareEnabled)
-}
-
-// IsPollsEnabled reports whether the polls feature is enabled.
-func (c *configuration) IsPollsEnabled() bool {
-	return isFeatureFlagEnabled("RTK_POLLS_ENABLED", c.PollsEnabled)
-}
-
-// IsTranscriptionEnabled reports whether the transcription feature is enabled.
-func (c *configuration) IsTranscriptionEnabled() bool {
-	return isFeatureFlagEnabled("RTK_TRANSCRIPTION_ENABLED", c.TranscriptionEnabled)
-}
-
-// IsWaitingRoomEnabled reports whether the waiting room feature is enabled.
-func (c *configuration) IsWaitingRoomEnabled() bool {
-	return isFeatureFlagEnabled("RTK_WAITING_ROOM_ENABLED", c.WaitingRoomEnabled)
 }
 
 // IsVideoEnabled reports whether the video feature is enabled.
@@ -113,24 +86,9 @@ func (c *configuration) IsVideoEnabled() bool {
 	return isFeatureFlagEnabled("RTK_VIDEO_ENABLED", c.VideoEnabled)
 }
 
-// IsChatEnabled reports whether the in-call chat feature is enabled.
-func (c *configuration) IsChatEnabled() bool {
-	return isFeatureFlagEnabled("RTK_CHAT_ENABLED", c.ChatEnabled)
-}
-
-// IsPluginsEnabled reports whether the plugins feature is enabled.
-func (c *configuration) IsPluginsEnabled() bool {
-	return isFeatureFlagEnabled("RTK_PLUGINS_ENABLED", c.PluginsEnabled)
-}
-
 // IsParticipantsEnabled reports whether the participants panel feature is enabled.
 func (c *configuration) IsParticipantsEnabled() bool {
 	return isFeatureFlagEnabled("RTK_PARTICIPANTS_ENABLED", c.ParticipantsEnabled)
-}
-
-// IsRaiseHandEnabled reports whether the raise hand feature is enabled.
-func (c *configuration) IsRaiseHandEnabled() bool {
-	return isFeatureFlagEnabled("RTK_RAISE_HAND_ENABLED", c.RaiseHandEnabled)
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if

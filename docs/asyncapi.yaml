@@ -1,0 +1,357 @@
+asyncapi: 3.1.0
+
+info:
+  title: Mattermost RTK Plugin - WebSocket Events
+  version: "1.0.0"
+  description: |
+    Mattermost RTK プラグインがサーバーからクライアントへ送信する WebSocket イベントの仕様です。
+
+    ## 接続方法
+
+    Mattermost の WebSocket エンドポイントに接続します:
+
+    ```
+    wss://<mattermost-host>/api/v4/websocket
+    ```
+
+    Mattermost のセッションクッキーまたは Personal Access Token が必要です。
+
+    ## イベントのフィルタリング
+
+    接続後、クライアントは全イベントを受信します。
+    本プラグインのイベントは `event` フィールドが `custom_com.kondo97.mattermost-plugin-rtk_*` で始まります。
+
+    ## メッセージフォーマット
+
+    Mattermost WebSocket メッセージの構造:
+
+    ```json
+    {
+      "event": "custom_com.kondo97.mattermost-plugin-rtk_call_started",
+      "data": { ... },
+      "broadcast": {
+        "channel_id": "...",
+        "user_id": "..."
+      }
+    }
+    ```
+
+    `data` フィールドは JSON 文字列としてシリアライズされて届く場合があります（`JSON.parse()` が必要）。
+
+    ## ブロードキャスト対象
+
+    | イベント | ブロードキャスト先 |
+    |---------|-----------------|
+    | `call_started` | チャンネルメンバー全員 |
+    | `user_joined` | チャンネルメンバー全員 |
+    | `user_left` | チャンネルメンバー全員 |
+    | `call_ended` | チャンネルメンバー全員 |
+    | `notification_dismissed` | リクエストしたユーザー本人のみ |
+
+  license:
+    name: MIT
+    url: https://github.com/kondo97/mattermost-plugin-rtk/blob/master/LICENSE
+  contact:
+    url: https://github.com/kondo97/mattermost-plugin-rtk/issues
+
+servers:
+  mattermost:
+    host: "{host}"
+    protocol: wss
+    pathname: /api/v4/websocket
+    description: Mattermost WebSocket エンドポイント
+    variables:
+      host:
+        description: "Mattermost サーバーのホスト名（例: mattermost.example.com）"
+
+channels:
+  callStarted:
+    address: custom_com.kondo97.mattermost-plugin-rtk_call_started
+    description: |
+      チャンネルで新しい通話が開始されたときに送信されます。
+      チャンネルメンバー全員がこのイベントを受信します。
+      DM/GM チャンネルでは、着信通知（ringing notification）を表示するために使用されます。
+    messages:
+      callStartedMessage:
+        $ref: '#/components/messages/CallStarted'
+
+  userJoined:
+    address: custom_com.kondo97.mattermost-plugin-rtk_user_joined
+    description: |
+      ユーザーが通話に参加したときに送信されます。
+      以下の2つのタイミングで発火します:
+      1. `POST /api/v1/calls/{id}/token` API が呼ばれたとき（即時）
+      2. RTK SDK が実際に接続したとき（webhook 経由、冪等）
+    messages:
+      userJoinedMessage:
+        $ref: '#/components/messages/UserJoined'
+
+  userLeft:
+    address: custom_com.kondo97.mattermost-plugin-rtk_user_left
+    description: |
+      ユーザーが通話から退出したときに送信されます。
+      最後の参加者が退出した場合は、続けて `call_ended` イベントも送信されます。
+    messages:
+      userLeftMessage:
+        $ref: '#/components/messages/UserLeft'
+
+  callEnded:
+    address: custom_com.kondo97.mattermost-plugin-rtk_call_ended
+    description: |
+      通話が終了したときに送信されます。
+      終了のトリガー:
+      - 通話作成者が `DELETE /api/v1/calls/{id}` を呼んだとき
+      - 最後の参加者が退出したとき（自動終了）
+      - RTK Webhook の `meeting.ended` イベントを受信したとき
+      - クリーンアップループが孤立した通話を検出したとき
+    messages:
+      callEndedMessage:
+        $ref: '#/components/messages/CallEnded'
+
+  notificationDismissed:
+    address: custom_com.kondo97.mattermost-plugin-rtk_notification_dismissed
+    description: |
+      着信通話の通知が非表示にされたときに送信されます。
+      **このイベントはリクエストしたユーザー本人にのみ送信されます**（他のユーザーには届きません）。
+      通話の状態は変更されません。
+    messages:
+      notificationDismissedMessage:
+        $ref: '#/components/messages/NotificationDismissed'
+
+operations:
+  receiveCallStarted:
+    action: receive
+    channel:
+      $ref: '#/channels/callStarted'
+    summary: 通話開始イベントを受信する
+    messages:
+      - $ref: '#/channels/callStarted/messages/callStartedMessage'
+
+  receiveUserJoined:
+    action: receive
+    channel:
+      $ref: '#/channels/userJoined'
+    summary: 参加者入室イベントを受信する
+    messages:
+      - $ref: '#/channels/userJoined/messages/userJoinedMessage'
+
+  receiveUserLeft:
+    action: receive
+    channel:
+      $ref: '#/channels/userLeft'
+    summary: 参加者退出イベントを受信する
+    messages:
+      - $ref: '#/channels/userLeft/messages/userLeftMessage'
+
+  receiveCallEnded:
+    action: receive
+    channel:
+      $ref: '#/channels/callEnded'
+    summary: 通話終了イベントを受信する
+    messages:
+      - $ref: '#/channels/callEnded/messages/callEndedMessage'
+
+  receiveNotificationDismissed:
+    action: receive
+    channel:
+      $ref: '#/channels/notificationDismissed'
+    summary: 通知非表示イベントを受信する
+    messages:
+      - $ref: '#/channels/notificationDismissed/messages/notificationDismissedMessage'
+
+components:
+  messages:
+    CallStarted:
+      name: call_started
+      title: 通話開始
+      summary: 新しい通話がチャンネルで開始された
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/CallStartedPayload'
+      examples:
+        - name: example
+          payload:
+            call_id: "550e8400-e29b-41d4-a716-446655440000"
+            channel_id: "abc123def456"
+            creator_id: "user001"
+            participants: ["user001"]
+            start_at: 1700000000000
+            post_id: "post001"
+
+    UserJoined:
+      name: user_joined
+      title: 参加者入室
+      summary: ユーザーが通話に参加した
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserJoinedPayload'
+      examples:
+        - name: example
+          payload:
+            call_id: "550e8400-e29b-41d4-a716-446655440000"
+            channel_id: "abc123def456"
+            user_id: "user002"
+            participants: ["user001", "user002"]
+
+    UserLeft:
+      name: user_left
+      title: 参加者退出
+      summary: ユーザーが通話から退出した
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserLeftPayload'
+      examples:
+        - name: example
+          payload:
+            call_id: "550e8400-e29b-41d4-a716-446655440000"
+            channel_id: "abc123def456"
+            user_id: "user002"
+            participants: ["user001"]
+
+    CallEnded:
+      name: call_ended
+      title: 通話終了
+      summary: 通話が終了した
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/CallEndedPayload'
+      examples:
+        - name: example
+          payload:
+            call_id: "550e8400-e29b-41d4-a716-446655440000"
+            channel_id: "abc123def456"
+            end_at: 1700003600000
+            duration_ms: 3600000
+
+    NotificationDismissed:
+      name: notification_dismissed
+      title: 通知非表示
+      summary: 着信通知がユーザーによって非表示にされた（本人のみ受信）
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NotificationDismissedPayload'
+      examples:
+        - name: example
+          payload:
+            call_id: "550e8400-e29b-41d4-a716-446655440000"
+            user_id: "user001"
+
+  schemas:
+    CallStartedPayload:
+      type: object
+      required:
+        - call_id
+        - channel_id
+        - creator_id
+        - participants
+        - start_at
+        - post_id
+      properties:
+        call_id:
+          type: string
+          format: uuid
+          description: 通話の一意な識別子
+        channel_id:
+          type: string
+          description: 通話が属する Mattermost チャンネルの ID
+        creator_id:
+          type: string
+          description: 通話を開始したユーザーの Mattermost User ID
+        participants:
+          type: array
+          items:
+            type: string
+          description: 現在の参加者の Mattermost User ID リスト（開始直後は作成者のみ）
+        start_at:
+          type: integer
+          format: int64
+          description: 通話開始時刻（Unix ミリ秒）
+        post_id:
+          type: string
+          description: チャンネルに投稿された通話通知ポストの ID
+
+    UserJoinedPayload:
+      type: object
+      required:
+        - call_id
+        - channel_id
+        - user_id
+        - participants
+      properties:
+        call_id:
+          type: string
+          format: uuid
+          description: 通話の一意な識別子
+        channel_id:
+          type: string
+          description: 通話が属する Mattermost チャンネルの ID
+        user_id:
+          type: string
+          description: 参加したユーザーの Mattermost User ID
+        participants:
+          type: array
+          items:
+            type: string
+          description: 更新後の参加者リスト
+
+    UserLeftPayload:
+      type: object
+      required:
+        - call_id
+        - channel_id
+        - user_id
+        - participants
+      properties:
+        call_id:
+          type: string
+          format: uuid
+          description: 通話の一意な識別子
+        channel_id:
+          type: string
+          description: 通話が属する Mattermost チャンネルの ID
+        user_id:
+          type: string
+          description: 退出したユーザーの Mattermost User ID
+        participants:
+          type: array
+          items:
+            type: string
+          description: 更新後の参加者リスト（退出後）
+
+    CallEndedPayload:
+      type: object
+      required:
+        - call_id
+        - channel_id
+        - end_at
+        - duration_ms
+      properties:
+        call_id:
+          type: string
+          format: uuid
+          description: 通話の一意な識別子
+        channel_id:
+          type: string
+          description: 通話が属する Mattermost チャンネルの ID
+        end_at:
+          type: integer
+          format: int64
+          description: 通話終了時刻（Unix ミリ秒）
+        duration_ms:
+          type: integer
+          format: int64
+          description: 通話時間（ミリ秒）
+
+    NotificationDismissedPayload:
+      type: object
+      required:
+        - call_id
+        - user_id
+      properties:
+        call_id:
+          type: string
+          format: uuid
+          description: 非表示にされた通話の ID
+        user_id:
+          type: string
+          description: 通知を非表示にしたユーザーの Mattermost User ID

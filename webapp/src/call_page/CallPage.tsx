@@ -13,16 +13,9 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import jaDict from '../utils/rtk_lang_ja';
 
 interface FeatureFlags {
-    recording?: boolean;
     screenShare?: boolean;
-    polls?: boolean;
-    transcription?: boolean;
-    waitingRoom?: boolean;
     video?: boolean;
-    chat?: boolean;
-    plugins?: boolean;
     participants?: boolean;
-    raiseHand?: boolean;
 }
 
 interface Props {
@@ -49,11 +42,8 @@ const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props
             authToken,
             defaults: {audio: true, video: featureFlags?.video ?? true},
             modules: {
-                recording: featureFlags?.recording ?? true,
-                chat: featureFlags?.chat ?? true,
-                poll: featureFlags?.polls ?? true,
-                plugin: featureFlags?.plugins ?? true,
                 participant: featureFlags?.participants ?? true,
+                pip: false,
             },
         }).then((mtg) => {
             if (featureFlags?.screenShare === false) {

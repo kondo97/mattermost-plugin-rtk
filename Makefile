@@ -444,3 +444,13 @@ ifneq ($(HAS_SERVER),)
 	go install go.uber.org/mock/mockgen@v0.6.0
 	mockgen -destination=server/command/mocks/mock_commands.go -package=mocks github.com/mattermost/mattermost-plugin-starter-template/server/command Command
 endif
+
+## Preview API documentation with Redoc at http://localhost:8080
+.PHONY: docs
+docs:
+	npx @redocly/cli preview-docs docs/openapi.yaml
+
+## Preview WebSocket event documentation with AsyncAPI Studio at http://localhost:3000
+.PHONY: docs-ws
+docs-ws:
+	npx @asyncapi/cli preview docs/asyncapi.yaml

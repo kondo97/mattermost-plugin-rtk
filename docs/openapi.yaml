@@ -1,0 +1,506 @@
+openapi: 3.0.3
+info:
+  title: Mattermost RTK Plugin API
+  license:
+    name: MIT
+    url: https://github.com/kondo97/mattermost-plugin-rtk/blob/master/LICENSE
+  description: |
+    Cloudflare RealtimeKit (RTK) を Mattermost チャンネル内のビデオ・音声通話に統合するプラグインの HTTP API です。
+
+    ## 認証
+
+    ### Mattermost 認証
+    Mattermost の内部 HTTP クライアントが自動的に `Mattermost-User-ID` ヘッダーを付与します。
+    外部クライアントからアクセスする場合は、有効なセッションクッキーまたは Personal Access Token が必要です。
+
+    ### RTK Webhook 認証
+    RTK からのイベント通知は `dyte-signature` ヘッダーに HMAC-SHA256 署名を含みます。
+    署名はプラグインが保持する webhook secret で検証されます。
+  version: "1.0.0"
+  contact:
+    url: https://github.com/kondo97/mattermost-plugin-rtk/issues
+
+servers:
+  - url: /plugins/com.kondo97.mattermost-plugin-rtk
+    description: Mattermost プラグインベースパス（本番）
+
+tags:
+  - name: Calls
+    description: 通話の作成・参加・退出・終了
+  - name: Config
+    description: プラグイン設定状態の取得
+  - name: Mobile
+    description: モバイル固有の操作
+  - name: Webhook
+    description: RTK からのイベント通知
+
+paths:
+  /api/v1/calls:
+    post:
+      operationId: createCall
+      tags: [Calls]
+      summary: 通話を開始する
+      description: |
+        指定チャンネルに新しい通話を作成します。
+        チャンネル内にすでにアクティブな通話が存在する場合は 409 を返します。
+        作成者は自動的に参加者として追加されます。
+      security:
+        - MattermostAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCallRequest'
+            example:
+              channel_id: "abc123def456ghi789"
+      responses:
+        "201":
+          description: 通話が作成されました
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallWithToken'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/calls/{id}:
+    get:
+      operationId: getCall
+      tags: [Calls]
+      summary: 通話情報を取得する
+      description: 指定した ID の通話セッション情報を返します。
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CallID'
+      responses:
+        "200":
+          description: 通話セッション
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallSession'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      operationId: endCall
+      tags: [Calls]
+      summary: 通話を終了する
+      description: |
+        指定した通話を終了します。
+        通話の作成者のみが実行できます。それ以外のユーザーは 403 を受け取ります。
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CallID'
+      responses:
+        "200":
+          description: 通話が終了しました
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/calls/{id}/token:
+    post:
+      operationId: joinCall
+      tags: [Calls]
+      summary: 通話に参加する（トークン取得）
+      description: |
+        既存の通話に参加するための RTK 認証トークンを発行します。
+        ユーザーは参加者リストに追加されます（重複は無視）。
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CallID'
+      responses:
+        "200":
+          description: 参加用トークンと通話セッション情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallWithToken'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/calls/{id}/leave:
+    post:
+      operationId: leaveCall
+      tags: [Calls]
+      summary: 通話から退出する
+      description: |
+        通話から退出します。最後の参加者が退出した場合、通話は自動的に終了します。
+        冪等です——すでに退出済みまたは通話が終了済みの場合でもエラーにはなりません。
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CallID'
+      responses:
+        "200":
+          description: 退出しました
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/calls/{id}/dismiss:
+    post:
+      operationId: dismissNotification
+      tags: [Mobile]
+      summary: 通話通知を非表示にする
+      description: |
+        モバイル向けエンドポイント。
+        リクエストしたユーザーに対してのみ `notification_dismissed` WebSocket イベントを送信します。
+        通話の状態は変更されません（冪等）。
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CallID'
+      responses:
+        "200":
+          description: 通知が非表示になりました
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/config/status:
+    get:
+      operationId: getConfigStatus
+      tags: [Config]
+      summary: プラグインの有効状態を取得する
+      description: RTK の認証情報が設定されているかと、機能フラグの一覧を返します。
+      security:
+        - MattermostAuth: []
+      responses:
+        "200":
+          description: 設定状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigStatus'
+              example:
+                enabled: true
+                feature_flags:
+                  screenShare: true
+                  video: true
+                  participants: true
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/config/admin-status:
+    get:
+      operationId: getAdminConfigStatus
+      tags: [Config]
+      summary: 管理者向け詳細設定状態を取得する
+      description: |
+        システム管理者権限を持つユーザーのみアクセス可能。
+        認証情報の設定方法（環境変数 / システムコンソール）などの詳細情報を返します。
+        **注意**: レスポンスに秘密情報（API キー本体）は含まれません。
+      security:
+        - MattermostAuth: []
+      responses:
+        "200":
+          description: 管理者向け設定状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminConfigStatus'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/webhook/rtk:
+    post:
+      operationId: handleRTKWebhook
+      tags: [Webhook]
+      summary: RTK webhook イベントを受信する
+      description: |
+        Cloudflare RTK からのイベント通知を受け取るエンドポイントです。
+        `dyte-signature` ヘッダーの HMAC-SHA256 署名を検証します。
+
+        対応イベント:
+        - `meeting.participantJoined` — 参加者が入室した
+        - `meeting.participantLeft` — 参加者が退室した
+        - `meeting.ended` — ミーティングが終了した
+
+        未知のイベントタイプは無視されます。
+      security:
+        - RTKSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RTKWebhookEvent'
+            examples:
+              participantJoined:
+                summary: 参加者入室イベント
+                value:
+                  event: "meeting.participantJoined"
+                  meeting:
+                    id: "meeting-uuid"
+                  participant:
+                    customParticipantId: "user-mattermost-id"
+              meetingEnded:
+                summary: ミーティング終了イベント
+                value:
+                  event: "meeting.ended"
+                  meeting:
+                    id: "meeting-uuid"
+                  participant:
+                    customParticipantId: ""
+      responses:
+        "200":
+          description: イベントを受理しました
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    MattermostAuth:
+      type: apiKey
+      in: header
+      name: Mattermost-User-ID
+      description: |
+        Mattermost の内部認証。ブラウザクライアントはセッションクッキーで自動付与されます。
+        値は認証済みユーザーの Mattermost User ID です。
+    RTKSignature:
+      type: apiKey
+      in: header
+      name: dyte-signature
+      description: |
+        RTK からのリクエスト検証用 HMAC-SHA256 署名。
+        `hex(HMAC-SHA256(webhook_secret, raw_body))` の形式です。
+
+  parameters:
+    CallID:
+      name: id
+      in: path
+      required: true
+      description: 通話の UUID
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+  schemas:
+    CreateCallRequest:
+      type: object
+      required: [channel_id]
+      properties:
+        channel_id:
+          type: string
+          description: 通話を作成する Mattermost チャンネルの ID
+          example: "abc123def456ghi789"
+
+    CallSession:
+      type: object
+      description: 通話セッションの状態
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 通話の一意な識別子
+        channel_id:
+          type: string
+          description: 通話が属する Mattermost チャンネルの ID
+        creator_id:
+          type: string
+          description: 通話を作成したユーザーの Mattermost User ID
+        meeting_id:
+          type: string
+          description: Cloudflare RTK のミーティング ID
+        participants:
+          type: array
+          items:
+            type: string
+          description: 現在の参加者の Mattermost User ID リスト
+        start_at:
+          type: integer
+          format: int64
+          description: 通話開始時刻（Unix ミリ秒）
+        end_at:
+          type: integer
+          format: int64
+          description: 通話終了時刻（Unix ミリ秒）。0 はアクティブであることを示す
+        post_id:
+          type: string
+          description: チャンネルに投稿された通話通知ポストの ID
+      example:
+        id: "550e8400-e29b-41d4-a716-446655440000"
+        channel_id: "abc123def456ghi789"
+        creator_id: "user001"
+        meeting_id: "rtk-meeting-id"
+        participants: ["user001", "user002"]
+        start_at: 1700000000000
+        end_at: 0
+        post_id: "post001"
+
+    FeatureFlags:
+      type: object
+      description: プラグイン機能フラグ
+      properties:
+        screenShare:
+          type: boolean
+          description: 画面共有機能が有効かどうか
+        video:
+          type: boolean
+          description: ビデオ機能が有効かどうか
+        participants:
+          type: boolean
+          description: 参加者パネル機能が有効かどうか
+
+    CallWithToken:
+      type: object
+      description: 通話セッションと RTK 認証トークン
+      properties:
+        call:
+          $ref: '#/components/schemas/CallSession'
+        token:
+          type: string
+          description: RTK SDK への接続に使用する JWT トークン
+        feature_flags:
+          $ref: '#/components/schemas/FeatureFlags'
+
+    ConfigStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: RTK 認証情報が設定されており、プラグインが利用可能かどうか
+        feature_flags:
+          $ref: '#/components/schemas/FeatureFlags'
+
+    AdminConfigStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: RTK 認証情報が設定されており、プラグインが利用可能かどうか
+        org_id_via_env:
+          type: boolean
+          description: Org ID が環境変数経由で設定されているかどうか
+        api_key_via_env:
+          type: boolean
+          description: API Key が環境変数経由で設定されているかどうか
+        cloudflare_org_id:
+          type: string
+          description: システムコンソールで設定された Cloudflare Org ID（マスク処理済み）
+        feature_flags:
+          $ref: '#/components/schemas/FeatureFlags'
+
+    RTKWebhookEvent:
+      type: object
+      description: RTK から送信される webhook イベントのペイロード
+      required: [event, meeting, participant]
+      properties:
+        event:
+          type: string
+          description: イベントタイプ
+          enum:
+            - meeting.participantJoined
+            - meeting.participantLeft
+            - meeting.ended
+        meeting:
+          type: object
+          properties:
+            id:
+              type: string
+              description: RTK ミーティング ID
+        participant:
+          type: object
+          properties:
+            customParticipantId:
+              type: string
+              description: 参加者の Mattermost User ID
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: エラーメッセージ
+      example:
+        error: "call not found or already ended"
+
+  responses:
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "channel_id is required"
+    Unauthorized:
+      description: 認証されていません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Not authorized"
+    Forbidden:
+      description: 権限がありません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "only the call creator can perform this action"
+    NotFound:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "call not found or already ended"
+    Conflict:
+      description: チャンネル内にすでにアクティブな通話が存在します
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "call already active in channel"
+    InternalServerError:
+      description: サーバー内部エラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "internal error"
+    ServiceUnavailable:
+      description: RTK 認証情報が設定されていません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "cloudflare RTK credentials are not configured"

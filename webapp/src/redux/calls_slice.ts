@@ -15,16 +15,9 @@ export interface ActiveCall {
 }
 
 export interface FeatureFlags {
-    recording: boolean;
     screenShare: boolean;
-    polls: boolean;
-    transcription: boolean;
-    waitingRoom: boolean;
     video: boolean;
-    chat: boolean;
-    plugins: boolean;
     participants: boolean;
-    raiseHand: boolean;
 }
 
 export interface MyActiveCall {

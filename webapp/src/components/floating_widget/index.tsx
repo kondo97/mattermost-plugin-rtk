@@ -52,11 +52,8 @@ const FloatingWidget = () => {
             authToken: token,
             defaults: {audio: true, video: flags?.video ?? true},
             modules: {
-                recording: flags?.recording ?? true,
-                chat: flags?.chat ?? true,
-                poll: flags?.polls ?? true,
-                plugin: flags?.plugins ?? true,
                 participant: flags?.participants ?? true,
+                pip: false,
             },
         }).then((mtg) => {
             // initMeeting resolves after the room is joined. Clear the joining

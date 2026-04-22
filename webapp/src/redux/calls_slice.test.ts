@@ -135,11 +135,11 @@ describe('callsReducer', () => {
         });
 
         it('sets myActiveCall with featureFlags', () => {
-            const flags = {recording: false, screenShare: true, polls: true, transcription: false, waitingRoom: false, video: true, chat: true, plugins: true, participants: true, raiseHand: true};
+            const flags = {screenShare: true, video: true, participants: true};
             const myCall = {callId: 'call1', channelId: 'channel1', token: 'tok123', featureFlags: flags};
             const state = callsReducer(initialState, setMyActiveCall(myCall));
             expect(state.myActiveCall).toEqual(myCall);
-            expect(state.myActiveCall?.featureFlags?.recording).toBe(false);
+            expect(state.myActiveCall?.featureFlags?.screenShare).toBe(true);
         });
 
         it('replaces an existing myActiveCall', () => {

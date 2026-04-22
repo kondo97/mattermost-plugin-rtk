@@ -97,29 +97,9 @@ func testFeatureFlag(t *testing.T, envVar string, getFn func(*configuration) boo
 	})
 }
 
-func TestIsRecordingEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_RECORDING_ENABLED", func(c *configuration) bool { return cfg.IsRecordingEnabled() }, &cfg.RecordingEnabled)
-}
-
 func TestIsScreenShareEnabled(t *testing.T) {
 	cfg := &configuration{}
 	testFeatureFlag(t, "RTK_SCREEN_SHARE_ENABLED", func(c *configuration) bool { return cfg.IsScreenShareEnabled() }, &cfg.ScreenShareEnabled)
-}
-
-func TestIsPollsEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_POLLS_ENABLED", func(c *configuration) bool { return cfg.IsPollsEnabled() }, &cfg.PollsEnabled)
-}
-
-func TestIsTranscriptionEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_TRANSCRIPTION_ENABLED", func(c *configuration) bool { return cfg.IsTranscriptionEnabled() }, &cfg.TranscriptionEnabled)
-}
-
-func TestIsWaitingRoomEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_WAITING_ROOM_ENABLED", func(c *configuration) bool { return cfg.IsWaitingRoomEnabled() }, &cfg.WaitingRoomEnabled)
 }
 
 func TestIsVideoEnabled(t *testing.T) {
@@ -127,22 +107,7 @@ func TestIsVideoEnabled(t *testing.T) {
 	testFeatureFlag(t, "RTK_VIDEO_ENABLED", func(c *configuration) bool { return cfg.IsVideoEnabled() }, &cfg.VideoEnabled)
 }
 
-func TestIsChatEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_CHAT_ENABLED", func(c *configuration) bool { return cfg.IsChatEnabled() }, &cfg.ChatEnabled)
-}
-
-func TestIsPluginsEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_PLUGINS_ENABLED", func(c *configuration) bool { return cfg.IsPluginsEnabled() }, &cfg.PluginsEnabled)
-}
-
 func TestIsParticipantsEnabled(t *testing.T) {
 	cfg := &configuration{}
 	testFeatureFlag(t, "RTK_PARTICIPANTS_ENABLED", func(c *configuration) bool { return cfg.IsParticipantsEnabled() }, &cfg.ParticipantsEnabled)
-}
-
-func TestIsRaiseHandEnabled(t *testing.T) {
-	cfg := &configuration{}
-	testFeatureFlag(t, "RTK_RAISE_HAND_ENABLED", func(c *configuration) bool { return cfg.IsRaiseHandEnabled() }, &cfg.RaiseHandEnabled)
 }

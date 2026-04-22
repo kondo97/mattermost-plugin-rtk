@@ -96,12 +96,7 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 	}
 
 	// BR-02/BR-05: create RTK meeting — abort on failure
-	cfg := p.getConfiguration()
-	meeting, err := p.rtkClient.CreateMeeting(rtkclient.CreateMeetingOptions{
-		WaitingRoomEnabled:   cfg.IsWaitingRoomEnabled(),
-		TranscriptionEnabled: cfg.IsTranscriptionEnabled(),
-		RaiseHandEnabled:     cfg.IsRaiseHandEnabled(),
-	})
+	meeting, err := p.rtkClient.CreateMeeting(rtkclient.CreateMeetingOptions{})
 	if err != nil {
 		p.API.LogError("CreateCall: CreateMeeting failed", "channel_id", channelID, "user_id", userID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to create meeting: %w", err)

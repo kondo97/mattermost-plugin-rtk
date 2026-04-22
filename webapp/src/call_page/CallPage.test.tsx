@@ -91,7 +91,7 @@ describe('CallPage', () => {
 
     it('passes feature flags to initMeeting modules', () => {
         mockInitMeeting.mockResolvedValue(undefined);
-        const flags = {recording: false, screenShare: true, polls: false, transcription: false, waitingRoom: false, video: false, chat: true, plugins: true, participants: true, raiseHand: true};
+        const flags = {screenShare: true, video: false, participants: true};
         render(
             <CallPage
                 token='my-token'
@@ -103,10 +103,6 @@ describe('CallPage', () => {
             expect.objectContaining({
                 defaults: expect.objectContaining({video: false}),
                 modules: expect.objectContaining({
-                    recording: false,
-                    chat: true,
-                    poll: false,
-                    plugin: true,
                     participant: true,
                 }),
             }),
@@ -125,10 +121,6 @@ describe('CallPage', () => {
             expect.objectContaining({
                 defaults: expect.objectContaining({video: true}),
                 modules: expect.objectContaining({
-                    recording: true,
-                    chat: true,
-                    poll: true,
-                    plugin: true,
                     participant: true,
                 }),
             }),

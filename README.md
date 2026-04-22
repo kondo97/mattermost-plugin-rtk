@@ -18,7 +18,7 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 - **Floating in-call widget** — drag, minimize, and fullscreen while staying in Mattermost
 - **Standalone call page** — opens in a new tab for a full-screen experience
 - **Incoming call notification** — ringing alert for DM and GM channels (30-second auto-dismiss)
-- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand
+- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand ([詳細: docs/feature-flags.md](docs/feature-flags.md))
 - **Admin Console integration** — configure credentials in the System Console or via environment variables
 - **Japanese UI** — full i18n support including RTK SDK UI strings
 

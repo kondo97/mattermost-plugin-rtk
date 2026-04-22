@@ -358,7 +358,9 @@ type RTKClient interface {
 | `RTK_PARTICIPANTS_ENABLED` | ParticipantsEnabled |
 | `RTK_RAISE_HAND_ENABLED` | RaiseHandEnabled |
 
-**Feature flag defaults**: A `nil` `*bool` field is treated as `true` (enabled).
+**Feature flag defaults**: A `nil` `*bool` field is treated as `true` (enabled). Exception: `WaitingRoomEnabled` defaults to `false` (opt-in).
+
+> Feature flag の詳細な管理表（SDK対応状況・未対応モジュール・既知の問題）は [docs/feature-flags.md](../docs/feature-flags.md) を参照。
 
 **`OnConfigurationChange` flow**:
 ```
