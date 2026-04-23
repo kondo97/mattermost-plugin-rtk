@@ -18,8 +18,4 @@ type CallSession struct {
 	EndAt int64 `json:"end_at"`
 	// PostID is the ID of the custom_cf_call post in the channel.
 	PostID string `json:"post_id"`
-	// CleanupFailCount tracks how many consecutive cleanup cycles found this
-	// meeting missing from the RTK API. The call is force-ended only after
-	// reaching the threshold, to guard against transient API 404s.
-	CleanupFailCount int `json:"cleanup_fail_count,omitempty"`
 }

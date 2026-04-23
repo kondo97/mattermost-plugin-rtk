@@ -13,4 +13,6 @@ var (
 	ErrUnauthorized = errors.New("only the call creator can perform this action")
 	// ErrRTKNotConfigured is returned when Cloudflare RTK credentials are not configured.
 	ErrRTKNotConfigured = errors.New("cloudflare RTK credentials are not configured")
+	// ErrNotChannelMember is returned when the user is not a member of the channel.
+	ErrNotChannelMember = errors.New("user is not a member of this channel")
 )

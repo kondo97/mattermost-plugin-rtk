@@ -40,9 +40,6 @@ type Plugin struct {
 	// callMu guards call state mutations (CreateCall, JoinCall, LeaveCall, EndCall).
 	callMu sync.Mutex
 
-	// stopCleanup signals the cleanup goroutine to stop.
-	stopCleanup chan struct{}
-
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
 
@@ -80,9 +77,6 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.router = p.initRouter()
-
-	p.stopCleanup = make(chan struct{})
-	go p.runCleanupLoop(p.stopCleanup)
 
 	return nil
 }
@@ -199,10 +193,6 @@ func (p *Plugin) reRegisterWebhook() {
 
 // OnDeactivate is invoked when the plugin is deactivated.
 func (p *Plugin) OnDeactivate() error {
-	if p.stopCleanup != nil {
-		close(p.stopCleanup)
-		p.stopCleanup = nil
-	}
 	return nil
 }
 

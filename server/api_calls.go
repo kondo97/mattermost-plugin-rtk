@@ -24,6 +24,8 @@ func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 	session, token, err := p.CreateCall(req.ChannelID, userID)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrNotChannelMember):
+			writeError(w, http.StatusForbidden, err.Error())
 		case errors.Is(err, ErrRTKNotConfigured):
 			writeError(w, http.StatusServiceUnavailable, err.Error())
 		case errors.Is(err, ErrCallAlreadyActive):
@@ -51,6 +53,8 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 	session, token, err := p.JoinCall(callID, userID)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrNotChannelMember):
+			writeError(w, http.StatusForbidden, err.Error())
 		case errors.Is(err, ErrRTKNotConfigured):
 			writeError(w, http.StatusServiceUnavailable, err.Error())
 		case errors.Is(err, ErrCallNotFound):
@@ -90,6 +94,23 @@ func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	if session == nil {
 		writeError(w, http.StatusNotFound, "call not found")
 		return
+	}
+
+	if session.EndAt == 0 {
+		// Perform an on-demand RTK reconciliation for active calls so that
+		// a stale call is force-ended before the response is returned to the client.
+		p.reconcileCallOnDemand(session)
+		// Re-fetch to reflect any state change from reconciliation.
+		session, err = p.kvStore.GetCallByID(callID)
+		if err != nil {
+			p.API.LogError("handleGetCall re-fetch failed", "call_id", callID, "error", err.Error())
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if session == nil {
+			writeError(w, http.StatusNotFound, "call not found")
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

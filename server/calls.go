@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -78,6 +79,10 @@ func removeUser(participants []string, userID string) []string {
 // CreateCall creates a new call in the given channel for the user.
 // Returns the CallSession, the RTK auth token, and any error.
 func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, string, error) {
+	if _, appErr := p.API.GetChannelMember(channelID, userID); appErr != nil {
+		return nil, "", ErrNotChannelMember
+	}
+
 	p.callMu.Lock()
 	defer p.callMu.Unlock()
 
@@ -92,7 +97,27 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		return nil, "", fmt.Errorf("failed to check existing call: %w", err)
 	}
 	if existing != nil {
-		return nil, "", ErrCallAlreadyActive
+		// BR-01: verify the existing call is still alive on the RTK side.
+		// If the meeting no longer exists (404), force-end the stale record and proceed.
+		_, rtkErr := p.rtkClient.GetMeetingParticipants(existing.MeetingID)
+		switch {
+		case errors.Is(rtkErr, rtkclient.ErrMeetingNotFound):
+			// Meeting confirmed gone — force-end the stale call and continue to create a new one.
+			p.API.LogInfo("CreateCall: stale call detected, force-ending before creating new call",
+				"call_id", existing.ID, "channel_id", channelID, "meeting_id", existing.MeetingID)
+			if err := p.endCallInternal(existing, "stale_on_create"); err != nil {
+				p.API.LogError("CreateCall: failed to end stale call", "call_id", existing.ID, "err", err.Error())
+				return nil, "", ErrCallAlreadyActive // safe fallback
+			}
+		case rtkErr != nil:
+			// Transient RTK error — treat the existing call as alive.
+			p.API.LogWarn("CreateCall: GetMeetingParticipants transient error, treating existing call as active",
+				"call_id", existing.ID, "err", rtkErr.Error())
+			return nil, "", ErrCallAlreadyActive
+		default:
+			// Meeting is alive — normal conflict.
+			return nil, "", ErrCallAlreadyActive
+		}
 	}
 
 	// BR-02/BR-05: create RTK meeting — abort on failure
@@ -195,6 +220,25 @@ func (p *Plugin) JoinCall(callID, userID string) (*kvstore.CallSession, string, 
 	if session.EndAt != 0 {
 		p.API.LogError("JoinCall: call already ended", "call_id", callID, "user_id", userID, "end_at", session.EndAt)
 		return nil, "", ErrCallNotFound
+	}
+
+	if _, appErr := p.API.GetChannelMember(session.ChannelID, userID); appErr != nil {
+		return nil, "", ErrNotChannelMember
+	}
+
+	// Verify the RTK meeting is still alive. A definitive 404 means the call is
+	// stale — force-end it and report not found to the caller.
+	_, rtkErr := p.rtkClient.GetMeetingParticipants(session.MeetingID)
+	if errors.Is(rtkErr, rtkclient.ErrMeetingNotFound) {
+		p.API.LogInfo("JoinCall: RTK meeting not found, force-ending stale call",
+			"call_id", callID, "meeting_id", session.MeetingID)
+		if err := p.endCallInternal(session, "stale_on_join"); err != nil {
+			p.API.LogError("JoinCall: failed to end stale call", "call_id", callID, "err", err.Error())
+		}
+		return nil, "", ErrCallNotFound
+	} else if rtkErr != nil {
+		p.API.LogWarn("JoinCall: GetMeetingParticipants transient error (continuing)",
+			"call_id", callID, "err", rtkErr.Error())
 	}
 
 	// BR-08: generate participant token
@@ -303,8 +347,9 @@ func (p *Plugin) EndCall(callID, requestingUserID string) error {
 }
 
 // endCallInternal is the shared implementation called by EndCall, LeaveCall (auto-end),
-// the cleanup loop, and webhook handlers.
+// on-demand reconciliation, and webhook handlers.
 // reason identifies the code path that triggered the end (for diagnostics).
+// Caller must hold callMu when invoking this function.
 func (p *Plugin) endCallInternal(session *kvstore.CallSession, reason string) error {
 	p.API.LogInfo("endCallInternal triggered", "call_id", session.ID, "channel_id", session.ChannelID, "reason", reason)
 
@@ -357,4 +402,36 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession, reason string) er
 	p.API.LogInfo("call ended", "call_id", session.ID, "channel_id", session.ChannelID, "duration_ms", durationMs)
 
 	return nil
+}
+
+// reconcileCallOnDemand checks a single active call against the RTK API and
+// force-ends it if the meeting no longer exists. This is an on-demand, single-cycle
+// check without a failure threshold — it fires on user requests instead of on a timer,
+// so a definitive 404 is acted on immediately.
+// Transient RTK errors are ignored to avoid accidentally terminating live calls.
+func (p *Plugin) reconcileCallOnDemand(session *kvstore.CallSession) {
+	if p.rtkClient == nil {
+		return
+	}
+
+	_, err := p.rtkClient.GetMeetingParticipants(session.MeetingID)
+	if !errors.Is(err, rtkclient.ErrMeetingNotFound) {
+		// Meeting is alive or a transient error occurred — do nothing.
+		return
+	}
+
+	p.callMu.Lock()
+	defer p.callMu.Unlock()
+
+	// Re-read under the lock to avoid a TOCTOU race with concurrent EndCall/LeaveCall.
+	fresh, err := p.kvStore.GetCallByID(session.ID)
+	if err != nil || fresh == nil || fresh.EndAt != 0 {
+		return
+	}
+
+	p.API.LogInfo("reconcileCallOnDemand: RTK meeting not found, force-ending stale call",
+		"call_id", session.ID, "meeting_id", session.MeetingID)
+	if err := p.endCallInternal(fresh, "stale_on_get"); err != nil {
+		p.API.LogError("reconcileCallOnDemand: endCallInternal failed", "call_id", session.ID, "err", err.Error())
+	}
 }

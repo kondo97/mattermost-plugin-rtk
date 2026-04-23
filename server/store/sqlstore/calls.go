@@ -11,7 +11,7 @@ import (
 // GetCallByChannel returns the active call (end_at = 0) for a channel, or nil.
 func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
+		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
 		 WHERE channel_id = $1 AND end_at = 0`,
 		channelID,
@@ -22,7 +22,7 @@ func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error)
 // GetCallByID returns the call with the given ID (active or ended), or nil if not found.
 func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
+		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
 		 WHERE id = $1`,
 		callID,
@@ -33,7 +33,7 @@ func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
 // GetCallByMeetingID returns the call matching the given RTK meeting ID, or nil if not found.
 func (s *Store) GetCallByMeetingID(meetingID string) (*kvstore.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
+		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
 		 WHERE meeting_id = $1`,
 		meetingID,
@@ -53,7 +53,6 @@ func (s *Store) scanSession(row *sql.Row) (*kvstore.CallSession, error) {
 		&session.StartAt,
 		&session.EndAt,
 		&session.PostID,
-		&session.CleanupFailCount,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -89,17 +88,16 @@ func (s *Store) SaveCall(session *kvstore.CallSession) error {
 
 	_, err = s.db.Exec(
 		`INSERT INTO rtk_call_sessions
-			(id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			(id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (id) DO UPDATE SET
-				channel_id         = EXCLUDED.channel_id,
-				creator_id         = EXCLUDED.creator_id,
-				meeting_id         = EXCLUDED.meeting_id,
-				participants       = EXCLUDED.participants,
-				start_at           = EXCLUDED.start_at,
-				end_at             = EXCLUDED.end_at,
-				post_id            = EXCLUDED.post_id,
-				cleanup_fail_count = EXCLUDED.cleanup_fail_count`,
+				channel_id   = EXCLUDED.channel_id,
+				creator_id   = EXCLUDED.creator_id,
+				meeting_id   = EXCLUDED.meeting_id,
+				participants = EXCLUDED.participants,
+				start_at     = EXCLUDED.start_at,
+				end_at       = EXCLUDED.end_at,
+				post_id      = EXCLUDED.post_id`,
 		session.ID,
 		session.ChannelID,
 		session.CreatorID,
@@ -108,7 +106,6 @@ func (s *Store) SaveCall(session *kvstore.CallSession) error {
 		session.StartAt,
 		session.EndAt,
 		session.PostID,
-		session.CleanupFailCount,
 	)
 	return errors.Wrap(err, "failed to save call session")
 }
