@@ -5,6 +5,9 @@ import "errors"
 // ErrMeetingNotFound is returned when the requested RTK meeting does not exist (HTTP 404).
 var ErrMeetingNotFound = errors.New("meeting not found")
 
+// ErrWebhookNotFound is returned by GetWebhook when the requested webhook does not exist (HTTP 404).
+var ErrWebhookNotFound = errors.New("webhook not found")
+
 // ErrWebhookConflict is returned by RegisterWebhook when a webhook with the same URL already
 // exists on the RTK side (HTTP 409). Callers can use errors.Is to detect this case and
 // recover by deleting the conflicting webhook before retrying.
@@ -34,6 +37,9 @@ type RTKClient interface {
 	RegisterWebhook(url string, events []string) (id, secret string, err error)
 	// DeleteWebhook removes a previously registered RTK webhook by ID.
 	DeleteWebhook(webhookID string) error
+	// GetWebhook returns the webhook with the given ID.
+	// Returns ErrWebhookNotFound (HTTP 404) if no such webhook exists.
+	GetWebhook(id string) (*WebhookInfo, error)
 	// ListWebhooks returns all webhooks registered for this organisation.
 	ListWebhooks() ([]WebhookInfo, error)
 	// GetMeetingParticipants returns the custom participant IDs currently connected to a meeting.

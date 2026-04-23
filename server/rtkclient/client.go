@@ -143,6 +143,36 @@ func (c *client) EndMeeting(meetingID string) error {
 	return nil
 }
 
+// getWebhookData is the data field in the get-webhook response.
+type getWebhookData struct {
+	ID  string `json:"id"`
+	URL string `json:"url"`
+}
+
+// GetWebhook returns the webhook with the given ID.
+// Returns ErrWebhookNotFound if the webhook does not exist (HTTP 404).
+func (c *client) GetWebhook(id string) (*WebhookInfo, error) {
+	url := fmt.Sprintf("%s/webhooks/%s", c.baseURL, id)
+	resp, err := c.doRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetWebhook request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrWebhookNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetWebhook: unexpected status %d", resp.StatusCode)
+	}
+
+	var result apiResponse[getWebhookData]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, errors.Wrap(err, "failed to decode GetWebhook response")
+	}
+	return &WebhookInfo{ID: result.Data.ID, URL: result.Data.URL}, nil
+}
+
 // registerWebhookRequest is the request body for registering a webhook.
 type registerWebhookRequest struct {
 	Name   string   `json:"name"`

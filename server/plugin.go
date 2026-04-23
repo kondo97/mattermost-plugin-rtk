@@ -87,9 +87,16 @@ func (p *Plugin) OnActivate() error {
 	return nil
 }
 
-// registerWebhookIfNeeded registers the RTK webhook if one is not already registered.
-// Both the webhook ID and the signing secret must be present; if either is missing the
-// webhook is (re-)registered so that signature verification can succeed.
+// registerWebhookIfNeeded ensures a valid RTK webhook is registered and its credentials stored.
+//
+// Flow:
+//  1. If both ID and Secret are stored, verify the webhook still exists on the RTK side
+//     via GET /webhooks/{id}. If it does, nothing to do. If it was deleted (404), fall
+//     through to re-registration.
+//  2. If ID or Secret is missing, attempt RegisterWebhook.
+//     On 409 (same URL already registered), resolve the conflict by listing all webhooks,
+//     deleting the matching entry, then re-registering.
+//
 // This is best-effort: errors are logged but not returned to avoid blocking activation.
 func (p *Plugin) registerWebhookIfNeeded() {
 	existingID, err := p.kvStore.GetWebhookID()
@@ -100,8 +107,23 @@ func (p *Plugin) registerWebhookIfNeeded() {
 	if err != nil {
 		p.API.LogWarn("Failed to check existing webhook secret", "error", err.Error())
 	}
+
+	// Fast path: ID and Secret are stored — verify the webhook still exists on RTK.
 	if existingID != "" && existingSecret != "" {
-		return
+		if _, err := p.rtkClient.GetWebhook(existingID); err == nil {
+			return // webhook is valid; nothing to do
+		} else if !errors.Is(err, rtkclient.ErrWebhookNotFound) {
+			p.API.LogWarn("Failed to verify existing RTK webhook; skipping re-registration", "webhook_id", existingID, "error", err.Error())
+			return
+		}
+		// Webhook was deleted on the RTK side; clear stale credentials and re-register.
+		p.API.LogInfo("Stored RTK webhook no longer exists; re-registering", "webhook_id", existingID)
+		if err := p.kvStore.StoreWebhookID(""); err != nil {
+			p.API.LogWarn("Failed to clear stale RTK webhook ID", "error", err.Error())
+		}
+		if err := p.kvStore.StoreWebhookSecret(""); err != nil {
+			p.API.LogWarn("Failed to clear stale RTK webhook secret", "error", err.Error())
+		}
 	}
 
 	siteURL := ""

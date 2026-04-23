@@ -114,6 +114,21 @@ func (mr *MockRTKClientMockRecorder) GetMeetingParticipants(meetingID any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeetingParticipants", reflect.TypeOf((*MockRTKClient)(nil).GetMeetingParticipants), meetingID)
 }
 
+// GetWebhook mocks base method.
+func (m *MockRTKClient) GetWebhook(id string) (*rtkclient.WebhookInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhook", id)
+	ret0, _ := ret[0].(*rtkclient.WebhookInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWebhook indicates an expected call of GetWebhook.
+func (mr *MockRTKClientMockRecorder) GetWebhook(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhook", reflect.TypeOf((*MockRTKClient)(nil).GetWebhook), id)
+}
+
 // ListWebhooks mocks base method.
 func (m *MockRTKClient) ListWebhooks() ([]rtkclient.WebhookInfo, error) {
 	m.ctrl.T.Helper()
