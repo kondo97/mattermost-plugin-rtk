@@ -7,19 +7,19 @@ import (
 	pluginapi "github.com/mattermost/mattermost/server/public/plugin"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
-	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
 )
 
 // App is the business logic layer of the plugin, analogous to channels/app.App.
 type App struct {
-	store  kvstore.KVStore
+	store  store.Store
 	rtk    rtkclient.RTKClient // may be nil when RTK credentials are not configured
 	api    pluginapi.API
 	callMu sync.Mutex
 }
 
 // New creates a new App instance.
-func New(store kvstore.KVStore, rtk rtkclient.RTKClient, api pluginapi.API) *App {
+func New(store store.Store, rtk rtkclient.RTKClient, api pluginapi.API) *App {
 	return &App{store: store, rtk: rtk, api: api}
 }
 

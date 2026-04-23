@@ -1,7 +1,7 @@
-package kvstore
+package store
 
-// KVStore defines the interface for plugin store operations.
-type KVStore interface {
+// Store defines the interface for plugin store operations.
+type Store interface {
 	// GetCallByChannel returns the active call for a channel, or nil if none exists.
 	GetCallByChannel(channelID string) (*CallSession, error)
 	// GetCallByID returns the call with the given ID, or nil if not found.

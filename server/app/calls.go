@@ -10,7 +10,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
-	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
 )
 
 const (
@@ -78,7 +78,7 @@ func removeUser(participants []string, userID string) []string {
 
 // CreateCall creates a new call in the given channel for the user.
 // Returns the CallSession, the RTK auth token, and any error.
-func (a *App) CreateCall(channelID, userID string) (*kvstore.CallSession, string, error) {
+func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, error) {
 	if _, appErr := a.api.GetChannelMember(channelID, userID); appErr != nil {
 		return nil, "", ErrNotChannelMember
 	}
@@ -135,7 +135,7 @@ func (a *App) CreateCall(channelID, userID string) (*kvstore.CallSession, string
 	}
 
 	// BR-03: creator is added to participants
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID:           uuid.New().String(),
 		ChannelID:    channelID,
 		CreatorID:    userID,
@@ -196,7 +196,7 @@ func (a *App) CreateCall(channelID, userID string) (*kvstore.CallSession, string
 }
 
 // JoinCall adds a user to an existing call and returns the updated session and an RTK auth token.
-func (a *App) JoinCall(callID, userID string) (*kvstore.CallSession, string, error) {
+func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error) {
 	a.callMu.Lock()
 	defer a.callMu.Unlock()
 
@@ -347,7 +347,7 @@ func (a *App) EndCall(callID, requestingUserID string) error {
 // on-demand reconciliation, and webhook handlers.
 // reason identifies the code path that triggered the end (for diagnostics).
 // Caller must hold callMu when invoking this function.
-func (a *App) endCallInternal(session *kvstore.CallSession, reason string) error {
+func (a *App) endCallInternal(session *store.CallSession, reason string) error {
 	a.api.LogInfo("endCallInternal triggered", "call_id", session.ID, "channel_id", session.ChannelID, "reason", reason)
 
 	// BR-26: set EndAt
@@ -403,7 +403,7 @@ func (a *App) endCallInternal(session *kvstore.CallSession, reason string) error
 // check without a failure threshold — it fires on user requests instead of on a timer,
 // so a definitive 404 is acted on immediately.
 // Transient RTK errors are ignored to avoid accidentally terminating live calls.
-func (a *App) ReconcileCallOnDemand(session *kvstore.CallSession) {
+func (a *App) ReconcileCallOnDemand(session *store.CallSession) {
 	if a.rtk == nil {
 		return
 	}
@@ -431,6 +431,6 @@ func (a *App) ReconcileCallOnDemand(session *kvstore.CallSession) {
 }
 
 // GetCallByID returns a call session by ID.
-func (a *App) GetCallByID(callID string) (*kvstore.CallSession, error) {
+func (a *App) GetCallByID(callID string) (*store.CallSession, error) {
 	return a.store.GetCallByID(callID)
 }

@@ -13,12 +13,12 @@ import (
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	rtkmocks "github.com/kondo97/mattermost-plugin-rtk/server/rtkclient/mocks"
-	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
-	kvmocks "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore/mocks"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
+	storemocks "github.com/kondo97/mattermost-plugin-rtk/server/store/mocks"
 )
 
 // newTestApp creates an App with injected mock dependencies for unit testing.
-func newTestApp(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KVStore) (*App, *plugintest.API) {
+func newTestApp(t *testing.T, rtkClient rtkclient.RTKClient, store store.Store) (*App, *plugintest.API) {
 	t.Helper()
 	api := &plugintest.API{}
 	// Allow any logging calls without asserting on them (arg counts vary: 1+2k pattern).
@@ -53,7 +53,7 @@ func newTestApp(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KVSto
 func TestCreateCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	channelID := "channel1"
@@ -96,10 +96,10 @@ func TestCreateCall_NotChannelMember(t *testing.T) {
 func TestCreateCall_AlreadyActive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
-	existing := &kvstore.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", EndAt: 0}
+	existing := &store.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", EndAt: 0}
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(existing, nil)
 	// Meeting is still alive — return participants without error.
 	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user0"}, nil)
@@ -111,10 +111,10 @@ func TestCreateCall_AlreadyActive(t *testing.T) {
 func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
-	existing := &kvstore.CallSession{
+	existing := &store.CallSession{
 		ID: "old-call", ChannelID: "ch1", MeetingID: "old-mtg", StartAt: 1000,
 	}
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(existing, nil)
@@ -146,7 +146,7 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 
 func TestCreateCall_RTKNotConfigured(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, nil, mockStore)
 
 	_, _, err := a.CreateCall("ch1", "user1")
@@ -156,7 +156,7 @@ func TestCreateCall_RTKNotConfigured(t *testing.T) {
 func TestCreateCall_CreateMeetingFails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
@@ -171,12 +171,12 @@ func TestCreateCall_CreateMeetingFails(t *testing.T) {
 func TestJoinCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user2"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user1"}, EndAt: 0,
 	}
@@ -200,12 +200,12 @@ func TestJoinCall_Success(t *testing.T) {
 func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user2"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user1"}, EndAt: 0, PostID: "post1",
 	}
@@ -231,13 +231,13 @@ func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 func TestJoinCall_NotChannelMember(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	api := &plugintest.API{}
 	api.On("GetChannelMember", "ch1", "user2").Return(nil, &model.AppError{Message: "not a member"})
 	t.Cleanup(func() { api.AssertExpectations(t) })
 	a := New(mockStore, mockRTK, api)
 
-	session := &kvstore.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", Participants: []string{"user1"}}
+	session := &store.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", Participants: []string{"user1"}}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	// GetChannelMember check happens before RTK liveness — no GetMeetingParticipants call expected.
 
@@ -248,7 +248,7 @@ func TestJoinCall_NotChannelMember(t *testing.T) {
 func TestJoinCall_CallNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
@@ -260,10 +260,10 @@ func TestJoinCall_CallNotFound(t *testing.T) {
 func TestJoinCall_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{ID: "call1", EndAt: 1000}
+	session := &store.CallSession{ID: "call1", EndAt: 1000}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
 	_, _, err := a.JoinCall("call1", "user1")
@@ -273,10 +273,10 @@ func TestJoinCall_AlreadyEnded(t *testing.T) {
 func TestJoinCall_ZombieCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: "call1", ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user0"}, StartAt: 1000, EndAt: 0,
 	}
@@ -296,12 +296,12 @@ func TestJoinCall_ZombieCall(t *testing.T) {
 func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user1"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{userID}, EndAt: 0,
 	}
@@ -323,11 +323,11 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 func TestLeaveCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user1", "user2"}, EndAt: 0,
 	}
@@ -344,11 +344,11 @@ func TestLeaveCall_Success(t *testing.T) {
 func TestLeaveCall_UpdatesPostParticipants(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user1", "user2"}, EndAt: 0, PostID: "post1",
 	}
@@ -372,11 +372,11 @@ func TestLeaveCall_UpdatesPostParticipants(t *testing.T) {
 func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		Participants: []string{"user1"}, StartAt: 1000, EndAt: 0,
 	}
@@ -397,7 +397,7 @@ func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 func TestLeaveCall_Idempotent_CallNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
@@ -411,11 +411,11 @@ func TestLeaveCall_Idempotent_CallNotFound(t *testing.T) {
 func TestEndCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: callID, ChannelID: "ch1", MeetingID: "mtg1",
 		CreatorID: "user1", Participants: []string{"user1"}, StartAt: 1000, EndAt: 0,
 	}
@@ -433,10 +433,10 @@ func TestEndCall_Success(t *testing.T) {
 func TestEndCall_Unauthorized(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{ID: "call1", CreatorID: "user1", EndAt: 0}
+	session := &store.CallSession{ID: "call1", CreatorID: "user1", EndAt: 0}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
 	err := a.EndCall("call1", "user2")
@@ -446,7 +446,7 @@ func TestEndCall_Unauthorized(t *testing.T) {
 func TestEndCall_NotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
@@ -458,10 +458,10 @@ func TestEndCall_NotFound(t *testing.T) {
 func TestEndCall_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{ID: "call1", EndAt: 9999}
+	session := &store.CallSession{ID: "call1", EndAt: 9999}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
 	err := a.EndCall("call1", "user1")

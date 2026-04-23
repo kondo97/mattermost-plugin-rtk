@@ -1,4 +1,4 @@
-package kvstore
+package store
 
 // CallSession represents an active or ended call within a Mattermost channel.
 type CallSession struct {

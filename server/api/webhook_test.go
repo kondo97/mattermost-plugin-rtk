@@ -18,8 +18,8 @@ import (
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/app"
 	rtkmocks "github.com/kondo97/mattermost-plugin-rtk/server/rtkclient/mocks"
-	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
-	kvmocks "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore/mocks"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
+	storemocks "github.com/kondo97/mattermost-plugin-rtk/server/store/mocks"
 )
 
 const testWebhookSecret = "test-secret"
@@ -46,7 +46,7 @@ func sendWebhook(t *testing.T, h *API, body []byte, signature string) *httptest.
 
 func TestHandleRTKWebhook_InvalidSignature(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	body, _ := json.Marshal(rtkWebhookEvent{Event: "meeting.ended"})
@@ -59,7 +59,7 @@ func TestHandleRTKWebhook_InvalidSignature(t *testing.T) {
 
 func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	body, _ := json.Marshal(rtkWebhookEvent{Event: "some.unknown.event"})
@@ -72,10 +72,10 @@ func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 
 func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, mmAPI := newTestAPI(t, nil, mockStore)
 
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
 		Participants: []string{"user1", "user2"}, PostID: "post1",
 	}
@@ -109,7 +109,7 @@ func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 
 func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	event := rtkWebhookEvent{
@@ -130,10 +130,10 @@ func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
 func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, mmAPI := newTestAPI(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
 		Participants: []string{"user1", "user2"},
 	}
@@ -159,7 +159,7 @@ func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 
 func TestHandleRTKWebhook_ParticipantLeft_SessionNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	event := rtkWebhookEvent{
@@ -180,10 +180,10 @@ func TestHandleRTKWebhook_ParticipantLeft_SessionNotFound(t *testing.T) {
 func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, mmAPI := newTestAPI(t, mockRTK, mockStore)
 
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
 		StartAt: 1000,
 	}
@@ -211,12 +211,12 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 
 func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	// Initial read sees active call, but re-read inside lock sees it already ended.
-	active := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 0}
-	ended := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 9999}
+	active := &store.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 0}
+	ended := &store.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 9999}
 
 	event := rtkWebhookEvent{
 		Event:   "meeting.ended",
@@ -236,10 +236,10 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 
 func TestHandleRTKWebhook_MeetingEnded_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	h, _ := newTestAPI(t, nil, mockStore)
 
-	session := &kvstore.CallSession{
+	session := &store.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
 		EndAt: 9999, // already ended
 	}

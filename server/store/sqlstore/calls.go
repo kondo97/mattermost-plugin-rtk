@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
 	"github.com/pkg/errors"
 )
 
 // GetCallByChannel returns the active call (end_at = 0) for a channel, or nil.
-func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error) {
+func (s *Store) GetCallByChannel(channelID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
@@ -20,7 +20,7 @@ func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error)
 }
 
 // GetCallByID returns the call with the given ID (active or ended), or nil if not found.
-func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
+func (s *Store) GetCallByID(callID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
@@ -31,7 +31,7 @@ func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
 }
 
 // GetCallByMeetingID returns the call matching the given RTK meeting ID, or nil if not found.
-func (s *Store) GetCallByMeetingID(meetingID string) (*kvstore.CallSession, error) {
+func (s *Store) GetCallByMeetingID(meetingID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id
 		 FROM rtk_call_sessions
@@ -41,8 +41,8 @@ func (s *Store) GetCallByMeetingID(meetingID string) (*kvstore.CallSession, erro
 	return s.scanSession(row)
 }
 
-func (s *Store) scanSession(row *sql.Row) (*kvstore.CallSession, error) {
-	var session kvstore.CallSession
+func (s *Store) scanSession(row *sql.Row) (*store.CallSession, error) {
+	var session store.CallSession
 	var participantsJSON string
 	err := row.Scan(
 		&session.ID,
@@ -70,7 +70,7 @@ func (s *Store) scanSession(row *sql.Row) (*kvstore.CallSession, error) {
 }
 
 // SaveCall persists a call session (insert or full update on conflict).
-func (s *Store) SaveCall(session *kvstore.CallSession) error {
+func (s *Store) SaveCall(session *store.CallSession) error {
 	if session == nil {
 		return errors.New("session must not be nil")
 	}

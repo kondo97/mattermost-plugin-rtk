@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Store implements kvstore.KVStore using a PostgreSQL database.
+// Store implements store.Store using a PostgreSQL database.
 type Store struct {
 	db *sql.DB
 }

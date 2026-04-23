@@ -10,7 +10,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	rtkmocks "github.com/kondo97/mattermost-plugin-rtk/server/rtkclient/mocks"
-	kvmocks "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore/mocks"
+	storemocks "github.com/kondo97/mattermost-plugin-rtk/server/store/mocks"
 )
 
 // --- NotificationWillBePushed ---
@@ -98,7 +98,7 @@ func TestSendPushNotifications_PushDisabled_NoOp(t *testing.T) {
 func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -116,7 +116,7 @@ func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
 func TestSendPushNotifications_NonDMGM_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -138,7 +138,7 @@ func TestSendPushNotifications_NonDMGM_NoOp(t *testing.T) {
 func TestSendPushNotifications_DM_FullNotification(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -180,7 +180,7 @@ func TestSendPushNotifications_DM_FullNotification(t *testing.T) {
 func TestSendPushNotifications_SkipsSender(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -272,7 +272,7 @@ func TestSendEndCallPushNotifications_EmptyPostID_NoOp(t *testing.T) {
 func TestSendEndCallPushNotifications_NonDMGM_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -293,7 +293,7 @@ func TestSendEndCallPushNotifications_NonDMGM_NoOp(t *testing.T) {
 func TestSendEndCallPushNotifications_DM_SkipsCreator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
-	mockStore := kvmocks.NewMockKVStore(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
 	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
