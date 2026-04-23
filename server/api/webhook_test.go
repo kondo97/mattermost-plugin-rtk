@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/kondo97/mattermost-plugin-rtk/server/app"
 	rtkmocks "github.com/kondo97/mattermost-plugin-rtk/server/rtkclient/mocks"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore"
 	kvmocks "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore/mocks"
@@ -31,7 +32,7 @@ func signBody(body []byte) string {
 }
 
 // sendWebhook sends a POST to /api/v1/webhook/rtk with an optional HMAC signature.
-func sendWebhook(t *testing.T, p *Plugin, body []byte, signature string) *httptest.ResponseRecorder {
+func sendWebhook(t *testing.T, h *API, body []byte, signature string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhook/rtk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -39,20 +40,19 @@ func sendWebhook(t *testing.T, p *Plugin, body []byte, signature string) *httpte
 		req.Header.Set("dyte-signature", signature)
 	}
 	w := httptest.NewRecorder()
-	p.ServeHTTP(nil, w, req)
+	h.ServeHTTP(w, req)
 	return w
 }
 
 func TestHandleRTKWebhook_InvalidSignature(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	body, _ := json.Marshal(rtkWebhookEvent{Event: "meeting.ended"})
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 
-	w := sendWebhook(t, p, body, "invalidsig")
+	w := sendWebhook(t, h, body, "invalidsig")
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -60,13 +60,12 @@ func TestHandleRTKWebhook_InvalidSignature(t *testing.T) {
 func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	body, _ := json.Marshal(rtkWebhookEvent{Event: "some.unknown.event"})
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -74,8 +73,7 @@ func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, mmAPI := newTestAPI(t, nil, mockStore)
 
 	session := &kvstore.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
@@ -94,26 +92,25 @@ func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
 	existingPost := &model.Post{Id: "post1", Props: model.StringInterface{"call_id": "call1"}}
-	api.On("GetPost", "post1").Return(existingPost, nil)
-	api.On("UpdatePost", mock.MatchedBy(func(post *model.Post) bool {
+	mmAPI.On("GetPost", "post1").Return(existingPost, nil)
+	mmAPI.On("UpdatePost", mock.MatchedBy(func(post *model.Post) bool {
 		participants, ok := post.Props["participants"].([]string)
 		return ok && len(participants) == 2
 	})).Return(existingPost, nil)
-	api.On("PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything).Return()
+	mmAPI.On("PublishWebSocketEvent", app.WSEventUserJoined, mock.Anything, mock.Anything).Return()
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	require.Equal(t, http.StatusOK, w.Code)
-	api.AssertCalled(t, "GetPost", "post1")
-	api.AssertCalled(t, "UpdatePost", mock.Anything)
-	api.AssertCalled(t, "PublishWebSocketEvent", wsEventUserJoined, mock.Anything, mock.Anything)
+	mmAPI.AssertCalled(t, "GetPost", "post1")
+	mmAPI.AssertCalled(t, "UpdatePost", mock.Anything)
+	mmAPI.AssertCalled(t, "PublishWebSocketEvent", app.WSEventUserJoined, mock.Anything, mock.Anything)
 }
 
 func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	event := rtkWebhookEvent{
 		Event:       "meeting.participantJoined",
@@ -125,7 +122,7 @@ func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(nil, nil)
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -134,8 +131,7 @@ func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
-	p.router = p.initRouter()
+	h, mmAPI := newTestAPI(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
@@ -154,9 +150,9 @@ func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 	// LeaveCall internals
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserLeft, mock.Anything, mock.Anything).Return()
+	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	require.Equal(t, http.StatusOK, w.Code)
 }
@@ -164,8 +160,7 @@ func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 func TestHandleRTKWebhook_ParticipantLeft_SessionNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	event := rtkWebhookEvent{
 		Event:       "meeting.participantLeft",
@@ -177,7 +172,7 @@ func TestHandleRTKWebhook_ParticipantLeft_SessionNotFound(t *testing.T) {
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(nil, nil)
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -186,8 +181,7 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
-	p.router = p.initRouter()
+	h, mmAPI := newTestAPI(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
@@ -208,10 +202,10 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
 	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventCallEnded, mock.Anything, mock.Anything).Return()
-	api.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
+	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
+	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	require.Equal(t, http.StatusOK, w.Code)
 }
@@ -219,8 +213,7 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	// Initial read sees active call, but re-read inside lock sees it already ended.
 	active := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", EndAt: 0}
@@ -237,7 +230,7 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 	// Re-read inside lock returns already-ended session — no endCallInternal should run.
 	mockStore.EXPECT().GetCallByID("call1").Return(ended, nil)
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -245,8 +238,7 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 func TestHandleRTKWebhook_MeetingEnded_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, mockStore)
 
 	session := &kvstore.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
@@ -262,7 +254,7 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEnded(t *testing.T) {
 	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
 
-	w := sendWebhook(t, p, body, signBody(body))
+	w := sendWebhook(t, h, body, signBody(body))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }

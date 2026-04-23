@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"net/http"
@@ -9,18 +9,17 @@ import (
 )
 
 func TestHandleDismiss(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
-	p.router = p.initRouter()
+	h, mmAPI := newTestAPI(t, nil, nil)
 
-	api.On("PublishWebSocketEvent", wsEventNotificationDismissed,
+	mmAPI.On("PublishWebSocketEvent", wsEventNotificationDismissed,
 		mock.MatchedBy(func(data map[string]any) bool {
 			return data["call_id"] == "call1" && data["user_id"] == "user1"
 		}),
 		mock.Anything,
 	).Return()
 
-	w := serveWithUser(t, p, http.MethodPost, "/api/v1/calls/call1/dismiss", "user1", nil)
+	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls/call1/dismiss", "user1", nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	api.AssertExpectations(t)
+	mmAPI.AssertExpectations(t)
 }

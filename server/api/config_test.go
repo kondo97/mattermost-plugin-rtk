@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -12,14 +12,10 @@ import (
 )
 
 func TestHandleConfigStatus_Enabled(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
-	p.setConfiguration(&configuration{
-		CloudflareOrgID:  "org1",
-		CloudflareAPIKey: "key1",
-	})
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, nil)
+	h.configFn = func() ConfigStatus { return ConfigStatus{Enabled: true, OrgID: "org1"} }
 
-	w := serveWithUser(t, p, http.MethodGet, "/api/v1/config/status", "user1", nil)
+	w := serveWithUser(t, h, http.MethodGet, "/api/v1/config/status", "user1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
@@ -29,11 +25,10 @@ func TestHandleConfigStatus_Enabled(t *testing.T) {
 }
 
 func TestHandleConfigStatus_Disabled(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
-	p.setConfiguration(&configuration{})
-	p.router = p.initRouter()
+	h, _ := newTestAPI(t, nil, nil)
+	h.configFn = func() ConfigStatus { return ConfigStatus{} }
 
-	w := serveWithUser(t, p, http.MethodGet, "/api/v1/config/status", "user1", nil)
+	w := serveWithUser(t, h, http.MethodGet, "/api/v1/config/status", "user1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
@@ -43,15 +38,13 @@ func TestHandleConfigStatus_Disabled(t *testing.T) {
 }
 
 func TestHandleAdminConfigStatus_Admin(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
-	p.setConfiguration(&configuration{
-		CloudflareOrgID:  "org1",
-		CloudflareAPIKey: "key1",
-	})
-	p.router = p.initRouter()
-	api.On("HasPermissionTo", "admin1", model.PermissionManageSystem).Return(true)
+	h, mmAPI := newTestAPI(t, nil, nil)
+	h.configFn = func() ConfigStatus {
+		return ConfigStatus{Enabled: true, OrgID: "org1"}
+	}
+	mmAPI.On("HasPermissionTo", "admin1", model.PermissionManageSystem).Return(true)
 
-	w := serveWithUser(t, p, http.MethodGet, "/api/v1/config/admin-status", "admin1", nil)
+	w := serveWithUser(t, h, http.MethodGet, "/api/v1/config/admin-status", "admin1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]any
@@ -63,15 +56,15 @@ func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 }
 
 func TestHandleAdminConfigStatus_Forbidden(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
-	p.setConfiguration(&configuration{})
-	p.router = p.initRouter()
-	api.On("HasPermissionTo", "user1", model.PermissionManageSystem).Return(false)
+	h, mmAPI := newTestAPI(t, nil, nil)
+	h.configFn = func() ConfigStatus { return ConfigStatus{} }
+	mmAPI.On("HasPermissionTo", "user1", model.PermissionManageSystem).Return(false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/config/admin-status", nil)
 	req.Header.Set("Mattermost-User-ID", "user1")
 	w := httptest.NewRecorder()
-	p.ServeHTTP(nil, w, req)
+	h.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
+

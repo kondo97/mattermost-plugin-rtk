@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ const pushSubTypeCallsEnded = "calls_ended"
 // we suppress Mattermost's default notification and send one with SubType=calls instead
 // (which triggers the native call ringing UI on iOS/Android).
 // Falls back to passing the original notification through if push is unavailable.
-func (p *Plugin) NotificationWillBePushed(notification *model.PushNotification, userID string) (*model.PushNotification, string) {
+func (a *App) NotificationWillBePushed(notification *model.PushNotification, userID string) (*model.PushNotification, string) {
 	// Only handle call start posts.
-	if notification.PostType != callPostType {
+	if notification.PostType != CallPostType {
 		return nil, ""
 	}
 	// Only consider overriding notifications for DM/GM channels.
@@ -25,7 +25,7 @@ func (p *Plugin) NotificationWillBePushed(notification *model.PushNotification, 
 	}
 	// Check whether the plugin is actually able to send push notifications.
 	// If not, fall back to letting the server send its default notification.
-	cfg := p.API.GetConfig()
+	cfg := a.api.GetConfig()
 	if cfg == nil {
 		return notification, ""
 	}
@@ -41,8 +41,8 @@ func (p *Plugin) NotificationWillBePushed(notification *model.PushNotification, 
 
 // sendPushNotifications sends a mobile push notification to all eligible members
 // of a DM or GM channel when a call starts. Best-effort: errors are logged only.
-func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sender *model.User) {
-	cfg := p.API.GetConfig()
+func (a *App) sendPushNotifications(channelID, postID, threadID string, sender *model.User) {
+	cfg := a.api.GetConfig()
 	if cfg == nil {
 		return
 	}
@@ -53,18 +53,18 @@ func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sende
 		return
 	}
 
-	channel, appErr := p.API.GetChannel(channelID)
+	channel, appErr := a.api.GetChannel(channelID)
 	if appErr != nil {
-		p.API.LogError("sendPushNotifications: GetChannel failed", "channel_id", channelID, "err", appErr.Error())
+		a.api.LogError("sendPushNotifications: GetChannel failed", "channel_id", channelID, "err", appErr.Error())
 		return
 	}
 	if channel.Type != model.ChannelTypeDirect && channel.Type != model.ChannelTypeGroup {
 		return
 	}
 
-	members, appErr := p.API.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 8)
+	members, appErr := a.api.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 8)
 	if appErr != nil {
-		p.API.LogError("sendPushNotifications: GetUsersInChannel failed", "channel_id", channelID, "err", appErr.Error())
+		a.api.LogError("sendPushNotifications: GetUsersInChannel failed", "channel_id", channelID, "err", appErr.Error())
 		return
 	}
 
@@ -74,7 +74,7 @@ func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sende
 	}
 
 	// Compute once before the loop to avoid repeated license API calls.
-	idLoadedEnabled := pushContents == model.IdLoadedNotification && p.checkIDLoadedLicense()
+	idLoadedEnabled := pushContents == model.IdLoadedNotification && a.checkIDLoadedLicense()
 
 	for _, member := range members {
 		if member.Id == sender.Id {
@@ -97,7 +97,7 @@ func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sende
 		if idLoadedEnabled {
 			msg.IsIdLoaded = true
 		} else {
-			nameFormat := p.getNameFormat(member.Id)
+			nameFormat := a.getNameFormat(member.Id)
 			senderName := sender.GetDisplayName(nameFormat)
 			msg.SenderName = senderName
 			msg.ChannelName = getChannelNameForNotification(channel, sender, members, nameFormat, member.Id)
@@ -109,15 +109,15 @@ func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sende
 			}
 		}
 
-		if err := p.API.SendPushNotification(msg, member.Id); err != nil {
-			p.API.LogError("sendPushNotifications: SendPushNotification failed", "user_id", member.Id, "err", err.Error())
+		if err := a.api.SendPushNotification(msg, member.Id); err != nil {
+			a.api.LogError("sendPushNotifications: SendPushNotification failed", "user_id", member.Id, "err", err.Error())
 		}
 	}
 }
 
 // checkIDLoadedLicense reports whether the server license supports ID-loaded push notifications.
-func (p *Plugin) checkIDLoadedLicense() bool {
-	license := p.API.GetLicense()
+func (a *App) checkIDLoadedLicense() bool {
+	license := a.api.GetLicense()
 	if license == nil || license.Features == nil || license.Features.IDLoadedPushNotifications == nil {
 		return false
 	}
@@ -126,12 +126,12 @@ func (p *Plugin) checkIDLoadedLicense() bool {
 
 // getNameFormat returns the display name format for a user's push notification.
 // It checks the user's preference first, then falls back to the server default.
-func (p *Plugin) getNameFormat(userID string) string {
-	pref, appErr := p.API.GetPreferenceForUser(userID, model.PreferenceCategoryDisplaySettings, model.PreferenceNameNameFormat)
+func (a *App) getNameFormat(userID string) string {
+	pref, appErr := a.api.GetPreferenceForUser(userID, model.PreferenceCategoryDisplaySettings, model.PreferenceNameNameFormat)
 	if appErr == nil && pref.Value != "" {
 		return pref.Value
 	}
-	cfg := p.API.GetConfig()
+	cfg := a.api.GetConfig()
 	if cfg != nil && cfg.TeamSettings.TeammateNameDisplay != nil {
 		return *cfg.TeamSettings.TeammateNameDisplay
 	}
@@ -173,12 +173,12 @@ func buildGenericPushMessage() string {
 // to all eligible members of a DM or GM channel when a call ends.
 // This allows the mobile app to dismiss the ringing/incoming call UI.
 // Best-effort: errors are logged only.
-func (p *Plugin) sendEndCallPushNotifications(channelID, postID, creatorID string) {
+func (a *App) sendEndCallPushNotifications(channelID, postID, creatorID string) {
 	if postID == "" {
 		return
 	}
 
-	cfg := p.API.GetConfig()
+	cfg := a.api.GetConfig()
 	if cfg == nil {
 		return
 	}
@@ -189,18 +189,18 @@ func (p *Plugin) sendEndCallPushNotifications(channelID, postID, creatorID strin
 		return
 	}
 
-	channel, appErr := p.API.GetChannel(channelID)
+	channel, appErr := a.api.GetChannel(channelID)
 	if appErr != nil {
-		p.API.LogError("sendEndCallPushNotifications: GetChannel failed", "channel_id", channelID, "err", appErr.Error())
+		a.api.LogError("sendEndCallPushNotifications: GetChannel failed", "channel_id", channelID, "err", appErr.Error())
 		return
 	}
 	if channel.Type != model.ChannelTypeDirect && channel.Type != model.ChannelTypeGroup {
 		return
 	}
 
-	members, appErr := p.API.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 8)
+	members, appErr := a.api.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 8)
 	if appErr != nil {
-		p.API.LogError("sendEndCallPushNotifications: GetUsersInChannel failed", "channel_id", channelID, "err", appErr.Error())
+		a.api.LogError("sendEndCallPushNotifications: GetUsersInChannel failed", "channel_id", channelID, "err", appErr.Error())
 		return
 	}
 
@@ -218,8 +218,8 @@ func (p *Plugin) sendEndCallPushNotifications(channelID, postID, creatorID strin
 		if member.Id == creatorID {
 			continue
 		}
-		if err := p.API.SendPushNotification(msg, member.Id); err != nil {
-			p.API.LogError("sendEndCallPushNotifications: SendPushNotification failed", "user_id", member.Id, "err", err.Error())
+		if err := a.api.SendPushNotification(msg, member.Id); err != nil {
+			a.api.LogError("sendEndCallPushNotifications: SendPushNotification failed", "user_id", member.Id, "err", err.Error())
 		}
 	}
 }

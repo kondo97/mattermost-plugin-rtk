@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"errors"
@@ -17,8 +17,8 @@ import (
 	kvmocks "github.com/kondo97/mattermost-plugin-rtk/server/store/kvstore/mocks"
 )
 
-// newTestPlugin creates a Plugin with injected mock dependencies for unit testing.
-func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KVStore) (*Plugin, *plugintest.API) {
+// newTestApp creates an App with injected mock dependencies for unit testing.
+func newTestApp(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KVStore) (*App, *plugintest.API) {
 	t.Helper()
 	api := &plugintest.API{}
 	// Allow any logging calls without asserting on them (arg counts vary: 1+2k pattern).
@@ -44,11 +44,8 @@ func newTestPlugin(t *testing.T, rtkClient rtkclient.RTKClient, store kvstore.KV
 	// Default GetChannelMember mock: user is a member of any channel
 	api.On("GetChannelMember", mock.Anything, mock.Anything).Maybe().Return(&model.ChannelMember{}, nil)
 	t.Cleanup(func() { api.AssertExpectations(t) })
-	p := &Plugin{}
-	p.SetAPI(api)
-	p.rtkClient = rtkClient
-	p.kvStore = store
-	return p, api
+	a := New(store, rtkClient, api)
+	return a, api
 }
 
 // --- CreateCall ---
@@ -57,7 +54,7 @@ func TestCreateCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	channelID := "channel1"
 	userID := "user1"
@@ -66,20 +63,20 @@ func TestCreateCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 
 	createdPost := &model.Post{Id: "post1"}
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(createdPost, nil)
-	api.On("PublishWebSocketEvent", wsEventCallStarted,
+	api.On("PublishWebSocketEvent", WSEventCallStarted,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 	// sendPushNotifications will call GetConfig; return push disabled to keep this test focused
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
 	})
 
-	session, tok, err := p.CreateCall(channelID, userID)
+	session, tok, err := a.CreateCall(channelID, userID)
 	require.NoError(t, err)
 	assert.Equal(t, tokenStr, tok)
 	assert.Equal(t, channelID, session.ChannelID)
@@ -91,10 +88,9 @@ func TestCreateCall_NotChannelMember(t *testing.T) {
 	api := &plugintest.API{}
 	api.On("GetChannelMember", "ch1", "user1").Return(nil, &model.AppError{Message: "not a member"})
 	t.Cleanup(func() { api.AssertExpectations(t) })
-	p := &Plugin{}
-	p.SetAPI(api)
+	a := New(nil, nil, api)
 
-	_, _, err := p.CreateCall("ch1", "user1")
+	_, _, err := a.CreateCall("ch1", "user1")
 	assert.ErrorIs(t, err, ErrNotChannelMember)
 }
 
@@ -102,14 +98,14 @@ func TestCreateCall_AlreadyActive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	existing := &kvstore.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", EndAt: 0}
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(existing, nil)
 	// Meeting is still alive — return participants without error.
 	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user0"}, nil)
 
-	_, _, err := p.CreateCall("ch1", "user1")
+	_, _, err := a.CreateCall("ch1", "user1")
 	assert.ErrorIs(t, err, ErrCallAlreadyActive)
 }
 
@@ -117,7 +113,7 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	existing := &kvstore.CallSession{
 		ID: "old-call", ChannelID: "ch1", MeetingID: "old-mtg", StartAt: 1000,
@@ -130,22 +126,22 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	mockStore.EXPECT().EndCall("old-call", gomock.Any()).Return(nil)
 	mockStore.EXPECT().RemoveActiveCallID("old-call").Return(nil)
 	mockRTK.EXPECT().EndMeeting("old-mtg").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventCallEnded, mock.Anything, mock.Anything).Return()
+	api.On("PublishWebSocketEvent", WSEventCallEnded, mock.Anything, mock.Anything).Return()
 
 	// New call creation path.
 	newMeetingID := "new-mtg"
 	newToken := "new-token"
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: newMeetingID}, nil)
-	mockRTK.EXPECT().GenerateToken(newMeetingID, "user1", gomock.Any(), rtkPresetHost).Return(&rtkclient.Token{Token: newToken}, nil)
+	mockRTK.EXPECT().GenerateToken(newMeetingID, "user1", gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: newToken}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
-	api.On("PublishWebSocketEvent", wsEventCallStarted, mock.Anything, mock.Anything).Return()
+	api.On("PublishWebSocketEvent", WSEventCallStarted, mock.Anything, mock.Anything).Return()
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
 	})
 
-	session, tok, err := p.CreateCall("ch1", "user1")
+	session, tok, err := a.CreateCall("ch1", "user1")
 	require.NoError(t, err)
 	assert.Equal(t, newToken, tok)
 	assert.Equal(t, "ch1", session.ChannelID)
@@ -154,9 +150,9 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 func TestCreateCall_RTKNotConfigured(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, nil, mockStore)
+	a, _ := newTestApp(t, nil, mockStore)
 
-	_, _, err := p.CreateCall("ch1", "user1")
+	_, _, err := a.CreateCall("ch1", "user1")
 	assert.ErrorIs(t, err, ErrRTKNotConfigured)
 }
 
@@ -164,12 +160,12 @@ func TestCreateCall_CreateMeetingFails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(nil, errors.New("RTK error"))
 
-	_, _, err := p.CreateCall("ch1", "user1")
+	_, _, err := a.CreateCall("ch1", "user1")
 	require.Error(t, err)
 }
 
@@ -179,7 +175,7 @@ func TestJoinCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user2"
@@ -190,25 +186,25 @@ func TestJoinCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user1"}, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), RTKPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user1", userID}).Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserJoined,
+	api.On("PublishWebSocketEvent", WSEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	sess, tok, err := p.JoinCall(callID, userID)
+	sess, tok, err := a.JoinCall(callID, userID)
 	require.NoError(t, err)
 	assert.Equal(t, "tok", tok)
 	assert.Equal(t, callID, sess.ID)
 }
 
 // TestJoinCall_UpdatesPostParticipants verifies that JoinCall updates the post and emits the
-// user_joined WebSocket event immediately. handleWebhookParticipantJoined also fires later
+// user_joined WebSocket event immediately. HandleWebhookParticipantJoined also fires later
 // (when the RTK SDK actually connects) and performs an idempotent update.
 func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user2"
@@ -219,7 +215,7 @@ func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user1"}, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), RTKPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user1", userID}).Return(nil)
 
 	existingPost := &model.Post{Id: "post1", Props: model.StringInterface{"call_id": callID}}
@@ -228,10 +224,10 @@ func TestJoinCall_UpdatesPostParticipants(t *testing.T) {
 		participants, ok := post.Props["participants"].([]string)
 		return ok && len(participants) == 2 && participants[0] == "user1" && participants[1] == "user2"
 	})).Return(existingPost, nil)
-	api.On("PublishWebSocketEvent", wsEventUserJoined,
+	api.On("PublishWebSocketEvent", WSEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	_, _, err := p.JoinCall(callID, userID)
+	_, _, err := a.JoinCall(callID, userID)
 	require.NoError(t, err)
 }
 
@@ -242,15 +238,13 @@ func TestJoinCall_NotChannelMember(t *testing.T) {
 	api := &plugintest.API{}
 	api.On("GetChannelMember", "ch1", "user2").Return(nil, &model.AppError{Message: "not a member"})
 	t.Cleanup(func() { api.AssertExpectations(t) })
-	p := &Plugin{}
-	p.SetAPI(api)
-	p.rtkClient = mockRTK
-	p.kvStore = mockStore
+	a := New(mockStore, mockRTK, api)
 
 	session := &kvstore.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", Participants: []string{"user1"}}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
+	// GetChannelMember check happens before RTK liveness — no GetMeetingParticipants call expected.
 
-	_, _, err := p.JoinCall("call1", "user2")
+	_, _, err := a.JoinCall("call1", "user2")
 	assert.ErrorIs(t, err, ErrNotChannelMember)
 }
 
@@ -258,11 +252,11 @@ func TestJoinCall_CallNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
 
-	_, _, err := p.JoinCall("call1", "user1")
+	_, _, err := a.JoinCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -270,12 +264,12 @@ func TestJoinCall_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{ID: "call1", EndAt: 1000}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
-	_, _, err := p.JoinCall("call1", "user1")
+	_, _, err := a.JoinCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -283,7 +277,7 @@ func TestJoinCall_ZombieCall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{
 		ID: "call1", ChannelID: "ch1", MeetingID: "mtg1",
@@ -297,9 +291,9 @@ func TestJoinCall_ZombieCall(t *testing.T) {
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
 	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventCallEnded, mock.Anything, mock.Anything).Return()
+	api.On("PublishWebSocketEvent", WSEventCallEnded, mock.Anything, mock.Anything).Return()
 
-	_, _, err := p.JoinCall("call1", "user1")
+	_, _, err := a.JoinCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -307,7 +301,7 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	userID := "user1"
@@ -318,13 +312,13 @@ func TestJoinCall_DuplicateParticipantNoDoubleAdd(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{userID}, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), rtkPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", userID, gomock.Any(), RTKPresetParticipant).Return(&rtkclient.Token{Token: "tok"}, nil)
 	// participants list unchanged since userID already present
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{userID}).Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserJoined,
+	api.On("PublishWebSocketEvent", WSEventUserJoined,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	_, _, err := p.JoinCall(callID, userID)
+	_, _, err := a.JoinCall(callID, userID)
 	require.NoError(t, err)
 }
 
@@ -334,7 +328,7 @@ func TestLeaveCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	session := &kvstore.CallSession{
@@ -344,10 +338,10 @@ func TestLeaveCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{"user2"}).Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserLeft,
+	api.On("PublishWebSocketEvent", WSEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	err := p.LeaveCall(callID, "user1")
+	err := a.LeaveCall(callID, "user1")
 	require.NoError(t, err)
 }
 
@@ -355,7 +349,7 @@ func TestLeaveCall_UpdatesPostParticipants(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	session := &kvstore.CallSession{
@@ -372,10 +366,10 @@ func TestLeaveCall_UpdatesPostParticipants(t *testing.T) {
 		participants, ok := post.Props["participants"].([]string)
 		return ok && len(participants) == 1 && participants[0] == "user2"
 	})).Return(existingPost, nil)
-	api.On("PublishWebSocketEvent", wsEventUserLeft,
+	api.On("PublishWebSocketEvent", WSEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	err := p.LeaveCall(callID, "user1")
+	err := a.LeaveCall(callID, "user1")
 	require.NoError(t, err)
 }
 
@@ -383,7 +377,7 @@ func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	session := &kvstore.CallSession{
@@ -396,12 +390,12 @@ func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
 	mockStore.EXPECT().RemoveActiveCallID(callID).Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventUserLeft,
+	api.On("PublishWebSocketEvent", WSEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
-	api.On("PublishWebSocketEvent", wsEventCallEnded,
+	api.On("PublishWebSocketEvent", WSEventCallEnded,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	err := p.LeaveCall(callID, "user1")
+	err := a.LeaveCall(callID, "user1")
 	require.NoError(t, err)
 }
 
@@ -409,11 +403,11 @@ func TestLeaveCall_Idempotent_CallNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
 
-	err := p.LeaveCall("call1", "user1")
+	err := a.LeaveCall("call1", "user1")
 	require.NoError(t, err)
 }
 
@@ -423,7 +417,7 @@ func TestEndCall_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	callID := "call1"
 	session := &kvstore.CallSession{
@@ -435,10 +429,10 @@ func TestEndCall_Success(t *testing.T) {
 	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
 	mockStore.EXPECT().RemoveActiveCallID(callID).Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
-	api.On("PublishWebSocketEvent", wsEventCallEnded,
+	api.On("PublishWebSocketEvent", WSEventCallEnded,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
 
-	err := p.EndCall(callID, "user1")
+	err := a.EndCall(callID, "user1")
 	require.NoError(t, err)
 }
 
@@ -446,12 +440,12 @@ func TestEndCall_Unauthorized(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{ID: "call1", CreatorID: "user1", EndAt: 0}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
-	err := p.EndCall("call1", "user2")
+	err := a.EndCall("call1", "user2")
 	assert.ErrorIs(t, err, ErrUnauthorized)
 }
 
@@ -459,11 +453,11 @@ func TestEndCall_NotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByID("call1").Return(nil, nil)
 
-	err := p.EndCall("call1", "user1")
+	err := a.EndCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }
 
@@ -471,11 +465,11 @@ func TestEndCall_AlreadyEnded(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, _ := newTestPlugin(t, mockRTK, mockStore)
+	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	session := &kvstore.CallSession{ID: "call1", EndAt: 9999}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
-	err := p.EndCall("call1", "user1")
+	err := a.EndCall("call1", "user1")
 	assert.ErrorIs(t, err, ErrCallNotFound)
 }

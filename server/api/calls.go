@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -7,10 +7,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+
+	"github.com/kondo97/mattermost-plugin-rtk/server/app"
 )
 
 // handleCreateCall handles POST /api/v1/calls.
-func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
+func (h *API) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 
 	var req struct {
@@ -21,17 +23,17 @@ func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, token, err := p.CreateCall(req.ChannelID, userID)
+	session, token, err := h.app.CreateCall(req.ChannelID, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrNotChannelMember):
+		case errors.Is(err, app.ErrNotChannelMember):
 			writeError(w, http.StatusForbidden, err.Error())
-		case errors.Is(err, ErrRTKNotConfigured):
+		case errors.Is(err, app.ErrRTKNotConfigured):
 			writeError(w, http.StatusServiceUnavailable, err.Error())
-		case errors.Is(err, ErrCallAlreadyActive):
+		case errors.Is(err, app.ErrCallAlreadyActive):
 			writeError(w, http.StatusConflict, err.Error())
 		default:
-			p.API.LogError("handleCreateCall failed", "channel_id", req.ChannelID, "user_id", userID, "error", err.Error())
+			h.app.LogError("handleCreateCall failed", "channel_id", req.ChannelID, "user_id", userID, "error", err.Error())
 			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
@@ -46,27 +48,27 @@ func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleJoinCall handles POST /api/v1/calls/{id}/token.
-func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
+func (h *API) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	callID := mux.Vars(r)["id"]
 
-	session, token, err := p.JoinCall(callID, userID)
+	session, token, err := h.app.JoinCall(callID, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrNotChannelMember):
+		case errors.Is(err, app.ErrNotChannelMember):
 			writeError(w, http.StatusForbidden, err.Error())
-		case errors.Is(err, ErrRTKNotConfigured):
+		case errors.Is(err, app.ErrRTKNotConfigured):
 			writeError(w, http.StatusServiceUnavailable, err.Error())
-		case errors.Is(err, ErrCallNotFound):
+		case errors.Is(err, app.ErrCallNotFound):
 			writeError(w, http.StatusNotFound, err.Error())
 		default:
-			p.API.LogError("handleJoinCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
+			h.app.LogError("handleJoinCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
 			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
 
-	p.API.LogDebug("handleJoinCall success",
+	h.app.LogDebug("handleJoinCall success",
 		"call_id", callID,
 		"user_id", userID,
 		"meeting_id", session.MeetingID,
@@ -82,12 +84,12 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetCall handles GET /api/v1/calls/{id}.
-func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
+func (h *API) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	callID := mux.Vars(r)["id"]
 
-	session, err := p.kvStore.GetCallByID(callID)
+	session, err := h.app.GetCallByID(callID)
 	if err != nil {
-		p.API.LogError("handleGetCall failed", "call_id", callID, "error", err.Error())
+		h.app.LogError("handleGetCall failed", "call_id", callID, "error", err.Error())
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -99,11 +101,11 @@ func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	if session.EndAt == 0 {
 		// Perform an on-demand RTK reconciliation for active calls so that
 		// a stale call is force-ended before the response is returned to the client.
-		p.reconcileCallOnDemand(session)
+		h.app.ReconcileCallOnDemand(session)
 		// Re-fetch to reflect any state change from reconciliation.
-		session, err = p.kvStore.GetCallByID(callID)
+		session, err = h.app.GetCallByID(callID)
 		if err != nil {
-			p.API.LogError("handleGetCall re-fetch failed", "call_id", callID, "error", err.Error())
+			h.app.LogError("handleGetCall re-fetch failed", "call_id", callID, "error", err.Error())
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
@@ -118,12 +120,12 @@ func (p *Plugin) handleGetCall(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLeaveCall handles POST /api/v1/calls/{id}/leave.
-func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
+func (h *API) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	callID := mux.Vars(r)["id"]
 
-	if err := p.LeaveCall(callID, userID); err != nil {
-		p.API.LogError("handleLeaveCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
+	if err := h.app.LeaveCall(callID, userID); err != nil {
+		h.app.LogError("handleLeaveCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -132,18 +134,18 @@ func (p *Plugin) handleLeaveCall(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleEndCall handles DELETE /api/v1/calls/{id}.
-func (p *Plugin) handleEndCall(w http.ResponseWriter, r *http.Request) {
+func (h *API) handleEndCall(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	callID := mux.Vars(r)["id"]
 
-	if err := p.EndCall(callID, userID); err != nil {
+	if err := h.app.EndCall(callID, userID); err != nil {
 		switch {
-		case errors.Is(err, ErrCallNotFound):
+		case errors.Is(err, app.ErrCallNotFound):
 			writeError(w, http.StatusNotFound, err.Error())
-		case errors.Is(err, ErrUnauthorized):
+		case errors.Is(err, app.ErrUnauthorized):
 			writeError(w, http.StatusForbidden, err.Error())
 		default:
-			p.API.LogError("handleEndCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
+			h.app.LogError("handleEndCall failed", "call_id", callID, "user_id", userID, "error", err.Error())
 			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return

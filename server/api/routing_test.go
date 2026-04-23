@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"net/http"
@@ -9,24 +9,23 @@ import (
 )
 
 func TestServeHTTP_UnknownRoute(t *testing.T) {
-	plugin := Plugin{}
-	plugin.router = plugin.initRouter()
+	h, _ := newTestAPI(t, nil, nil)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/unknown", nil)
 	r.Header.Set("Mattermost-User-ID", "test-user-id")
 
-	plugin.ServeHTTP(nil, w, r)
+	h.ServeHTTP(w, r)
 
-	assert.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestServeHTTP_NoAuth(t *testing.T) {
-	plugin := Plugin{}
-	plugin.router = plugin.initRouter()
+	h, _ := newTestAPI(t, nil, nil)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/config/status", nil)
+	// No Mattermost-User-ID header
 
-	plugin.ServeHTTP(nil, w, r)
+	h.ServeHTTP(w, r)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Result().StatusCode)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

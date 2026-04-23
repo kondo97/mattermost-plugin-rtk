@@ -121,14 +121,13 @@ func (p *Plugin) OnConfigurationChange() error {
 	credentialsChanged := prev.GetEffectiveOrgID() != configuration.GetEffectiveOrgID() ||
 		prev.GetEffectiveAPIKey() != configuration.GetEffectiveAPIKey()
 
-	if credentialsChanged {
+	if credentialsChanged && p.application != nil {
 		if configuration.GetEffectiveOrgID() != "" && configuration.GetEffectiveAPIKey() != "" {
-			p.rtkClient = rtkclient.NewClient(configuration.GetEffectiveOrgID(), configuration.GetEffectiveAPIKey())
-			if p.kvStore != nil {
-				p.reRegisterWebhook()
-			}
+			newClient := rtkclient.NewClient(configuration.GetEffectiveOrgID(), configuration.GetEffectiveAPIKey())
+			p.application.UpdateRTKClient(newClient)
+			p.application.ReRegisterWebhook(p.webhookURL())
 		} else {
-			p.rtkClient = nil
+			p.application.UpdateRTKClient(nil)
 		}
 	}
 

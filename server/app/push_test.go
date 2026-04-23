@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"testing"
@@ -16,17 +16,17 @@ import (
 // --- NotificationWillBePushed ---
 
 func TestNotificationWillBePushed_NonCallPost_PassThrough(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
+	a, _ := newTestApp(t, nil, nil)
 
 	notif := &model.PushNotification{PostType: "custom_other", ChannelType: model.ChannelTypeDirect}
-	result, reason := p.NotificationWillBePushed(notif, "user1")
+	result, reason := a.NotificationWillBePushed(notif, "user1")
 
 	assert.Nil(t, result)
 	assert.Empty(t, reason)
 }
 
 func TestNotificationWillBePushed_CallPost_DM_Suppressed(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetConfig").Return(&model.Config{
 		EmailSettings: model.EmailSettings{
 			SendPushNotifications:  model.NewPointer(true),
@@ -34,15 +34,15 @@ func TestNotificationWillBePushed_CallPost_DM_Suppressed(t *testing.T) {
 		},
 	})
 
-	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeDirect}
-	result, reason := p.NotificationWillBePushed(notif, "user1")
+	notif := &model.PushNotification{PostType: CallPostType, ChannelType: model.ChannelTypeDirect}
+	result, reason := a.NotificationWillBePushed(notif, "user1")
 
 	assert.Nil(t, result)
 	assert.NotEmpty(t, reason, "should suppress DM call notification with a reason")
 }
 
 func TestNotificationWillBePushed_CallPost_GM_Suppressed(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetConfig").Return(&model.Config{
 		EmailSettings: model.EmailSettings{
 			SendPushNotifications:  model.NewPointer(true),
@@ -50,33 +50,33 @@ func TestNotificationWillBePushed_CallPost_GM_Suppressed(t *testing.T) {
 		},
 	})
 
-	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeGroup}
-	result, reason := p.NotificationWillBePushed(notif, "user1")
+	notif := &model.PushNotification{PostType: CallPostType, ChannelType: model.ChannelTypeGroup}
+	result, reason := a.NotificationWillBePushed(notif, "user1")
 
 	assert.Nil(t, result)
 	assert.NotEmpty(t, reason, "should suppress GM call notification with a reason")
 }
 
 func TestNotificationWillBePushed_CallPost_DM_PushDisabled_PassThrough(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetConfig").Return(&model.Config{
 		EmailSettings: model.EmailSettings{
 			SendPushNotifications: model.NewPointer(false),
 		},
 	})
 
-	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeDirect}
-	result, reason := p.NotificationWillBePushed(notif, "user1")
+	notif := &model.PushNotification{PostType: CallPostType, ChannelType: model.ChannelTypeDirect}
+	result, reason := a.NotificationWillBePushed(notif, "user1")
 
 	assert.Equal(t, notif, result, "should pass through when push is disabled")
 	assert.Empty(t, reason)
 }
 
 func TestNotificationWillBePushed_CallPost_PublicChannel_PassThrough(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
+	a, _ := newTestApp(t, nil, nil)
 
-	notif := &model.PushNotification{PostType: callPostType, ChannelType: model.ChannelTypeOpen}
-	result, reason := p.NotificationWillBePushed(notif, "user1")
+	notif := &model.PushNotification{PostType: CallPostType, ChannelType: model.ChannelTypeOpen}
+	result, reason := a.NotificationWillBePushed(notif, "user1")
 
 	assert.Nil(t, result)
 	assert.Empty(t, reason, "should not suppress public channel call notification")
@@ -85,21 +85,21 @@ func TestNotificationWillBePushed_CallPost_PublicChannel_PassThrough(t *testing.
 // --- sendPushNotifications ---
 
 func TestSendPushNotifications_PushDisabled_NoOp(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetConfig").Return(&model.Config{
 		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
 	})
 
 	sender := &model.User{Id: "user1"}
 	// No GetChannel/GetUsersInChannel/SendPushNotification calls expected
-	p.sendPushNotifications("chan1", "post1", "post1", sender)
+	a.sendPushNotifications("chan1", "post1", "post1", sender)
 }
 
 func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -109,7 +109,7 @@ func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
 		},
 	})
 
-	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
+	a.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
 	// No GetChannel call expected since push server is empty
 }
 
@@ -117,7 +117,7 @@ func TestSendPushNotifications_NonDMGM_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -131,7 +131,7 @@ func TestSendPushNotifications_NonDMGM_NoOp(t *testing.T) {
 		Type: model.ChannelTypeOpen,
 	}, nil)
 
-	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
+	a.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
 	// No GetUsersInChannel/SendPushNotification calls expected for public channel
 }
 
@@ -139,7 +139,7 @@ func TestSendPushNotifications_DM_FullNotification(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -172,7 +172,7 @@ func TestSendPushNotifications_DM_FullNotification(t *testing.T) {
 	}), "user2").Return(nil)
 
 	sender := &model.User{Id: "user1", Username: "sender"}
-	p.sendPushNotifications("chan1", "post1", "post1", sender)
+	a.sendPushNotifications("chan1", "post1", "post1", sender)
 
 	api.AssertExpectations(t)
 }
@@ -181,7 +181,7 @@ func TestSendPushNotifications_SkipsSender(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -203,7 +203,7 @@ func TestSendPushNotifications_SkipsSender(t *testing.T) {
 	}, nil)
 	// SendPushNotification should NOT be called
 
-	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1", Username: "sender"})
+	a.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1", Username: "sender"})
 }
 
 // --- helper functions ---
@@ -243,37 +243,37 @@ func TestGetChannelNameForNotification_GM(t *testing.T) {
 }
 
 func TestCheckIDLoadedLicense_NilLicense(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetLicense").Return(nil)
 
-	result := p.checkIDLoadedLicense()
+	result := a.checkIDLoadedLicense()
 	require.False(t, result)
 }
 
 // --- sendEndCallPushNotifications ---
 
 func TestSendEndCallPushNotifications_PushDisabled_NoOp(t *testing.T) {
-	p, api := newTestPlugin(t, nil, nil)
+	a, api := newTestApp(t, nil, nil)
 	api.On("GetConfig").Return(&model.Config{
 		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
 	})
 
 	// No GetChannel/GetUsersInChannel/SendPushNotification calls expected
-	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+	a.sendEndCallPushNotifications("chan1", "post1", "creator1")
 }
 
 func TestSendEndCallPushNotifications_EmptyPostID_NoOp(t *testing.T) {
-	p, _ := newTestPlugin(t, nil, nil)
+	a, _ := newTestApp(t, nil, nil)
 
 	// No API calls expected when postID is empty
-	p.sendEndCallPushNotifications("chan1", "", "creator1")
+	a.sendEndCallPushNotifications("chan1", "", "creator1")
 }
 
 func TestSendEndCallPushNotifications_NonDMGM_NoOp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -286,7 +286,7 @@ func TestSendEndCallPushNotifications_NonDMGM_NoOp(t *testing.T) {
 		Type: model.ChannelTypeOpen,
 	}, nil)
 
-	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+	a.sendEndCallPushNotifications("chan1", "post1", "creator1")
 	// No GetUsersInChannel/SendPushNotification calls expected for public channel
 }
 
@@ -294,7 +294,7 @@ func TestSendEndCallPushNotifications_DM_SkipsCreator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
 	mockStore := kvmocks.NewMockKVStore(ctrl)
-	p, api := newTestPlugin(t, mockRTK, mockStore)
+	a, api := newTestApp(t, mockRTK, mockStore)
 
 	api.On("GetConfig").Maybe().Return(&model.Config{
 		EmailSettings: model.EmailSettings{
@@ -321,7 +321,7 @@ func TestSendEndCallPushNotifications_DM_SkipsCreator(t *testing.T) {
 			n.ChannelName == "Alice"
 	}), "user2").Return(nil)
 
-	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+	a.sendEndCallPushNotifications("chan1", "post1", "creator1")
 
 	api.AssertExpectations(t)
 }
