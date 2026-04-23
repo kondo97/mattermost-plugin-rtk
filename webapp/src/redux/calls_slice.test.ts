@@ -18,6 +18,9 @@ const initialState: CallsPluginState = {
     callsByChannel: {},
     myActiveCall: null,
     incomingCall: null,
+    callLoading: false,
+    callError: null,
+    pendingSwitchCallId: null,
 };
 
 const sampleCall = {

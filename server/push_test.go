@@ -92,7 +92,7 @@ func TestSendPushNotifications_PushDisabled_NoOp(t *testing.T) {
 
 	sender := &model.User{Id: "user1"}
 	// No GetChannel/GetUsersInChannel/SendPushNotification calls expected
-	p.sendPushNotifications("chan1", "post1", sender)
+	p.sendPushNotifications("chan1", "post1", "post1", sender)
 }
 
 func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
@@ -109,7 +109,7 @@ func TestSendPushNotifications_NoServer_NoOp(t *testing.T) {
 		},
 	})
 
-	p.sendPushNotifications("chan1", "post1", &model.User{Id: "user1"})
+	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
 	// No GetChannel call expected since push server is empty
 }
 
@@ -131,7 +131,7 @@ func TestSendPushNotifications_NonDMGM_NoOp(t *testing.T) {
 		Type: model.ChannelTypeOpen,
 	}, nil)
 
-	p.sendPushNotifications("chan1", "post1", &model.User{Id: "user1"})
+	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1"})
 	// No GetUsersInChannel/SendPushNotification calls expected for public channel
 }
 
@@ -166,12 +166,13 @@ func TestSendPushNotifications_DM_FullNotification(t *testing.T) {
 			n.SubType == model.PushSubTypeCalls &&
 			n.ChannelId == "chan1" &&
 			n.PostId == "post1" &&
+			n.RootId == "post1" &&
 			n.SenderId == "user1" &&
 			n.ChannelType == model.ChannelTypeDirect
 	}), "user2").Return(nil)
 
 	sender := &model.User{Id: "user1", Username: "sender"}
-	p.sendPushNotifications("chan1", "post1", sender)
+	p.sendPushNotifications("chan1", "post1", "post1", sender)
 
 	api.AssertExpectations(t)
 }
@@ -202,7 +203,7 @@ func TestSendPushNotifications_SkipsSender(t *testing.T) {
 	}, nil)
 	// SendPushNotification should NOT be called
 
-	p.sendPushNotifications("chan1", "post1", &model.User{Id: "user1", Username: "sender"})
+	p.sendPushNotifications("chan1", "post1", "post1", &model.User{Id: "user1", Username: "sender"})
 }
 
 // --- helper functions ---
@@ -247,4 +248,80 @@ func TestCheckIDLoadedLicense_NilLicense(t *testing.T) {
 
 	result := p.checkIDLoadedLicense()
 	require.False(t, result)
+}
+
+// --- sendEndCallPushNotifications ---
+
+func TestSendEndCallPushNotifications_PushDisabled_NoOp(t *testing.T) {
+	p, api := newTestPlugin(t, nil, nil)
+	api.On("GetConfig").Return(&model.Config{
+		EmailSettings: model.EmailSettings{SendPushNotifications: model.NewPointer(false)},
+	})
+
+	// No GetChannel/GetUsersInChannel/SendPushNotification calls expected
+	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+}
+
+func TestSendEndCallPushNotifications_EmptyPostID_NoOp(t *testing.T) {
+	p, _ := newTestPlugin(t, nil, nil)
+
+	// No API calls expected when postID is empty
+	p.sendEndCallPushNotifications("chan1", "", "creator1")
+}
+
+func TestSendEndCallPushNotifications_NonDMGM_NoOp(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, api := newTestPlugin(t, mockRTK, mockStore)
+
+	api.On("GetConfig").Maybe().Return(&model.Config{
+		EmailSettings: model.EmailSettings{
+			SendPushNotifications:  model.NewPointer(true),
+			PushNotificationServer: model.NewPointer("https://push.mattermost.com"),
+		},
+	})
+	api.On("GetChannel", "chan1").Return(&model.Channel{
+		Id:   "chan1",
+		Type: model.ChannelTypeOpen,
+	}, nil)
+
+	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+	// No GetUsersInChannel/SendPushNotification calls expected for public channel
+}
+
+func TestSendEndCallPushNotifications_DM_SkipsCreator(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := kvmocks.NewMockKVStore(ctrl)
+	p, api := newTestPlugin(t, mockRTK, mockStore)
+
+	api.On("GetConfig").Maybe().Return(&model.Config{
+		EmailSettings: model.EmailSettings{
+			SendPushNotifications:  model.NewPointer(true),
+			PushNotificationServer: model.NewPointer("https://push.mattermost.com"),
+		},
+	})
+	api.On("GetChannel", "chan1").Return(&model.Channel{
+		Id:          "chan1",
+		Type:        model.ChannelTypeDirect,
+		TeamId:      "team1",
+		DisplayName: "Alice",
+	}, nil)
+	api.On("GetUsersInChannel", "chan1", model.ChannelSortByUsername, 0, 8).Return([]*model.User{
+		{Id: "creator1", Username: "creator"},
+		{Id: "user2", Username: "receiver"},
+	}, nil)
+	api.On("SendPushNotification", mock.MatchedBy(func(n *model.PushNotification) bool {
+		return n.Type == model.PushTypeClear &&
+			n.SubType == pushSubTypeCallsEnded &&
+			n.ChannelId == "chan1" &&
+			n.PostId == "post1" &&
+			n.TeamId == "team1" &&
+			n.ChannelName == "Alice"
+	}), "user2").Return(nil)
+
+	p.sendEndCallPushNotifications("chan1", "post1", "creator1")
+
+	api.AssertExpectations(t)
 }

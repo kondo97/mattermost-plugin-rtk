@@ -149,11 +149,10 @@ func (p *Plugin) CreateCall(channelID, userID string) (*kvstore.CallSession, str
 		if err := p.kvStore.SaveCall(session); err != nil {
 			p.API.LogWarn("CreateCall: failed to update PostID (best effort)", "call_id", session.ID, "err", err.Error())
 		}
-		// Send mobile push notifications asynchronously to avoid holding callMu
-		// during slow external API calls (GetChannel, GetUsersInChannel, SendPushNotification).
+		// Send mobile push notifications synchronously before emitting the WebSocket event.
 		senderUser, senderErr := p.API.GetUser(userID)
 		if senderErr == nil {
-			go p.sendPushNotifications(channelID, createdPost.Id, senderUser)
+			p.sendPushNotifications(channelID, createdPost.Id, createdPost.Id, senderUser)
 		} else {
 			p.API.LogWarn("CreateCall: GetUser failed for push notifications (best effort)", "call_id", session.ID, "err", senderErr.Error())
 		}
@@ -343,6 +342,8 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession, reason string) er
 				p.API.LogWarn("endCallInternal: UpdatePost failed (best effort)", "call_id", session.ID, "err", appErr.Error())
 			}
 		}
+		// Send mobile push notifications to dismiss the ringing UI on all member devices.
+		p.sendEndCallPushNotifications(session.ChannelID, session.PostID, session.CreatorID)
 	}
 
 	// BR-29: emit WebSocket event

@@ -12,21 +12,14 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import jaDict from '../utils/rtk_lang_ja';
 
-interface FeatureFlags {
-    screenShare?: boolean;
-    video?: boolean;
-    participants?: boolean;
-}
-
 interface Props {
     token: string;
     callId: string;
     embedded?: boolean;
     locale?: string;
-    featureFlags?: FeatureFlags;
 }
 
-const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props) => {
+const CallPage = ({token, callId, embedded = false, locale}: Props) => {
     const [meeting, initMeeting] = useRealtimeKitClient();
     const rtkT = useLanguage(locale === 'ja' ? jaDict : undefined);
     const [initError, setInitError] = useState<string | null>(null);
@@ -40,15 +33,7 @@ const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props
         setInitError(null);
         initMeeting({
             authToken,
-            defaults: {audio: true, video: featureFlags?.video ?? true},
-            modules: {
-                participant: featureFlags?.participants ?? true,
-                pip: false,
-            },
-        }).then((mtg) => {
-            if (featureFlags?.screenShare === false) {
-                mtg?.self?.disableScreenShare?.();
-            }
+            defaults: {audio: true},
         }).catch((err: Error) => {
             // Token intentionally not logged — SEC-U4-01
             console.error('[rtk-plugin] RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console
@@ -59,7 +44,7 @@ const CallPage = ({token, callId, embedded = false, locale, featureFlags}: Props
                 setInitError('Failed to connect to the call. Please close this tab and try again.');
             }
         });
-    }, [initMeeting, embedded]);
+    }, [initMeeting]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Initialize RTK SDK (Pattern U4-5)
     useEffect(() => {

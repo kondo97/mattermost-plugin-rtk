@@ -18,17 +18,6 @@ const channelName = params.get('channel_name') ?? '';
 const embedded = params.get('embedded') === '1';
 const locale = params.get('locale') ?? navigator.language.split('-')[0];
 
-// Parse feature_flags from URL (JSON-encoded object, e.g. ?feature_flags={"video":false})
-let featureFlags: Record<string, boolean> | undefined;
-const featureFlagsParam = params.get('feature_flags');
-if (featureFlagsParam) {
-    try {
-        featureFlags = JSON.parse(featureFlagsParam);
-    } catch {
-        // Ignore malformed feature_flags param
-    }
-}
-
 // Set browser tab title (BR-U4-008, US-006)
 document.title = channelName ? `Call in #${channelName}` : 'RTK Call';
 
@@ -40,6 +29,5 @@ ReactDOM.createRoot(rootEl).render(
         callId={callId}
         embedded={embedded}
         locale={locale}
-        featureFlags={featureFlags}
     />,
 );

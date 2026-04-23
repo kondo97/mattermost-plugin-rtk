@@ -135,6 +135,7 @@ All settings are configurable from the System Console. Each can also be overridd
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Full implementation guide: system diagram, server/frontend architecture, data flows, API reference, WebSocket events, security design |
+| [docs/mobile-push-notifications.md](./docs/mobile-push-notifications.md) | Mobile push notification design: prerequisites, payload reference for call-started and call-ended, suppression mechanism, and lifecycle flow |
 | [aidlc-docs/](./aidlc-docs/) | AI-DLC design artifacts: requirements, user stories, functional design, NFR design, and code generation plans for each unit |
 
 ---

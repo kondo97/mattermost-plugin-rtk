@@ -76,40 +76,7 @@ describe('CallPage', () => {
         expect(screen.getByTestId('call-page-meeting')).toBeTruthy();
     });
 
-    it('calls initMeeting with authToken', () => {
-        mockInitMeeting.mockResolvedValue(undefined);
-        render(
-            <CallPage
-                token='my-token'
-                callId='call1'
-            />,
-        );
-        expect(mockInitMeeting).toHaveBeenCalledWith(
-            expect.objectContaining({authToken: 'my-token'}),
-        );
-    });
-
-    it('passes feature flags to initMeeting modules', () => {
-        mockInitMeeting.mockResolvedValue(undefined);
-        const flags = {screenShare: true, video: false, participants: true};
-        render(
-            <CallPage
-                token='my-token'
-                callId='call1'
-                featureFlags={flags}
-            />,
-        );
-        expect(mockInitMeeting).toHaveBeenCalledWith(
-            expect.objectContaining({
-                defaults: expect.objectContaining({video: false}),
-                modules: expect.objectContaining({
-                    participant: true,
-                }),
-            }),
-        );
-    });
-
-    it('uses default true for modules when featureFlags is undefined', () => {
+    it('calls initMeeting with authToken and audio default', () => {
         mockInitMeeting.mockResolvedValue(undefined);
         render(
             <CallPage
@@ -119,12 +86,22 @@ describe('CallPage', () => {
         );
         expect(mockInitMeeting).toHaveBeenCalledWith(
             expect.objectContaining({
-                defaults: expect.objectContaining({video: true}),
-                modules: expect.objectContaining({
-                    participant: true,
-                }),
+                authToken: 'my-token',
+                defaults: expect.objectContaining({audio: true}),
             }),
         );
+    });
+
+    it('does not pass modules to initMeeting (preset manages features)', () => {
+        mockInitMeeting.mockResolvedValue(undefined);
+        render(
+            <CallPage
+                token='my-token'
+                callId='call1'
+            />,
+        );
+        const callArg = mockInitMeeting.mock.calls[0][0];
+        expect(callArg.modules).toBeUndefined();
     });
 
     it('does NOT call initMeeting when token is empty', () => {

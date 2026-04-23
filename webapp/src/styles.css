@@ -1,0 +1,35 @@
+/* Channel header call button — solo mode (no Calls plugin) */
+button.call-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+}
+
+.call-button-label {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+/* Channel header call button — dropdown mode (with Calls plugin) */
+button.call-button-dropdown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+button.call-button-dropdown .icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.call-button-dropdown-sublabel {
+    display: block;
+    font-size: 12px;
+    opacity: 0.64;
+    margin-top: 2px;
+}

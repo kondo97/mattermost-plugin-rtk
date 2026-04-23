@@ -19,6 +19,9 @@ function selectPluginState(state: GlobalState): CallsPluginState {
         myActiveCall: null,
         incomingCall: null,
         pluginEnabled: false,
+        callLoading: false,
+        callError: null,
+        pendingSwitchCallId: null,
     };
 }
 
@@ -48,4 +51,16 @@ export function selectIsCurrentUserParticipant(channelId: string, currentUserId:
         const call = selectPluginState(state).callsByChannel[channelId];
         return call?.participants.includes(currentUserId) ?? false;
     };
+}
+
+export function selectCallLoading(state: GlobalState): boolean {
+    return selectPluginState(state).callLoading;
+}
+
+export function selectCallError(state: GlobalState): string | null {
+    return selectPluginState(state).callError;
+}
+
+export function selectPendingSwitchCallId(state: GlobalState): string | null {
+    return selectPluginState(state).pendingSwitchCallId;
 }

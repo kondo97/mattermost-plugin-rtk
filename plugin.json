@@ -32,27 +32,6 @@
                 "secret": true,
                 "help_text": "Your Cloudflare API Key for the RealtimeKit integration.",
                 "placeholder": ""
-            },
-            {
-                "key": "ScreenShareEnabled",
-                "display_name": "Enable Screen Share",
-                "type": "bool",
-                "default": "true",
-                "help_text": "Allow participants to share their screen during calls."
-            },
-            {
-                "key": "VideoEnabled",
-                "display_name": "Enable Video",
-                "type": "bool",
-                "default": "true",
-                "help_text": "Allow participants to enable their camera during calls."
-            },
-            {
-                "key": "ParticipantsEnabled",
-                "display_name": "Enable Participants Panel",
-                "type": "bool",
-                "default": "true",
-                "help_text": "Show the participants list panel during calls."
             }
         ]
     }

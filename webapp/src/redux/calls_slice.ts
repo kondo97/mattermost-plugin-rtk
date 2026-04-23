@@ -14,17 +14,10 @@ export interface ActiveCall {
     postId: string;
 }
 
-export interface FeatureFlags {
-    screenShare: boolean;
-    video: boolean;
-    participants: boolean;
-}
-
 export interface MyActiveCall {
     callId: string;
     channelId: string;
     token: string; // JWT for reopening the call tab — MUST NOT be logged
-    featureFlags?: FeatureFlags;
 }
 
 export interface IncomingCall {
@@ -39,6 +32,9 @@ export interface CallsPluginState {
     myActiveCall: MyActiveCall | null;
     incomingCall: IncomingCall | null;
     pluginEnabled: boolean;
+    callLoading: boolean;
+    callError: string | null;
+    pendingSwitchCallId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +48,9 @@ const SET_MY_ACTIVE_CALL = 'rtk-calls/setMyActiveCall' as const;
 const CLEAR_MY_ACTIVE_CALL = 'rtk-calls/clearMyActiveCall' as const;
 const SET_INCOMING_CALL = 'rtk-calls/setIncomingCall' as const;
 const CLEAR_INCOMING_CALL = 'rtk-calls/clearIncomingCall' as const;
+const SET_CALL_LOADING = 'rtk-calls/setCallLoading' as const;
+const SET_CALL_ERROR = 'rtk-calls/setCallError' as const;
+const SET_PENDING_SWITCH_CALL_ID = 'rtk-calls/setPendingSwitchCallId' as const;
 
 // ---------------------------------------------------------------------------
 // Action creators
@@ -78,6 +77,15 @@ export const setIncomingCall = (call: IncomingCall) =>
 export const clearIncomingCall = () =>
     ({type: CLEAR_INCOMING_CALL} as const);
 
+export const setCallLoading = (loading: boolean) =>
+    ({type: SET_CALL_LOADING, payload: loading} as const);
+
+export const setCallError = (error: string | null) =>
+    ({type: SET_CALL_ERROR, payload: error} as const);
+
+export const setPendingSwitchCallId = (callId: string | null) =>
+    ({type: SET_PENDING_SWITCH_CALL_ID, payload: callId} as const);
+
 // ---------------------------------------------------------------------------
 // Action union type
 // ---------------------------------------------------------------------------
@@ -89,7 +97,10 @@ type CallsAction =
     | ReturnType<typeof setMyActiveCall>
     | ReturnType<typeof clearMyActiveCall>
     | ReturnType<typeof setIncomingCall>
-    | ReturnType<typeof clearIncomingCall>;
+    | ReturnType<typeof clearIncomingCall>
+    | ReturnType<typeof setCallLoading>
+    | ReturnType<typeof setCallError>
+    | ReturnType<typeof setPendingSwitchCallId>;
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -100,6 +111,9 @@ const initialState: CallsPluginState = {
     myActiveCall: null,
     incomingCall: null,
     pluginEnabled: false,
+    callLoading: false,
+    callError: null,
+    pendingSwitchCallId: null,
 };
 
 export function callsReducer(
@@ -136,6 +150,15 @@ export function callsReducer(
 
     case CLEAR_INCOMING_CALL:
         return {...state, incomingCall: null};
+
+    case SET_CALL_LOADING:
+        return {...state, callLoading: action.payload};
+
+    case SET_CALL_ERROR:
+        return {...state, callError: action.payload};
+
+    case SET_PENDING_SWITCH_CALL_ID:
+        return {...state, pendingSwitchCallId: action.payload};
 
     default:
         return state;

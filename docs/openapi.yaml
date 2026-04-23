@@ -187,7 +187,7 @@ paths:
       operationId: getConfigStatus
       tags: [Config]
       summary: プラグインの有効状態を取得する
-      description: RTK の認証情報が設定されているかと、機能フラグの一覧を返します。
+      description: RTK の認証情報が設定されているかを返します。機能の ON/OFF は Cloudflare RTK Preset で管理されます。
       security:
         - MattermostAuth: []
       responses:
@@ -199,10 +199,6 @@ paths:
                 $ref: '#/components/schemas/ConfigStatus'
               example:
                 enabled: true
-                feature_flags:
-                  screenShare: true
-                  video: true
-                  participants: true
         "401":
           $ref: '#/components/responses/Unauthorized'
 
@@ -360,20 +356,6 @@ components:
         end_at: 0
         post_id: "post001"
 
-    FeatureFlags:
-      type: object
-      description: プラグイン機能フラグ
-      properties:
-        screenShare:
-          type: boolean
-          description: 画面共有機能が有効かどうか
-        video:
-          type: boolean
-          description: ビデオ機能が有効かどうか
-        participants:
-          type: boolean
-          description: 参加者パネル機能が有効かどうか
-
     CallWithToken:
       type: object
       description: 通話セッションと RTK 認証トークン
@@ -383,8 +365,6 @@ components:
         token:
           type: string
           description: RTK SDK への接続に使用する JWT トークン
-        feature_flags:
-          $ref: '#/components/schemas/FeatureFlags'
 
     ConfigStatus:
       type: object
@@ -392,8 +372,6 @@ components:
         enabled:
           type: boolean
           description: RTK 認証情報が設定されており、プラグインが利用可能かどうか
-        feature_flags:
-          $ref: '#/components/schemas/FeatureFlags'
 
     AdminConfigStatus:
       type: object
@@ -410,8 +388,6 @@ components:
         cloudflare_org_id:
           type: string
           description: システムコンソールで設定された Cloudflare Org ID（マスク処理済み）
-        feature_flags:
-          $ref: '#/components/schemas/FeatureFlags'
 
     RTKWebhookEvent:
       type: object

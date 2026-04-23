@@ -7,6 +7,8 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
+const pushSubTypeCallsEnded = "calls_ended"
+
 // NotificationWillBePushed intercepts push notifications before they are sent to mobile devices.
 // For call start posts in DM/GM channels where the plugin can send its own push notification,
 // we suppress Mattermost's default notification and send one with SubType=calls instead
@@ -39,7 +41,7 @@ func (p *Plugin) NotificationWillBePushed(notification *model.PushNotification, 
 
 // sendPushNotifications sends a mobile push notification to all eligible members
 // of a DM or GM channel when a call starts. Best-effort: errors are logged only.
-func (p *Plugin) sendPushNotifications(channelID, postID string, sender *model.User) {
+func (p *Plugin) sendPushNotifications(channelID, postID, threadID string, sender *model.User) {
 	cfg := p.API.GetConfig()
 	if cfg == nil {
 		return
@@ -86,6 +88,7 @@ func (p *Plugin) sendPushNotifications(channelID, postID string, sender *model.U
 			TeamId:      channel.TeamId,
 			ChannelId:   channelID,
 			PostId:      postID,
+			RootId:      threadID,
 			SenderId:    sender.Id,
 			ChannelType: channel.Type,
 			Message:     buildGenericPushMessage(),
@@ -164,4 +167,59 @@ func buildPushMessage(senderName string) string {
 // regardless of the PushNotificationContents server setting.
 func buildGenericPushMessage() string {
 	return "\u200bIncoming call"
+}
+
+// sendEndCallPushNotifications sends a mobile push notification (Type=clear, SubType=calls_ended)
+// to all eligible members of a DM or GM channel when a call ends.
+// This allows the mobile app to dismiss the ringing/incoming call UI.
+// Best-effort: errors are logged only.
+func (p *Plugin) sendEndCallPushNotifications(channelID, postID, creatorID string) {
+	if postID == "" {
+		return
+	}
+
+	cfg := p.API.GetConfig()
+	if cfg == nil {
+		return
+	}
+	if cfg.EmailSettings.SendPushNotifications == nil || !*cfg.EmailSettings.SendPushNotifications {
+		return
+	}
+	if cfg.EmailSettings.PushNotificationServer == nil || *cfg.EmailSettings.PushNotificationServer == "" {
+		return
+	}
+
+	channel, appErr := p.API.GetChannel(channelID)
+	if appErr != nil {
+		p.API.LogError("sendEndCallPushNotifications: GetChannel failed", "channel_id", channelID, "err", appErr.Error())
+		return
+	}
+	if channel.Type != model.ChannelTypeDirect && channel.Type != model.ChannelTypeGroup {
+		return
+	}
+
+	members, appErr := p.API.GetUsersInChannel(channelID, model.ChannelSortByUsername, 0, 8)
+	if appErr != nil {
+		p.API.LogError("sendEndCallPushNotifications: GetUsersInChannel failed", "channel_id", channelID, "err", appErr.Error())
+		return
+	}
+
+	msg := &model.PushNotification{
+		Version:     model.PushMessageV2,
+		Type:        model.PushTypeClear,
+		SubType:     pushSubTypeCallsEnded,
+		TeamId:      channel.TeamId,
+		ChannelId:   channelID,
+		PostId:      postID,
+		ChannelName: channel.DisplayName,
+	}
+
+	for _, member := range members {
+		if member.Id == creatorID {
+			continue
+		}
+		if err := p.API.SendPushNotification(msg, member.Id); err != nil {
+			p.API.LogError("sendEndCallPushNotifications: SendPushNotification failed", "user_id", member.Id, "err", err.Error())
+		}
+	}
 }

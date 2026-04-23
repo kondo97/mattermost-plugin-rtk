@@ -7,16 +7,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
-// configFeatureFlags builds the feature flags map from the current configuration.
-// Credentials are never included in this map (SEC-03).
-func configFeatureFlags(cfg *configuration) map[string]bool {
-	return map[string]bool{
-		"screenShare":  cfg.IsScreenShareEnabled(),
-		"video":        cfg.IsVideoEnabled(),
-		"participants": cfg.IsParticipantsEnabled(),
-	}
-}
-
 // handleConfigStatus handles GET /api/v1/config/status.
 func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := p.getConfiguration()
@@ -24,8 +14,7 @@ func (p *Plugin) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"enabled":       enabled,
-		"feature_flags": configFeatureFlags(cfg),
+		"enabled": enabled,
 	})
 }
 
@@ -46,6 +35,5 @@ func (p *Plugin) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request)
 		"org_id_via_env":    cfg.OrgIDFromEnv(),
 		"api_key_via_env":   cfg.APIKeyFromEnv(),
 		"cloudflare_org_id": cfg.CloudflareOrgID,
-		"feature_flags":     configFeatureFlags(cfg),
 	})
 }

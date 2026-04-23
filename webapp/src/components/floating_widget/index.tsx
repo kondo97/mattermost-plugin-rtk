@@ -10,7 +10,6 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
 import {clearMyActiveCall} from 'redux/calls_slice';
-import type {FeatureFlags} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import jaDict from 'utils/rtk_lang_ja';
 
@@ -39,30 +38,33 @@ const FloatingWidget = () => {
     const dragging = useRef(false);
     const dragStart = useRef({mouseX: 0, mouseY: 0, right: INITIAL_RIGHT, bottom: INITIAL_BOTTOM});
 
+    // Reset display state when a new call starts.
+    // FloatingWidget stays mounted between calls (registerGlobalComponent never unmounts it),
+    // so local state persists across calls unless explicitly reset here.
+    const prevCallIdRef = useRef<string | undefined>(undefined);
+    useEffect(() => {
+        const newCallId = myActiveCall?.callId;
+        if (newCallId && newCallId !== prevCallIdRef.current) {
+            setIsFullscreen(false);
+            setIsMinimized(false);
+            setPos({right: INITIAL_RIGHT, bottom: INITIAL_BOTTOM});
+        }
+        prevCallIdRef.current = newCallId;
+    }, [myActiveCall?.callId]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Retry state for RTK SDK initialization
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
     const retryCountRef = useRef(0);
     const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const attemptInit = useCallback((token: string, flags?: FeatureFlags) => {
+    const attemptInit = useCallback((token: string) => {
         setJoinError(null);
         setIsJoining(true);
         initMeeting({
             authToken: token,
-            defaults: {audio: true, video: flags?.video ?? true},
-            modules: {
-                participant: flags?.participants ?? true,
-                pip: false,
-            },
-        }).then((mtg) => {
-            // initMeeting resolves after the room is joined. Clear the joining
-            // state here so the UI transitions immediately, without relying on
-            // the roomJoined event which may fire before our listener is
-            // registered (React defers effects until after paint).
-            if (flags?.screenShare === false) {
-                mtg?.self?.disableScreenShare?.();
-            }
+            defaults: {audio: true},
+        }).then(() => {
             setIsJoining(false);
         }).catch((err: Error) => {
             console.error('[rtk-plugin] Widget RTK init error:', err.message, `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`); // eslint-disable-line no-console
@@ -83,7 +85,7 @@ const FloatingWidget = () => {
             return undefined;
         }
         retryCountRef.current = 0;
-        attemptInit(myActiveCall.token, myActiveCall.featureFlags);
+        attemptInit(myActiveCall.token);
         return () => {
             if (retryTimeoutRef.current !== null) {
                 clearTimeout(retryTimeoutRef.current);
@@ -321,7 +323,7 @@ const FloatingWidget = () => {
                                         onClick={() => {
                                             if (myActiveCall?.token) {
                                                 retryCountRef.current = 0;
-                                                attemptInit(myActiveCall.token, myActiveCall.featureFlags);
+                                                attemptInit(myActiveCall.token);
                                             }
                                         }}
                                         style={{

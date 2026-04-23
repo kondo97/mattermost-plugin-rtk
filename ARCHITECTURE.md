@@ -794,14 +794,11 @@ Cloudflare RTK
 **Response**:
 ```json
 {
-  "enabled": true,
-  "feature_flags": {
-    "recording": true, "screenShare": true, "polls": true,
-    "transcription": true, "waitingRoom": false, "video": true,
-    "chat": true, "plugins": true, "participants": true, "raiseHand": true
-  }
+  "enabled": true
 }
 ```
+
+> **Note**: Feature availability (chat, polls, recording, screen share, etc.) is controlled entirely by the Cloudflare RTK **Preset** (`group_call_host` / `group_call_participant`) configured in the Cloudflare dashboard.
 
 ---
 
@@ -813,8 +810,7 @@ Cloudflare RTK
   "enabled": true,
   "org_id_via_env": false,
   "api_key_via_env": true,
-  "cloudflare_org_id": "abc123",
-  "feature_flags": { ...same as above... }
+  "cloudflare_org_id": "abc123"
 }
 ```
 

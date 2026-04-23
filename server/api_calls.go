@@ -38,9 +38,8 @@ func (p *Plugin) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"call":          session,
-		"token":         token,
-		"feature_flags": configFeatureFlags(p.getConfiguration()),
+		"call":  session,
+		"token": token,
 	})
 }
 
@@ -73,9 +72,8 @@ func (p *Plugin) handleJoinCall(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"call":          session,
-		"token":         token,
-		"feature_flags": configFeatureFlags(p.getConfiguration()),
+		"call":  session,
+		"token": token,
 	})
 }
 

@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"reflect"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -26,12 +25,6 @@ type configuration struct {
 	CloudflareOrgID string `json:"CloudflareOrgID"`
 	// CloudflareAPIKey is the Cloudflare API Key for the RealtimeKit integration.
 	CloudflareAPIKey string `json:"CloudflareAPIKey"`
-
-	// Feature flags — all default to enabled (nil means not configured, treated as true).
-	// Override via environment variables (e.g. RTK_RECORDING_ENABLED=false).
-	ScreenShareEnabled   *bool `json:"ScreenShareEnabled"`
-	VideoEnabled         *bool `json:"VideoEnabled"`
-	ParticipantsEnabled  *bool `json:"ParticipantsEnabled"`
 }
 
 // OrgIDFromEnv reports whether RTK_ORG_ID is set as an environment variable.
@@ -62,33 +55,6 @@ func (c *configuration) GetEffectiveAPIKey() string {
 		return val
 	}
 	return c.CloudflareAPIKey
-}
-
-// isFeatureFlagEnabled is the shared logic for all Is*Enabled() methods.
-// It checks the env var first, then the *bool field, defaulting to true if nil.
-func isFeatureFlagEnabled(envVar string, field *bool) bool {
-	if val, ok := os.LookupEnv(envVar); ok {
-		return strings.EqualFold(val, "true")
-	}
-	if field == nil {
-		return true // default ON
-	}
-	return *field
-}
-
-// IsScreenShareEnabled reports whether the screen share feature is enabled.
-func (c *configuration) IsScreenShareEnabled() bool {
-	return isFeatureFlagEnabled("RTK_SCREEN_SHARE_ENABLED", c.ScreenShareEnabled)
-}
-
-// IsVideoEnabled reports whether the video feature is enabled.
-func (c *configuration) IsVideoEnabled() bool {
-	return isFeatureFlagEnabled("RTK_VIDEO_ENABLED", c.VideoEnabled)
-}
-
-// IsParticipantsEnabled reports whether the participants panel feature is enabled.
-func (c *configuration) IsParticipantsEnabled() bool {
-	return isFeatureFlagEnabled("RTK_PARTICIPANTS_ENABLED", c.ParticipantsEnabled)
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
