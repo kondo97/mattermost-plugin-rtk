@@ -10,11 +10,10 @@ import (
 
 // GetCallByChannel returns the active call (end_at = 0) for a channel, or nil.
 func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error) {
-	p1 := s.placeholder(1)
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
 		 FROM rtk_call_sessions
-		 WHERE channel_id = `+p1+` AND end_at = 0`,
+		 WHERE channel_id = $1 AND end_at = 0`,
 		channelID,
 	)
 	return s.scanSession(row)
@@ -22,11 +21,10 @@ func (s *Store) GetCallByChannel(channelID string) (*kvstore.CallSession, error)
 
 // GetCallByID returns the call with the given ID (active or ended), or nil if not found.
 func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
-	p1 := s.placeholder(1)
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
 		 FROM rtk_call_sessions
-		 WHERE id = `+p1,
+		 WHERE id = $1`,
 		callID,
 	)
 	return s.scanSession(row)
@@ -34,11 +32,10 @@ func (s *Store) GetCallByID(callID string) (*kvstore.CallSession, error) {
 
 // GetCallByMeetingID returns the call matching the given RTK meeting ID, or nil if not found.
 func (s *Store) GetCallByMeetingID(meetingID string) (*kvstore.CallSession, error) {
-	p1 := s.placeholder(1)
 	row := s.db.QueryRow(
 		`SELECT id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count
 		 FROM rtk_call_sessions
-		 WHERE meeting_id = `+p1,
+		 WHERE meeting_id = $1`,
 		meetingID,
 	)
 	return s.scanSession(row)
@@ -90,9 +87,8 @@ func (s *Store) SaveCall(session *kvstore.CallSession) error {
 		return errors.Wrap(err, "failed to marshal participants")
 	}
 
-	var query string
-	if s.isPostgres() {
-		query = `INSERT INTO rtk_call_sessions
+	_, err = s.db.Exec(
+		`INSERT INTO rtk_call_sessions
 			(id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			ON CONFLICT (id) DO UPDATE SET
@@ -103,23 +99,7 @@ func (s *Store) SaveCall(session *kvstore.CallSession) error {
 				start_at           = EXCLUDED.start_at,
 				end_at             = EXCLUDED.end_at,
 				post_id            = EXCLUDED.post_id,
-				cleanup_fail_count = EXCLUDED.cleanup_fail_count`
-	} else {
-		query = `INSERT INTO rtk_call_sessions
-			(id, channel_id, creator_id, meeting_id, participants, start_at, end_at, post_id, cleanup_fail_count)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON DUPLICATE KEY UPDATE
-				channel_id         = VALUES(channel_id),
-				creator_id         = VALUES(creator_id),
-				meeting_id         = VALUES(meeting_id),
-				participants       = VALUES(participants),
-				start_at           = VALUES(start_at),
-				end_at             = VALUES(end_at),
-				post_id            = VALUES(post_id),
-				cleanup_fail_count = VALUES(cleanup_fail_count)`
-	}
-
-	_, err = s.db.Exec(query,
+				cleanup_fail_count = EXCLUDED.cleanup_fail_count`,
 		session.ID,
 		session.ChannelID,
 		session.CreatorID,
@@ -139,10 +119,8 @@ func (s *Store) UpdateCallParticipants(callID string, participants []string) err
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal participants")
 	}
-	p1 := s.placeholder(1)
-	p2 := s.placeholder(2)
 	result, err := s.db.Exec(
-		`UPDATE rtk_call_sessions SET participants = `+p1+` WHERE id = `+p2,
+		`UPDATE rtk_call_sessions SET participants = $1 WHERE id = $2`,
 		string(participantsJSON), callID,
 	)
 	if err != nil {
@@ -160,10 +138,8 @@ func (s *Store) UpdateCallParticipants(callID string, participants []string) err
 
 // EndCall marks a call as ended by setting end_at.
 func (s *Store) EndCall(callID string, endAt int64) error {
-	p1 := s.placeholder(1)
-	p2 := s.placeholder(2)
 	result, err := s.db.Exec(
-		`UPDATE rtk_call_sessions SET end_at = `+p1+` WHERE id = `+p2,
+		`UPDATE rtk_call_sessions SET end_at = $1 WHERE id = $2`,
 		endAt, callID,
 	)
 	if err != nil {

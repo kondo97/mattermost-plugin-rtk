@@ -62,7 +62,7 @@ func (p *Plugin) OnActivate() error {
 	if err != nil {
 		return fmt.Errorf("failed to get master DB: %w", err)
 	}
-	store, err := sqlstore.NewStore(db, p.client.Store.DriverName())
+	store, err := sqlstore.NewStore(db)
 	if err != nil {
 		return fmt.Errorf("failed to create SQL store: %w", err)
 	}

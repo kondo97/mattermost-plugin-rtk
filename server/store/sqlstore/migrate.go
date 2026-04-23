@@ -94,10 +94,8 @@ func (s *Store) currentVersion() (int, error) {
 }
 
 func (s *Store) recordMigration(version int) error {
-	p1 := s.placeholder(1)
-	p2 := s.placeholder(2)
 	_, err := s.db.Exec(
-		`INSERT INTO rtk_schema_migrations (version, applied_at) VALUES (`+p1+`, `+p2+`)`,
+		`INSERT INTO rtk_schema_migrations (version, applied_at) VALUES ($1, $2)`,
 		version,
 		time.Now().UnixMilli(),
 	)

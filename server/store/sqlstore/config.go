@@ -12,10 +12,9 @@ const (
 )
 
 func (s *Store) configGet(key string) (string, error) {
-	p1 := s.placeholder(1)
 	var value string
 	err := s.db.QueryRow(
-		`SELECT config_value FROM rtk_config WHERE config_key = `+p1,
+		`SELECT config_value FROM rtk_config WHERE config_key = $1`,
 		key,
 	).Scan(&value)
 	if err == sql.ErrNoRows {
@@ -28,15 +27,11 @@ func (s *Store) configGet(key string) (string, error) {
 }
 
 func (s *Store) configSet(key, value string) error {
-	var query string
-	if s.isPostgres() {
-		query = `INSERT INTO rtk_config (config_key, config_value) VALUES ($1, $2)
-			ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value`
-	} else {
-		query = `INSERT INTO rtk_config (config_key, config_value) VALUES (?, ?)
-			ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)`
-	}
-	_, err := s.db.Exec(query, key, value)
+	_, err := s.db.Exec(
+		`INSERT INTO rtk_config (config_key, config_value) VALUES ($1, $2)
+		ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value`,
+		key, value,
+	)
 	return errors.Wrap(err, "failed to set config value")
 }
 
