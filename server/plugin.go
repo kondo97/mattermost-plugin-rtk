@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -114,6 +115,14 @@ func (p *Plugin) registerWebhookIfNeeded() {
 
 	webhookURL := fmt.Sprintf("%s/plugins/%s/api/v1/webhook/rtk", siteURL, manifest.Id)
 	id, secret, err := p.rtkClient.RegisterWebhook(webhookURL, rtkWebhookEvents)
+	if errors.Is(err, rtkclient.ErrWebhookConflict) {
+		p.API.LogInfo("RTK webhook already exists; resolving conflict by deleting and re-registering", "url", webhookURL)
+		if deleteErr := p.deleteWebhookByURL(webhookURL); deleteErr != nil {
+			p.API.LogWarn("Failed to resolve webhook conflict", "error", deleteErr.Error())
+			return
+		}
+		id, secret, err = p.rtkClient.RegisterWebhook(webhookURL, rtkWebhookEvents)
+	}
 	if err != nil {
 		p.API.LogWarn("Failed to register RTK webhook", "error", err.Error())
 		return
@@ -125,6 +134,24 @@ func (p *Plugin) registerWebhookIfNeeded() {
 	if err := p.kvStore.StoreWebhookSecret(secret); err != nil {
 		p.API.LogWarn("Failed to store RTK webhook secret", "error", err.Error())
 	}
+}
+
+// deleteWebhookByURL lists all registered RTK webhooks and deletes the one matching url.
+// Returns an error if listing fails or no matching webhook is found.
+func (p *Plugin) deleteWebhookByURL(url string) error {
+	webhooks, err := p.rtkClient.ListWebhooks()
+	if err != nil {
+		return fmt.Errorf("failed to list RTK webhooks: %w", err)
+	}
+	for _, wh := range webhooks {
+		if wh.URL == url {
+			if err := p.rtkClient.DeleteWebhook(wh.ID); err != nil {
+				return fmt.Errorf("failed to delete conflicting RTK webhook %s: %w", wh.ID, err)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no RTK webhook found with URL %s", url)
 }
 
 // reRegisterWebhook deletes the existing RTK webhook (if any) and registers a fresh one.

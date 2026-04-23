@@ -174,6 +174,9 @@ func (c *client) RegisterWebhook(webhookURL string, events []string) (id, secret
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusConflict {
+		return "", "", ErrWebhookConflict
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return "", "", fmt.Errorf("RegisterWebhook: unexpected status %d", resp.StatusCode)
 	}
@@ -183,6 +186,42 @@ func (c *client) RegisterWebhook(webhookURL string, events []string) (id, secret
 		return "", "", errors.Wrap(err, "failed to decode RegisterWebhook response")
 	}
 	return result.Data.ID, result.Data.Secret, nil
+}
+
+// listWebhookItem is a single entry in the list-webhooks response.
+type listWebhookItem struct {
+	ID  string `json:"id"`
+	URL string `json:"url"`
+}
+
+// listWebhooksData is the data field in the list-webhooks response.
+type listWebhooksData struct {
+	Webhooks []listWebhookItem `json:"webhooks"`
+}
+
+// ListWebhooks returns all webhooks registered for this organisation.
+func (c *client) ListWebhooks() ([]WebhookInfo, error) {
+	url := fmt.Sprintf("%s/webhooks", c.baseURL)
+	resp, err := c.doRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListWebhooks request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ListWebhooks: unexpected status %d", resp.StatusCode)
+	}
+
+	var result apiResponse[listWebhooksData]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, errors.Wrap(err, "failed to decode ListWebhooks response")
+	}
+
+	out := make([]WebhookInfo, 0, len(result.Data.Webhooks))
+	for _, w := range result.Data.Webhooks {
+		out = append(out, WebhookInfo{ID: w.ID, URL: w.URL})
+	}
+	return out, nil
 }
 
 // DeleteWebhook removes a previously registered RTK webhook by ID.
