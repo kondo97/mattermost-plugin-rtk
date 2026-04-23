@@ -77,7 +77,6 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), app.RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
-	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 	mmAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallStarted, mock.Anything, mock.Anything).Return()
 	// sendPushNotifications will call GetConfig; return push disabled to keep this test focused
@@ -217,7 +216,6 @@ func TestHandleLeaveCall_Success(t *testing.T) {
 	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
 	// last participant left → auto-end
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
@@ -237,7 +235,6 @@ func TestHandleEndCall_Success(t *testing.T) {
 	session := &kvstore.CallSession{ID: "call1", ChannelID: "chan1", CreatorID: "user1", MeetingID: "mtg1"}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
@@ -307,9 +304,9 @@ func TestHandleGetCall_ZombieCall(t *testing.T) {
 
 	// endCallInternal path inside ReconcileCallOnDemand.
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
+	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
 
 	w := serveWithUser(t, h, http.MethodGet, "/api/v1/calls/call1", "user1", nil)
 

@@ -149,9 +149,6 @@ func (a *App) CreateCall(channelID, userID string) (*kvstore.CallSession, string
 		a.api.LogError("CreateCall: SaveCall failed", "call_id", session.ID, "channel_id", channelID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to save call: %w", err)
 	}
-	if err := a.store.AddActiveCallID(session.ID); err != nil {
-		a.api.LogWarn("CreateCall: AddActiveCallID failed (best effort)", "call_id", session.ID, "err", err.Error())
-	}
 
 	// BR-04: create post — best effort
 	post := &model.Post{
@@ -358,9 +355,6 @@ func (a *App) endCallInternal(session *kvstore.CallSession, reason string) error
 	if err := a.store.EndCall(session.ID, endAt); err != nil {
 		a.api.LogError("endCallInternal: EndCall failed", "call_id", session.ID, "err", err.Error())
 		return fmt.Errorf("failed to end call in store: %w", err)
-	}
-	if err := a.store.RemoveActiveCallID(session.ID); err != nil {
-		a.api.LogWarn("endCallInternal: RemoveActiveCallID failed (best effort)", "call_id", session.ID, "err", err.Error())
 	}
 
 	durationMs := endAt - session.StartAt

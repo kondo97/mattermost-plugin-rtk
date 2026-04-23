@@ -1,10 +1,7 @@
 package kvstore
 
-// KVStore defines the interface for plugin KV store operations.
+// KVStore defines the interface for plugin store operations.
 type KVStore interface {
-	// GetTemplateData retrieves template data for a user.
-	GetTemplateData(userID string) (string, error)
-
 	// GetCallByChannel returns the active call for a channel, or nil if none exists.
 	GetCallByChannel(channelID string) (*CallSession, error)
 	// GetCallByID returns the call with the given ID, or nil if not found.
@@ -17,13 +14,6 @@ type KVStore interface {
 	UpdateCallParticipants(callID string, participants []string) error
 	// EndCall marks a call as ended with the given timestamp.
 	EndCall(callID string, endAt int64) error
-
-	// GetActiveCallIDs returns the list of currently active call IDs.
-	GetActiveCallIDs() ([]string, error)
-	// AddActiveCallID adds a call ID to the active calls index.
-	AddActiveCallID(callID string) error
-	// RemoveActiveCallID removes a call ID from the active calls index.
-	RemoveActiveCallID(callID string) error
 
 	// StoreWebhookID persists the registered RTK webhook ID.
 	StoreWebhookID(id string) error

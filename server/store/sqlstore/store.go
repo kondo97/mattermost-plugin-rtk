@@ -18,8 +18,3 @@ func NewStore(db *sql.DB) (*Store, error) {
 	}
 	return &Store{db: db}, nil
 }
-
-// GetTemplateData is kept for interface compatibility; not used in production.
-func (s *Store) GetTemplateData(_ string) (string, error) {
-	return "", nil
-}

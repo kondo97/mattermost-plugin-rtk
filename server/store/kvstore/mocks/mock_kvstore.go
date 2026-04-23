@@ -40,20 +40,6 @@ func (m *MockKVStore) EXPECT() *MockKVStoreMockRecorder {
 	return m.recorder
 }
 
-// AddActiveCallID mocks base method.
-func (m *MockKVStore) AddActiveCallID(callID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddActiveCallID", callID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddActiveCallID indicates an expected call of AddActiveCallID.
-func (mr *MockKVStoreMockRecorder) AddActiveCallID(callID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActiveCallID", reflect.TypeOf((*MockKVStore)(nil).AddActiveCallID), callID)
-}
-
 // EndCall mocks base method.
 func (m *MockKVStore) EndCall(callID string, endAt int64) error {
 	m.ctrl.T.Helper()
@@ -66,21 +52,6 @@ func (m *MockKVStore) EndCall(callID string, endAt int64) error {
 func (mr *MockKVStoreMockRecorder) EndCall(callID, endAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndCall", reflect.TypeOf((*MockKVStore)(nil).EndCall), callID, endAt)
-}
-
-// GetActiveCallIDs mocks base method.
-func (m *MockKVStore) GetActiveCallIDs() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetActiveCallIDs")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActiveCallIDs indicates an expected call of GetActiveCallIDs.
-func (mr *MockKVStoreMockRecorder) GetActiveCallIDs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveCallIDs", reflect.TypeOf((*MockKVStore)(nil).GetActiveCallIDs))
 }
 
 // GetCallByChannel mocks base method.
@@ -128,21 +99,6 @@ func (mr *MockKVStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByMeetingID", reflect.TypeOf((*MockKVStore)(nil).GetCallByMeetingID), meetingID)
 }
 
-// GetTemplateData mocks base method.
-func (m *MockKVStore) GetTemplateData(userID string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTemplateData", userID)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTemplateData indicates an expected call of GetTemplateData.
-func (mr *MockKVStoreMockRecorder) GetTemplateData(userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTemplateData", reflect.TypeOf((*MockKVStore)(nil).GetTemplateData), userID)
-}
-
 // GetWebhookID mocks base method.
 func (m *MockKVStore) GetWebhookID() (string, error) {
 	m.ctrl.T.Helper()
@@ -171,20 +127,6 @@ func (m *MockKVStore) GetWebhookSecret() (string, error) {
 func (mr *MockKVStoreMockRecorder) GetWebhookSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookSecret", reflect.TypeOf((*MockKVStore)(nil).GetWebhookSecret))
-}
-
-// RemoveActiveCallID mocks base method.
-func (m *MockKVStore) RemoveActiveCallID(callID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveActiveCallID", callID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveActiveCallID indicates an expected call of RemoveActiveCallID.
-func (mr *MockKVStoreMockRecorder) RemoveActiveCallID(callID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveActiveCallID", reflect.TypeOf((*MockKVStore)(nil).RemoveActiveCallID), callID)
 }
 
 // SaveCall mocks base method.

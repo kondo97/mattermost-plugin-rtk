@@ -152,33 +152,4 @@ func (s *Store) EndCall(callID string, endAt int64) error {
 	return nil
 }
 
-// GetActiveCallIDs returns the IDs of all calls where end_at = 0.
-func (s *Store) GetActiveCallIDs() ([]string, error) {
-	rows, err := s.db.Query(`SELECT id FROM rtk_call_sessions WHERE end_at = 0`)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to query active calls")
-	}
-	defer rows.Close()
 
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, errors.Wrap(err, "failed to scan call ID")
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, errors.Wrap(err, "failed to iterate active call IDs")
-	}
-	if ids == nil {
-		return []string{}, nil
-	}
-	return ids, nil
-}
-
-// AddActiveCallID is a no-op: active calls are derived from end_at = 0 in the DB.
-func (s *Store) AddActiveCallID(_ string) error { return nil }
-
-// RemoveActiveCallID is a no-op: active calls are derived from end_at = 0 in the DB.
-func (s *Store) RemoveActiveCallID(_ string) error { return nil }

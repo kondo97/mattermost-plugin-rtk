@@ -65,7 +65,6 @@ func TestCreateCall_Success(t *testing.T) {
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
-	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 
 	createdPost := &model.Post{Id: "post1"}
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(createdPost, nil)
@@ -124,7 +123,6 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 
 	// endCallInternal path for the stale call.
 	mockStore.EXPECT().EndCall("old-call", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("old-call").Return(nil)
 	mockRTK.EXPECT().EndMeeting("old-mtg").Return(nil)
 	api.On("PublishWebSocketEvent", WSEventCallEnded, mock.Anything, mock.Anything).Return()
 
@@ -134,7 +132,6 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: newMeetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(newMeetingID, "user1", gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: newToken}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
-	mockStore.EXPECT().AddActiveCallID(gomock.Any()).Return(nil)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
 	api.On("PublishWebSocketEvent", WSEventCallStarted, mock.Anything, mock.Anything).Return()
 	api.On("GetConfig").Maybe().Return(&model.Config{
@@ -289,7 +286,6 @@ func TestJoinCall_ZombieCall(t *testing.T) {
 
 	// endCallInternal path for the stale call.
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	api.On("PublishWebSocketEvent", WSEventCallEnded, mock.Anything, mock.Anything).Return()
 
@@ -388,7 +384,6 @@ func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, []string{}).Return(nil)
 	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID(callID).Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	api.On("PublishWebSocketEvent", WSEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
@@ -427,7 +422,6 @@ func TestEndCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockStore.EXPECT().EndCall(callID, gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID(callID).Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	api.On("PublishWebSocketEvent", WSEventCallEnded,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()

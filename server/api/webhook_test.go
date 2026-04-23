@@ -200,7 +200,6 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	// endCallInternal internals
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockStore.EXPECT().RemoveActiveCallID("call1").Return(nil)
 	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
