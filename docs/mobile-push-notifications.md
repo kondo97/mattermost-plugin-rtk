@@ -108,7 +108,7 @@ If push notifications are not configured on the server, the default Mattermost n
 User A starts a call (DM/GM)
     │
     ├─► CreateCall()
-    │       ├─► KVStore: save CallSession
+    │       ├─► SQL DB: save CallSession (rtk_call_sessions)
     │       ├─► CreatePost (custom_cf_call)
     │       ├─► sendPushNotifications()         ← SubType=calls  →  User B's device rings
     │       └─► WebSocket: call_started         ← IncomingCallNotification UI on desktop/web
@@ -116,7 +116,7 @@ User A starts a call (DM/GM)
     │   ... call in progress ...
     │
     └─► endCallInternal() (via LeaveCall / EndCall / cleanup)
-            ├─► KVStore: mark EndAt
+            ├─► SQL DB: mark EndAt (rtk_call_sessions)
             ├─► EndMeeting (RTK API)
             ├─► UpdatePost (set end_at, duration_ms)
             ├─► sendEndCallPushNotifications()  ← SubType=calls_ended  →  User B's device dismisses

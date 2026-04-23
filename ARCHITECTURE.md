@@ -15,7 +15,7 @@
    - 3.2 [HTTP Routing](#32-http-routing)
    - 3.3 [Call Business Logic](#33-call-business-logic)
    - 3.4 [Cloudflare RTK Client](#34-cloudflare-rtk-client)
-   - 3.5 [KVStore](#35-kvstore)
+   - 3.5 [SQL Store](#35-sql-store)
    - 3.6 [Configuration Management](#36-configuration-management)
    - 3.7 [RTK Webhook](#37-rtk-webhook)
 4. [Frontend Architecture](#4-frontend-architecture)
@@ -49,7 +49,7 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 | Backend | Go 1.25 |
 | Frontend | React 18 + TypeScript (Vite build) |
 | Call Engine | Cloudflare RealtimeKit v2 API |
-| Session Persistence | Mattermost KVStore |
+| Session Persistence | Mattermost DB (PostgreSQL / MySQL) |
 | Real-time Sync | Mattermost WebSocket events + RTK Webhook |
 
 ---
@@ -91,19 +91,19 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 |  |  api_static.go      GET /call, /call.js, /worker.js            | |
 |  |  api_webhook.go     POST /api/v1/webhook/rtk (HMAC verify)     | |
 |  |  rtkclient/         Cloudflare RTK API client                  | |
-|  |  store/kvstore/     KVStore abstraction layer                  | |
+|  |  store/kvstore/     KVStore interface + models                  | |
+|  |  store/sqlstore/    SQL-backed store implementation             | |
 |  +----------------+----------------------------+------------------+ |
 |                   |                            |                    |
-|         Mattermost KVStore          PublishWebSocketEvent           |
+|         Mattermost DB (SQL)         PublishWebSocketEvent           |
 +-------------------|----------------------------|--------------------+
                     |                            | WebSocket
                     v                            v (channel members)
         +-----------------------+   +---------------------------+
-        |  KVStore              |   |  Browser WebSocket        |
-        |  call:id:{id}         |   |  custom_{pluginID}_       |
-        |  call:channel:{c}     |   |  call_started, etc.       |
-        |  call:meeting:{m}     |   +---------------------------+
-        |  webhook:id/secret    |
+        |  SQL Tables           |   |  Browser WebSocket        |
+        |  rtk_call_sessions    |   |  custom_{pluginID}_       |
+        |  rtk_config           |   |  call_started, etc.       |
+        |  rtk_schema_migrations|   +---------------------------+
         +-----------------------+
                     ^
                     | Webhook (HMAC-SHA256)
@@ -125,7 +125,7 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 ```go
 type Plugin struct {
     plugin.MattermostPlugin
-    kvStore           kvstore.KVStore     // KVStore client
+    kvStore           kvstore.KVStore     // SQL-backed store (implements kvstore.KVStore)
     rtkClient         rtkclient.RTKClient // Cloudflare RTK API (nil = not configured)
     client            *pluginapi.Client   // Mattermost pluginapi
     commandClient     command.Command     // Slash command handler
@@ -139,19 +139,19 @@ type Plugin struct {
 
 | Hook | Behavior |
 |------|----------|
-| `OnActivate()` | Initialize KVStore, RTKClient, router; register webhook; start cleanup goroutine |
+| `OnActivate()` | Get master DB, run SQL migrations, initialize SQL store, RTKClient, router; register webhook; start cleanup goroutine |
 | `OnDeactivate()` | Stop cleanup goroutine |
 | `OnConfigurationChange()` | Reload config; re-initialize RTKClient and re-register webhook if credentials changed |
 | `ExecuteCommand()` | Handle `/hello` slash command (starter template) |
 
 **Webhook registration logic** (`registerWebhookIfNeeded`):
-- Skip if both `webhook:id` and `webhook:secret` exist in KVStore
+- Skip if both `webhook_id` and `webhook_secret` exist in `rtk_config` table
 - If either is missing, register with the RTK API and persist the returned ID and secret
 - Failures are best-effort (log warning only, does not block activation)
 
 **On credential change** (`reRegisterWebhook`):
 1. Delete existing webhook via RTK API
-2. Clear `webhook:id` and `webhook:secret` in KVStore
+2. Clear `webhook_id` and `webhook_secret` in `rtk_config` table
 3. Call `registerWebhookIfNeeded`
 
 ---
@@ -198,7 +198,7 @@ All call state mutations acquire `callMu sync.Mutex` before executing.
 ```
 callMu.Lock()
   1. GetCallByChannel -> ErrCallAlreadyActive if active call exists
-  2. rtkClient.CreateMeeting() -> abort on failure (no KVStore writes)
+  2. rtkClient.CreateMeeting() -> abort on failure (no DB writes)
   3. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_host")
   4. Build CallSession (UUID, creator=participants[0], StartAt=nowMs())
   5. kvStore.SaveCall(session) + AddActiveCallID
@@ -312,23 +312,26 @@ type RTKClient interface {
 
 ---
 
-### 3.5 KVStore
+### 3.5 SQL Store
 
 **Interface**: `server/store/kvstore/kvstore.go`
-**Implementation**: `server/store/kvstore/calls.go`
+**Implementation**: `server/store/sqlstore/` (calls.go, config.go, migrate.go)
 
-**Key schema**:
+**Schema**:
 
-| Key Pattern | Value | Description |
-|-------------|-------|-------------|
-| `call:channel:{channelID}` | CallSession (JSON) | Active call in a channel |
-| `call:id:{callID}` | CallSession (JSON) | Call lookup by ID |
-| `call:meeting:{meetingID}` | CallSession (JSON) | Call lookup by RTK meeting ID |
-| `active_calls` | []string (JSON) | List of active call IDs |
-| `webhook:id` | string | Registered RTK webhook ID |
-| `webhook:secret` | string | RTK webhook signing secret |
+| Table | Columns | Description |
+|-------|---------|-------------|
+| `rtk_schema_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
+| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `start_at`, `end_at`, `post_id`, `cleanup_fail_count` | One row per call (active and historical) |
+| `rtk_config` | `config_key VARCHAR PK`, `config_value TEXT` | Plugin key-value config (webhook ID, secret) |
 
-**Consistency strategy**: `SaveCall`, `UpdateCallParticipants`, and `EndCall` always update all three keys (`call:channel:*`, `call:id:*`, `call:meeting:*`) atomically within the same operation.
+**Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`
+
+**Active call detection**: `WHERE end_at = 0` (no separate index table needed)
+
+**Migration system**: `RunMigrations()` is called in `OnActivate()`. The `rtk_schema_migrations` table tracks which versions have been applied; each new migration runs exactly once.
+
+**PostgreSQL / MySQL compatibility**: UPSERT uses `ON CONFLICT … DO UPDATE` (PostgreSQL) or `ON DUPLICATE KEY UPDATE` (MySQL). SQL placeholders use `$N` (PostgreSQL) or `?` (MySQL), selected via `driverName`.
 
 ---
 
@@ -381,7 +384,7 @@ RTK delivers the following events to `POST /api/v1/webhook/rtk`:
 | Event | Handling |
 |-------|---------|
 | `meeting.participantLeft` | `GetCallByMeetingID` -> `LeaveCall(callID, userID)` |
-| `meeting.ended` | `GetCallByMeetingID` -> `callMu.Lock()` -> re-read from KVStore -> `endCallInternal()` |
+| `meeting.ended` | `GetCallByMeetingID` -> `callMu.Lock()` -> re-read from DB -> `endCallInternal()` |
 | Others | Ignored (200 OK) |
 
 **Signature verification**:
@@ -392,7 +395,7 @@ If secret is empty, always reject (401)
 
 **Double-end prevention for `meeting.ended`**:
 - Check `EndAt != 0` before acquiring the lock
-- After acquiring the lock, re-read from KVStore to guard against TOCTOU race conditions
+- After acquiring the lock, re-read from the DB to guard against TOCTOU race conditions
 
 ---
 
@@ -643,7 +646,7 @@ User           ChannelHeaderButton        Go Plugin              Cloudflare RTK
   |                    |                      |  (host preset)         |
   |                    |                      |<--{JWT token}----------|
   |                    |                      |                        |
-  |                    |                      |--SaveCall--> KVStore
+  |                    |                      |--SaveCall--> SQL DB
   |                    |                      |--CreatePost (custom_cf_call)
   |                    |                      |--PublishWebSocketEvent("call_started")
   |                    |<--201 {call, token}--|
@@ -688,7 +691,7 @@ FloatingWidget (x button or beforeunload)
   |    UpdateCallParticipants
   |    PublishWebSocketEvent("user_left")
   |    If Participants empty -> endCallInternal()
-  |          EndCall in KVStore
+  |          EndCall in SQL DB
   |          rtkClient.EndMeeting (best-effort)
   |          UpdatePost (end_at, duration_ms)
   |          PublishWebSocketEvent("call_ended")
@@ -855,7 +858,7 @@ Broadcast scope: all channel members
 }
 ```
 Broadcast scope: all channel members
-> **Note**: Also emitted when an already-participating user re-joins (e.g., page reload). The `participants` list in KVStore remains deduplicated.
+> **Note**: Also emitted when an already-participating user re-joins (e.g., page reload). The `participants` list in the DB remains deduplicated.
 
 ### user_left
 
@@ -1033,9 +1036,12 @@ mattermost-plugin-rtk/
 │   ├── store/kvstore/
 │   │   ├── kvstore.go             # KVStore interface
 │   │   ├── models.go              # CallSession type definition
-│   │   ├── calls.go               # KVStore operation implementations
-│   │   ├── startertemplate.go     # Methods from the starter template
 │   │   └── mocks/mock_kvstore.go
+│   ├── store/sqlstore/
+│   │   ├── store.go               # SQL Store struct, NewStore(), placeholder helpers
+│   │   ├── migrate.go             # RunMigrations(), versioned schema migrations
+│   │   ├── calls.go               # CallSession CRUD (SQL)
+│   │   └── config.go              # rtk_config CRUD (WebhookID, Secret)
 │   └── command/
 │       ├── command.go             # /hello slash command
 │       └── mocks/mock_commands.go

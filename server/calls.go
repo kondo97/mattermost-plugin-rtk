@@ -311,7 +311,7 @@ func (p *Plugin) endCallInternal(session *kvstore.CallSession, reason string) er
 	// BR-26: set EndAt
 	endAt := nowMs()
 	if err := p.kvStore.EndCall(session.ID, endAt); err != nil {
-		p.API.LogError("endCallInternal: EndCall KVStore failed", "call_id", session.ID, "err", err.Error())
+		p.API.LogError("endCallInternal: EndCall failed", "call_id", session.ID, "err", err.Error())
 		return fmt.Errorf("failed to end call in store: %w", err)
 	}
 	if err := p.kvStore.RemoveActiveCallID(session.ID); err != nil {

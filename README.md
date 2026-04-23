@@ -18,7 +18,7 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 - **Floating in-call widget** — drag, minimize, and fullscreen while staying in Mattermost
 - **Standalone call page** — opens in a new tab for a full-screen experience
 - **Incoming call notification** — ringing alert for DM and GM channels (30-second auto-dismiss)
-- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand ([詳細: docs/feature-flags.md](docs/feature-flags.md))
+- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand
 - **Admin Console integration** — configure credentials in the System Console or via environment variables
 - **Japanese UI** — full i18n support including RTK SDK UI strings
 
@@ -43,20 +43,21 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 |               LeaveCall / EndCall             |
 |  api_*.go  —  REST endpoints                  |
 |  rtkclient/  —  Cloudflare RTK HTTP client    |
-|  store/kvstore/  —  KVStore abstraction       |
+|  store/kvstore/  —  Store interface + models      |
+|  store/sqlstore/ —  SQL-backed store impl         |
 +-------------------+---------------------------+
                     |                    ^ Webhook (HMAC-SHA256)
                     v                    |
-            Mattermost KVStore    Cloudflare RTK API
-            call:id / channel /   api.realtime.cloudflare.com/v2
-            meeting / active_calls
+            Mattermost DB (SQL)   Cloudflare RTK API
+            rtk_call_sessions     api.realtime.cloudflare.com/v2
+            rtk_config
 ```
 
 **Key design decisions:**
 
 | Topic | Decision |
 |-------|---------|
-| Call state | Stored in Mattermost KVStore; synced via WebSocket events |
+| Call state | Stored in Mattermost DB (SQL); synced via WebSocket events |
 | Concurrency | Single `callMu sync.Mutex` guards all call state mutations |
 | Participant cleanup | RTK webhook (`meeting.participantLeft`) triggers `LeaveCall` |
 | Call page auth | JWT token passed as URL parameter; tab close fires `fetch + keepalive` |
@@ -78,7 +79,7 @@ For a full description of every component, data flow, and API, see **[ARCHITECTU
 ### Build
 
 ```bash
-# Server binaries (linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
+# Server binaries (linux-amd64, linux-arm64)
 make build
 
 # Frontend — main bundle
@@ -121,7 +122,7 @@ All settings are configurable from the System Console. Each can also be overridd
 | Screen Share | `RTK_SCREEN_SHARE_ENABLED` | `true` | Allow screen sharing |
 | Polls | `RTK_POLLS_ENABLED` | `true` | In-call polls |
 | Transcription | `RTK_TRANSCRIPTION_ENABLED` | `true` | Real-time transcription |
-| Waiting Room | `RTK_WAITING_ROOM_ENABLED` | `true` | Require host approval to join |
+| Waiting Room | `RTK_WAITING_ROOM_ENABLED` | `false` | Require host approval to join (opt-in) |
 | Video | `RTK_VIDEO_ENABLED` | `true` | Camera video |
 | Chat | `RTK_CHAT_ENABLED` | `true` | In-call text chat |
 | Plugins | `RTK_PLUGINS_ENABLED` | `true` | Third-party RTK plugins |
@@ -136,6 +137,8 @@ All settings are configurable from the System Console. Each can also be overridd
 |----------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Full implementation guide: system diagram, server/frontend architecture, data flows, API reference, WebSocket events, security design |
 | [docs/mobile-push-notifications.md](./docs/mobile-push-notifications.md) | Mobile push notification design: prerequisites, payload reference for call-started and call-ended, suppression mechanism, and lifecycle flow |
+| [docs/openapi.yaml](./docs/openapi.yaml) | REST API スキーマ定義 (OpenAPI 3.0) |
+| [docs/asyncapi.yaml](./docs/asyncapi.yaml) | WebSocket イベントスキーマ定義 (AsyncAPI) |
 | [aidlc-docs/](./aidlc-docs/) | AI-DLC design artifacts: requirements, user stories, functional design, NFR design, and code generation plans for each unit |
 
 ---

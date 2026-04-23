@@ -86,7 +86,7 @@ func (p *Plugin) handleWebhookParticipantJoined(event rtkWebhookEvent) {
 	}
 
 	// Re-read inside a fresh fetch to get the latest participants list
-	// (JoinCall already updated KVStore before returning the token).
+	// (JoinCall already updated the store before returning the token).
 	fresh, err := p.kvStore.GetCallByID(session.ID)
 	if err != nil {
 		p.API.LogError("handleWebhookParticipantJoined: GetCallByID failed", "call_id", session.ID, "error", err.Error())

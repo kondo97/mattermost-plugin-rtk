@@ -9,9 +9,9 @@ import (
 
 const cleanupInterval = 5 * time.Minute
 
-// runCleanupLoop periodically reconciles KVStore active-call state against the
+// runCleanupLoop periodically reconciles SQL store active-call state against the
 // RTK API. If a meeting no longer exists on the RTK side the call is
-// force-ended in KVStore and a call_ended WebSocket event is emitted so
+// force-ended in the DB and a call_ended WebSocket event is emitted so
 // clients can clean up their UI.
 func (p *Plugin) runCleanupLoop(stop chan struct{}) {
 	ticker := time.NewTicker(cleanupInterval)
@@ -27,7 +27,7 @@ func (p *Plugin) runCleanupLoop(stop chan struct{}) {
 	}
 }
 
-// reconcileActiveCalls iterates over every call that KVStore considers active
+// reconcileActiveCalls iterates over every call that the SQL store considers active
 // and terminates any whose RTK meeting is no longer present.
 func (p *Plugin) reconcileActiveCalls() {
 	if p.rtkClient == nil {
