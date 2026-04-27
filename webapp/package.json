@@ -60,9 +60,9 @@
     "vite-plugin-css-injected-by-js": "4.0.1"
   },
   "dependencies": {
-    "@cloudflare/realtimekit": "1.2.5",
-    "@cloudflare/realtimekit-react": "1.2.5",
-    "@cloudflare/realtimekit-react-ui": "1.1.1",
+    "@cloudflare/realtimekit": "1.4.0",
+    "@cloudflare/realtimekit-react": "1.4.0",
+    "@cloudflare/realtimekit-react-ui": "1.1.2",
     "core-js": "3.26.0",
     "mattermost-redux": "11.1.0",
     "react": "18.2.0",

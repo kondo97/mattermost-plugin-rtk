@@ -6,40 +6,40 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- GetEffectiveOrgID ---
+// --- GetEffectiveAccountID ---
 
-func TestGetEffectiveOrgID_EnvSet(t *testing.T) {
-	t.Setenv("RTK_ORG_ID", "env-org-id")
-	cfg := &configuration{CloudflareOrgID: "config-org-id"}
-	assert.Equal(t, "env-org-id", cfg.GetEffectiveOrgID())
+func TestGetEffectiveAccountID_EnvSet(t *testing.T) {
+	t.Setenv("RTK_ACCOUNT_ID", "env-account-id")
+	cfg := &configuration{CloudflareAccountID: "config-account-id"}
+	assert.Equal(t, "env-account-id", cfg.GetEffectiveAccountID())
 }
 
-func TestGetEffectiveOrgID_EnvEmpty(t *testing.T) {
-	t.Setenv("RTK_ORG_ID", "")
-	cfg := &configuration{CloudflareOrgID: "config-org-id"}
-	assert.Equal(t, "", cfg.GetEffectiveOrgID())
+func TestGetEffectiveAccountID_EnvEmpty(t *testing.T) {
+	t.Setenv("RTK_ACCOUNT_ID", "")
+	cfg := &configuration{CloudflareAccountID: "config-account-id"}
+	assert.Equal(t, "", cfg.GetEffectiveAccountID())
 }
 
-func TestGetEffectiveOrgID_NoEnv(t *testing.T) {
-	cfg := &configuration{CloudflareOrgID: "config-org-id"}
-	assert.Equal(t, "config-org-id", cfg.GetEffectiveOrgID())
+func TestGetEffectiveAccountID_NoEnv(t *testing.T) {
+	cfg := &configuration{CloudflareAccountID: "config-account-id"}
+	assert.Equal(t, "config-account-id", cfg.GetEffectiveAccountID())
 }
 
-// --- GetEffectiveAPIKey ---
+// --- GetEffectiveAPIToken ---
 
-func TestGetEffectiveAPIKey_EnvSet(t *testing.T) {
-	t.Setenv("RTK_API_KEY", "env-api-key")
-	cfg := &configuration{CloudflareAPIKey: "config-api-key"}
-	assert.Equal(t, "env-api-key", cfg.GetEffectiveAPIKey())
+func TestGetEffectiveAPIToken_EnvSet(t *testing.T) {
+	t.Setenv("RTK_API_TOKEN", "env-api-token")
+	cfg := &configuration{CloudflareAPIToken: "config-api-token"}
+	assert.Equal(t, "env-api-token", cfg.GetEffectiveAPIToken())
 }
 
-func TestGetEffectiveAPIKey_EnvEmpty(t *testing.T) {
-	t.Setenv("RTK_API_KEY", "")
-	cfg := &configuration{CloudflareAPIKey: "config-api-key"}
-	assert.Equal(t, "", cfg.GetEffectiveAPIKey())
+func TestGetEffectiveAPIToken_EnvEmpty(t *testing.T) {
+	t.Setenv("RTK_API_TOKEN", "")
+	cfg := &configuration{CloudflareAPIToken: "config-api-token"}
+	assert.Equal(t, "", cfg.GetEffectiveAPIToken())
 }
 
-func TestGetEffectiveAPIKey_NoEnv(t *testing.T) {
-	cfg := &configuration{CloudflareAPIKey: "config-api-key"}
-	assert.Equal(t, "config-api-key", cfg.GetEffectiveAPIKey())
+func TestGetEffectiveAPIToken_NoEnv(t *testing.T) {
+	cfg := &configuration{CloudflareAPIToken: "config-api-token"}
+	assert.Equal(t, "config-api-token", cfg.GetEffectiveAPIToken())
 }

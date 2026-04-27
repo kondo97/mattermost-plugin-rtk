@@ -91,7 +91,7 @@ export default class Plugin {
         );
         registry.registerWebSocketEventHandler(
             `custom_${manifest.id}_user_joined`,
-            handleUserJoined(store as unknown as Store<GlobalState>, currentUserId),
+            handleUserJoined(store as unknown as Store<GlobalState>),
         );
         registry.registerWebSocketEventHandler(
             `custom_${manifest.id}_user_left`,
@@ -99,7 +99,7 @@ export default class Plugin {
         );
         registry.registerWebSocketEventHandler(
             `custom_${manifest.id}_call_ended`,
-            handleCallEnded(store as unknown as Store<GlobalState>, currentUserId),
+            handleCallEnded(store as unknown as Store<GlobalState>),
         );
         registry.registerWebSocketEventHandler(
             `custom_${manifest.id}_notification_dismissed`,
@@ -154,19 +154,23 @@ export default class Plugin {
                     return;
                 }
 
+                // Both endpoints return the full CallSession struct from the server.
+                // Note: the HTTP JSON field is "create_at" (from CallSession.CreateAt),
+                // whereas the call_started WS event uses "start_at" — they are different serializations.
+                interface CallSessionData {
+                    id: string;
+                    channel_id: string;
+                    creator_id: string;
+                    participants: string[];
+                    create_at: number;
+                    post_id: string;
+                }
                 interface CallTokenResponse {
-                    call: {id: string; channel_id: string};
+                    call: CallSessionData;
                     token: string;
                 }
                 interface StartCallResponse {
-                    call: {
-                        id: string;
-                        channel_id: string;
-                        creator_id: string;
-                        participants: string[];
-                        start_at: number;
-                        post_id: string;
-                    };
+                    call: CallSessionData;
                     token: string;
                 }
 
@@ -188,11 +192,20 @@ export default class Plugin {
                         store.dispatch(setCallError(result.error));
                         return;
                     }
+                    const {data: joinData} = result;
+                    store.dispatch(upsertCall({
+                        id: joinData.call.id,
+                        channelId: joinData.call.channel_id,
+                        creatorId: joinData.call.creator_id,
+                        participants: joinData.call.participants,
+                        startAt: joinData.call.create_at,
+                        postId: joinData.call.post_id,
+                    }));
                     playJoinSound();
                     store.dispatch(setMyActiveCall({
-                        callId: result.data.call.id,
-                        channelId: result.data.call.channel_id,
-                        token: result.data.token,
+                        callId: joinData.call.id,
+                        channelId: joinData.call.channel_id,
+                        token: joinData.token,
                     }));
                     return;
                 }
@@ -214,7 +227,7 @@ export default class Plugin {
                     channelId: data.call.channel_id,
                     creatorId: data.call.creator_id,
                     participants: data.call.participants,
-                    startAt: data.call.start_at,
+                    startAt: data.call.create_at,
                     postId: data.call.post_id,
                 }));
                 playJoinSound();
@@ -247,7 +260,7 @@ export default class Plugin {
         ));
 
         registry.registerGlobalComponent(() => (
-            <IncomingCallNotification currentUserId={currentUserId}/>
+            <IncomingCallNotification/>
         ));
 
         // 8. Register custom post type renderer
@@ -259,12 +272,17 @@ export default class Plugin {
 
         // 9. Register custom admin console settings (show env var status)
         registry.registerAdminConsoleCustomSetting(
-            'CloudflareOrgID',
+            'CloudflareAccountID',
             EnvVarCredentialSetting as never,
             {showTitle: true},
         );
         registry.registerAdminConsoleCustomSetting(
-            'CloudflareAPIKey',
+            'CloudflareAppID',
+            EnvVarCredentialSetting as never,
+            {showTitle: true},
+        );
+        registry.registerAdminConsoleCustomSetting(
+            'CloudflareAPIToken',
             EnvVarCredentialSetting as never,
             {showTitle: true},
         );

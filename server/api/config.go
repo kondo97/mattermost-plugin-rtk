@@ -29,9 +29,9 @@ func (h *API) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"enabled":           status.Enabled,
-		"org_id_via_env":    status.OrgIDViaEnv,
-		"api_key_via_env":   status.APIKeyViaEnv,
-		"cloudflare_org_id": status.OrgID,
+		"enabled":               status.Enabled,
+		"account_id_via_env":    status.AccountIDViaEnv,
+		"api_token_via_env":     status.APITokenViaEnv,
+		"cloudflare_account_id": status.AccountID,
 	})
 }

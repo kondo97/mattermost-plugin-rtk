@@ -1,7 +1,5 @@
 name: ci
 on:
-  schedule:
-    - cron: "0 0 * * *"
   push:
     branches:
       - master
@@ -11,9 +9,67 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  plugin-ci:
-    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@main
-    secrets: inherit
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build manifest tool
+        run: cd build/manifest && go build -o ../bin/manifest
+
+      - name: Apply manifest
+        run: ./build/bin/manifest apply
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+
+      - name: golangci-lint
+        run: golangci-lint run ./...
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@v1.13.0
+
+      - name: Test
+        run: gotestsum --format standard-verbose --junitfile report.xml -- ./...
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-test-report
+          path: report.xml
+
+  webapp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check types
+        run: npm run check-types
+
+      - name: Test
+        run: npm run test

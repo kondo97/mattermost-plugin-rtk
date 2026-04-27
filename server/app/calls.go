@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mattermost/mattermost/server/public/model"
 
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
@@ -99,7 +98,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 	if existing != nil {
 		// BR-01: verify the existing call is still alive on the RTK side.
 		// If the meeting no longer exists (404), force-end the stale record and proceed.
-		_, rtkErr := a.rtk.GetMeetingParticipants(existing.MeetingID)
+		_, rtkErr := a.rtk.GetMeeting(existing.MeetingID)
 		switch {
 		case errors.Is(rtkErr, rtkclient.ErrMeetingNotFound):
 			// Meeting confirmed gone — force-end the stale call and continue to create a new one.
@@ -111,7 +110,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 			}
 		case rtkErr != nil:
 			// Transient RTK error — treat the existing call as alive.
-			a.api.LogWarn("CreateCall: GetMeetingParticipants transient error, treating existing call as active",
+			a.api.LogWarn("CreateCall: GetMeeting transient error, treating existing call as active",
 				"call_id", existing.ID, "err", rtkErr.Error())
 			return nil, "", ErrCallAlreadyActive
 		default:
@@ -120,11 +119,60 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		}
 	}
 
-	// BR-02/BR-05: create RTK meeting — abort on failure
-	meeting, err := a.rtk.CreateMeeting(rtkclient.CreateMeetingOptions{})
+	// BR-02/BR-05: resolve or create RTK meeting for this channel
+	meetingID, savedAppConfigID, err := a.store.GetChannelMeeting(channelID)
 	if err != nil {
-		a.api.LogError("CreateCall: CreateMeeting failed", "channel_id", channelID, "user_id", userID, "err", err.Error())
-		return nil, "", fmt.Errorf("failed to create meeting: %w", err)
+		a.api.LogWarn("CreateCall: GetChannelMeeting failed, will create new meeting", "channel_id", channelID, "err", err.Error())
+		meetingID = ""
+	}
+
+	// Get the current app config ID for staleness check and saving.
+	currentAppConfigID, err := a.store.GetLatestAppConfigID()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get app config ID: %w", err)
+	}
+	if currentAppConfigID == "" {
+		return nil, "", fmt.Errorf("RTK app config not initialized")
+	}
+
+	var meeting *rtkclient.Meeting
+	if meetingID != "" {
+		// Stale check: if the app config has changed since this meeting was saved, treat it as invalid.
+		if savedAppConfigID != "" && currentAppConfigID != "" && savedAppConfigID != currentAppConfigID {
+			a.api.LogInfo("CreateCall: app config changed since meeting creation, creating new one",
+				"channel_id", channelID, "old_app_config_id", savedAppConfigID, "current_app_config_id", currentAppConfigID)
+			meetingID = ""
+		}
+	}
+
+	if meetingID != "" {
+		// Verify the stored meeting still exists in Cloudflare.
+		_, rtkErr := a.rtk.GetMeeting(meetingID)
+		if rtkErr != nil && errors.Is(rtkErr, rtkclient.ErrMeetingNotFound) {
+			a.api.LogInfo("CreateCall: stored meeting gone (404), creating new one", "channel_id", channelID, "old_meeting_id", meetingID)
+			meetingID = ""
+		} else if rtkErr != nil {
+			// Transient error — reuse stored ID anyway.
+			a.api.LogWarn("CreateCall: GetMeeting transient error, reusing stored meeting ID", "channel_id", channelID, "meeting_id", meetingID, "err", rtkErr.Error())
+			meeting = &rtkclient.Meeting{ID: meetingID}
+		} else {
+			meeting = &rtkclient.Meeting{ID: meetingID}
+		}
+	}
+
+	if meeting == nil {
+		meeting, err = a.rtk.CreateMeeting()
+		if err != nil {
+			a.api.LogError("CreateCall: CreateMeeting failed", "channel_id", channelID, "user_id", userID, "err", err.Error())
+			return nil, "", fmt.Errorf("failed to create meeting: %w", err)
+		}
+		if meeting.ID == "" {
+			a.api.LogError("CreateCall: CreateMeeting returned empty meeting ID", "channel_id", channelID, "user_id", userID)
+			return nil, "", fmt.Errorf("CreateMeeting returned empty meeting ID")
+		}
+		if saveErr := a.store.SaveChannelMeeting(channelID, meeting.ID, currentAppConfigID); saveErr != nil {
+			a.api.LogWarn("CreateCall: SaveChannelMeeting failed (best effort)", "channel_id", channelID, "meeting_id", meeting.ID, "err", saveErr.Error())
+		}
 	}
 
 	displayName := a.getUserDisplayName(userID)
@@ -136,13 +184,15 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 
 	// BR-03: creator is added to participants
 	session := &store.CallSession{
-		ID:           uuid.New().String(),
+		ID:           model.NewId(),
 		ChannelID:    channelID,
 		CreatorID:    userID,
 		MeetingID:    meeting.ID,
 		Participants: []string{userID},
-		StartAt:      nowMs(),
+		CreateAt:     nowMs(),
+		UpdateAt:     nowMs(),
 		EndAt:        0,
+		AppConfigID:  currentAppConfigID,
 	}
 
 	if err := a.store.SaveCall(session); err != nil {
@@ -160,7 +210,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 			"channel_id":   channelID,
 			"creator_id":   userID,
 			"participants": session.Participants,
-			"start_at":     session.StartAt,
+			"start_at":     session.CreateAt,
 		},
 	}
 	createdPost, appErr := a.api.CreatePost(post)
@@ -168,6 +218,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		a.api.LogWarn("CreateCall: CreatePost failed (best effort)", "call_id", session.ID, "err", appErr.Error())
 	} else {
 		session.PostID = createdPost.Id
+		session.UpdateAt = nowMs()
 		if err := a.store.SaveCall(session); err != nil {
 			a.api.LogWarn("CreateCall: failed to update PostID (best effort)", "call_id", session.ID, "err", err.Error())
 		}
@@ -186,7 +237,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		"channel_id":   channelID,
 		"creator_id":   userID,
 		"participants": session.Participants,
-		"start_at":     session.StartAt,
+		"start_at":     session.CreateAt,
 		"post_id":      session.PostID,
 	}, &model.WebsocketBroadcast{ChannelId: channelID})
 
@@ -225,7 +276,7 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 
 	// Verify the RTK meeting is still alive. A definitive 404 means the call is
 	// stale — force-end it and report not found to the caller.
-	_, rtkErr := a.rtk.GetMeetingParticipants(session.MeetingID)
+	_, rtkErr := a.rtk.GetMeeting(session.MeetingID)
 	if errors.Is(rtkErr, rtkclient.ErrMeetingNotFound) {
 		a.api.LogInfo("JoinCall: RTK meeting not found, force-ending stale call",
 			"call_id", callID, "meeting_id", session.MeetingID)
@@ -234,7 +285,7 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 		}
 		return nil, "", ErrCallNotFound
 	} else if rtkErr != nil {
-		a.api.LogWarn("JoinCall: GetMeetingParticipants transient error (continuing)",
+		a.api.LogWarn("JoinCall: GetMeeting transient error (continuing)",
 			"call_id", callID, "err", rtkErr.Error())
 	}
 
@@ -357,14 +408,10 @@ func (a *App) endCallInternal(session *store.CallSession, reason string) error {
 		return fmt.Errorf("failed to end call in store: %w", err)
 	}
 
-	durationMs := endAt - session.StartAt
+	durationMs := endAt - session.CreateAt
 
-	// BR-27: end RTK meeting — best effort
-	if a.rtk != nil {
-		if err := a.rtk.EndMeeting(session.MeetingID); err != nil {
-			a.api.LogWarn("endCallInternal: EndMeeting failed (best effort)", "call_id", session.ID, "err", err.Error())
-		}
-	}
+	// BR-27: RTK sessions are auto-ended by Cloudflare when the last participant leaves.
+	// Do NOT call EndMeeting — Meeting is a permanent reusable room.
 
 	// BR-28: update post to ended state — best effort
 	if session.PostID != "" {
@@ -408,7 +455,7 @@ func (a *App) ReconcileCallOnDemand(session *store.CallSession) {
 		return
 	}
 
-	_, err := a.rtk.GetMeetingParticipants(session.MeetingID)
+	_, err := a.rtk.GetMeeting(session.MeetingID)
 	if !errors.Is(err, rtkclient.ErrMeetingNotFound) {
 		// Meeting is alive or a transient error occurred — do nothing.
 		return

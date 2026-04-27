@@ -13,7 +13,7 @@ import (
 
 func TestHandleConfigStatus_Enabled(t *testing.T) {
 	h, _ := newTestAPI(t, nil, nil)
-	h.configFn = func() ConfigStatus { return ConfigStatus{Enabled: true, OrgID: "org1"} }
+	h.configFn = func() ConfigStatus { return ConfigStatus{Enabled: true, AccountID: "account1"} }
 
 	w := serveWithUser(t, h, http.MethodGet, "/api/v1/config/status", "user1", nil)
 
@@ -40,7 +40,7 @@ func TestHandleConfigStatus_Disabled(t *testing.T) {
 func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 	h, mmAPI := newTestAPI(t, nil, nil)
 	h.configFn = func() ConfigStatus {
-		return ConfigStatus{Enabled: true, OrgID: "org1"}
+		return ConfigStatus{Enabled: true, AccountID: "account1"}
 	}
 	mmAPI.On("HasPermissionTo", "admin1", model.PermissionManageSystem).Return(true)
 
@@ -50,8 +50,8 @@ func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, true, resp["enabled"])
-	assert.Equal(t, "org1", resp["cloudflare_org_id"])
-	assert.Nil(t, resp["cloudflare_api_key"], "API key must never be returned")
+	assert.Equal(t, "account1", resp["cloudflare_account_id"])
+	assert.Nil(t, resp["cloudflare_api_token"], "API token must never be returned")
 	assert.Nil(t, resp["feature_flags"], "feature_flags must not be present")
 }
 

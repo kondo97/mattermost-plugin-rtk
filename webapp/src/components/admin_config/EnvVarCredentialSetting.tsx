@@ -7,9 +7,9 @@ import {useIntl} from 'react-intl';
 
 type AdminStatusResponse = {
     enabled: boolean;
-    org_id_via_env: boolean;
-    api_key_via_env: boolean;
-    cloudflare_org_id: string;
+    account_id_via_env: boolean;
+    api_token_via_env: boolean;
+    cloudflare_account_id: string;
 };
 
 // Props passed by Mattermost's admin console to registerAdminConsoleCustomSetting components.
@@ -22,8 +22,9 @@ type Props = {
 };
 
 const ENV_VAR_NAMES: Record<string, string> = {
-    CloudflareOrgID: 'RTK_ORG_ID',
-    CloudflareAPIKey: 'RTK_API_KEY',
+    CloudflareAccountID: 'RTK_ACCOUNT_ID',
+    CloudflareAppID: 'RTK_APP_ID',
+    CloudflareAPIToken: 'RTK_API_TOKEN',
 };
 
 const EnvVarCredentialSetting: React.FC<Props> = ({id, value, disabled, onChange, setSaveNeeded}) => {
@@ -33,7 +34,12 @@ const EnvVarCredentialSetting: React.FC<Props> = ({id, value, disabled, onChange
     useEffect(() => {
         pluginFetch<AdminStatusResponse>('/api/v1/config/admin-status').then((result) => {
             if ('data' in result) {
-                const key = id === 'CloudflareOrgID' ? 'org_id_via_env' : 'api_key_via_env';
+                const keyMap: Record<string, keyof AdminStatusResponse> = {
+                    CloudflareAccountID: 'account_id_via_env',
+                    CloudflareAppID: 'account_id_via_env',
+                    CloudflareAPIToken: 'api_token_via_env',
+                };
+                const key = keyMap[id] ?? 'account_id_via_env';
                 setViaEnv(Boolean(result.data[key]));
             } else {
                 setViaEnv(false);
@@ -68,7 +74,7 @@ const EnvVarCredentialSetting: React.FC<Props> = ({id, value, disabled, onChange
         );
     }
 
-    const isSecret = id === 'CloudflareAPIKey';
+    const isSecret = id === 'CloudflareAPIToken';
     return (
         <input
             className='form-control'

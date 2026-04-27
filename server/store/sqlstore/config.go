@@ -2,40 +2,70 @@ package sqlstore
 
 import (
 	"database/sql"
+	"time"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/pkg/errors"
 )
 
-const (
-	keyWebhookID     = "webhook_id"
-	keyWebhookSecret = "webhook_secret"
-)
+func (s *Store) StoreAppConfig(accountID, appID string) (string, error) {
+	id := model.NewId()
+	_, err := s.db.Exec(
+		`INSERT INTO rtk_app_config (id, account_id, app_id, createat) VALUES ($1, $2, $3, $4)`,
+		id, accountID, appID, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to store app config")
+	}
+	return id, nil
+}
 
-func (s *Store) configGet(key string) (string, error) {
-	var value string
+func (s *Store) GetAppID() (string, error) {
+	var appID string
 	err := s.db.QueryRow(
-		`SELECT config_value FROM rtk_config WHERE config_key = $1`,
-		key,
-	).Scan(&value)
+		`SELECT app_id FROM rtk_app_config ORDER BY createat DESC LIMIT 1`,
+	).Scan(&appID)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get config value")
-	}
-	return value, nil
+	return appID, errors.Wrap(err, "failed to get app ID")
 }
 
-func (s *Store) configSet(key, value string) error {
+func (s *Store) StoreWebhookConfig(appConfigID string, webhookID string) error {
+	id := model.NewId()
 	_, err := s.db.Exec(
-		`INSERT INTO rtk_config (config_key, config_value) VALUES ($1, $2)
-		ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value`,
-		key, value,
+		`INSERT INTO rtk_webhook_config (id, app_config_id, webhook_id, createat) VALUES ($1, $2, $3, $4)`,
+		id, appConfigID, webhookID, time.Now().UnixMilli(),
 	)
-	return errors.Wrap(err, "failed to set config value")
+	return errors.Wrap(err, "failed to store webhook config")
 }
 
-func (s *Store) StoreWebhookID(id string) error         { return s.configSet(keyWebhookID, id) }
-func (s *Store) GetWebhookID() (string, error)          { return s.configGet(keyWebhookID) }
-func (s *Store) StoreWebhookSecret(secret string) error { return s.configSet(keyWebhookSecret, secret) }
-func (s *Store) GetWebhookSecret() (string, error)      { return s.configGet(keyWebhookSecret) }
+func (s *Store) ClearWebhookConfig(appConfigID string) error {
+	id := model.NewId()
+	_, err := s.db.Exec(
+		`INSERT INTO rtk_webhook_config (id, app_config_id, webhook_id, createat) VALUES ($1, $2, '', $3)`,
+		id, appConfigID, time.Now().UnixMilli(),
+	)
+	return errors.Wrap(err, "failed to clear webhook config")
+}
+
+func (s *Store) GetLatestAppConfigID() (string, error) {
+	var id string
+	err := s.db.QueryRow(
+		`SELECT id FROM rtk_app_config ORDER BY createat DESC LIMIT 1`,
+	).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return id, errors.Wrap(err, "failed to get latest app config ID")
+}
+
+func (s *Store) GetWebhookConfig() (webhookID string, err error) {
+	err = s.db.QueryRow(
+		`SELECT webhook_id FROM rtk_webhook_config ORDER BY createat DESC LIMIT 1`,
+	).Scan(&webhookID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return webhookID, errors.Wrap(err, "failed to get webhook config")
+}

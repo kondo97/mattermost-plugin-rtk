@@ -279,7 +279,7 @@ type RTKClient interface {
     EndMeeting(meetingID string) error
     RegisterWebhook(url string, events []string) (id, secret string, err error)
     DeleteWebhook(webhookID string) error
-    GetMeetingParticipants(meetingID string) ([]string, error)
+    GetMeeting(meetingID string) (*Meeting, error)
 }
 ```
 
@@ -301,7 +301,7 @@ type RTKClient interface {
 | `EndMeeting()` | `DELETE /meetings/{id}` | Terminate meeting |
 | `RegisterWebhook()` | `POST /webhooks` | Register webhook |
 | `DeleteWebhook()` | `DELETE /webhooks/{id}` | Remove webhook |
-| `GetMeetingParticipants()` | `GET /meetings/{id}/active-participants` | List active participants |
+| `GetMeeting()` | `GET /meetings/{id}` | Probe meeting existence (404 ⇒ deleted) |
 
 **RTK presets**:
 
@@ -322,7 +322,7 @@ type RTKClient interface {
 | Table | Columns | Description |
 |-------|---------|-------------|
 | `rtk_schema_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
-| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `start_at`, `end_at`, `post_id`, `cleanup_fail_count` | One row per call (active and historical) |
+| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `start_at`, `end_at`, `post_id`, `app_config_id` | One row per call (active and historical) |
 | `rtk_config` | `config_key VARCHAR PK`, `config_value TEXT` | Plugin key-value config (webhook ID, secret) |
 
 **Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`

@@ -11,29 +11,26 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultBaseURL = "https://api.realtime.cloudflare.com/v2"
-
 type client struct {
 	httpClient *http.Client
 	baseURL    string
-	orgID      string
-	apiKey     string
+	apiToken   string
 }
 
 // NewClient creates a new RTKClient with the given Cloudflare credentials.
-func NewClient(orgID, apiKey string) RTKClient {
+func NewClient(accountID, appID, apiToken string) RTKClient {
 	return &client{
 		httpClient: &http.Client{Timeout: 10 * time.Second},
-		baseURL:    defaultBaseURL,
-		orgID:      orgID,
-		apiKey:     apiKey,
+		baseURL:    fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/realtime/kit/%s", accountID, appID),
+		apiToken:   apiToken,
 	}
 }
 
 // apiResponse is the common wrapper for all RTK API responses.
+// The Cloudflare RealtimeKit API consistently uses "data" as the result key.
 type apiResponse[T any] struct {
 	Success bool `json:"success"`
-	Data    T    `json:"data"`
+	Result  T    `json:"data"`
 }
 
 // createMeetingRequest is the request body for creating a meeting.
@@ -60,7 +57,7 @@ type addParticipantData struct {
 }
 
 // CreateMeeting creates a new RTK meeting and returns the meeting ID.
-func (c *client) CreateMeeting(opts CreateMeetingOptions) (*Meeting, error) {
+func (c *client) CreateMeeting() (*Meeting, error) {
 	url := fmt.Sprintf("%s/meetings", c.baseURL)
 	body, err := json.Marshal(createMeetingRequest{
 		Title: "",
@@ -86,7 +83,10 @@ func (c *client) CreateMeeting(opts CreateMeetingOptions) (*Meeting, error) {
 	if !result.Success {
 		return nil, fmt.Errorf("CreateMeeting: API returned success=false")
 	}
-	return &Meeting{ID: result.Data.ID}, nil
+	if result.Result.ID == "" {
+		return nil, fmt.Errorf("CreateMeeting: API returned empty meeting ID")
+	}
+	return &Meeting{ID: result.Result.ID}, nil
 }
 
 // GenerateToken adds a participant to the meeting and returns an auth token.
@@ -114,6 +114,9 @@ func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string
 
 	respBody, _ := io.ReadAll(resp.Body)
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrMeetingNotFound
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("GenerateToken: unexpected status %d: %s", resp.StatusCode, string(respBody))
 	}
@@ -125,22 +128,7 @@ func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string
 	if !result.Success {
 		return nil, fmt.Errorf("GenerateToken: API returned success=false: %s", string(respBody))
 	}
-	return &Token{Token: result.Data.Token}, nil
-}
-
-// EndMeeting terminates an RTK meeting (best effort — caller should not abort on error).
-func (c *client) EndMeeting(meetingID string) error {
-	url := fmt.Sprintf("%s/meetings/%s", c.baseURL, meetingID)
-	resp, err := c.doRequest(http.MethodDelete, url, nil)
-	if err != nil {
-		return errors.Wrap(err, "EndMeeting request failed")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("EndMeeting: unexpected status %d", resp.StatusCode)
-	}
-	return nil
+	return &Token{Token: result.Result.Token}, nil
 }
 
 // getWebhookData is the data field in the get-webhook response.
@@ -170,7 +158,7 @@ func (c *client) GetWebhook(id string) (*WebhookInfo, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, errors.Wrap(err, "failed to decode GetWebhook response")
 	}
-	return &WebhookInfo{ID: result.Data.ID, URL: result.Data.URL}, nil
+	return &WebhookInfo{ID: result.Result.ID, URL: result.Result.URL}, nil
 }
 
 // registerWebhookRequest is the request body for registering a webhook.
@@ -182,12 +170,18 @@ type registerWebhookRequest struct {
 
 // registerWebhookData is the data field in the register webhook response.
 type registerWebhookData struct {
-	ID     string `json:"id"`
-	Secret string `json:"secret"`
+	ID string `json:"id"`
+}
+
+// registerWebhookResponse wraps the register-webhook result.
+// The RTK register-webhook endpoint returns {"success":true,"data":{"id":"...",...}}.
+type registerWebhookResponse struct {
+	Success bool                `json:"success"`
+	Data    registerWebhookData `json:"data"`
 }
 
 // RegisterWebhook registers a webhook endpoint with RTK for the given events.
-func (c *client) RegisterWebhook(webhookURL string, events []string) (id, secret string, err error) {
+func (c *client) RegisterWebhook(webhookURL string, events []string) (string, error) {
 	reqURL := fmt.Sprintf("%s/webhooks", c.baseURL)
 	body, err := json.Marshal(registerWebhookRequest{
 		Name:   "mattermost-plugin-rtk",
@@ -195,27 +189,30 @@ func (c *client) RegisterWebhook(webhookURL string, events []string) (id, secret
 		Events: events,
 	})
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to marshal RegisterWebhook request")
+		return "", errors.Wrap(err, "failed to marshal RegisterWebhook request")
 	}
 
 	resp, err := c.doRequest(http.MethodPost, reqURL, body)
 	if err != nil {
-		return "", "", errors.Wrap(err, "RegisterWebhook request failed")
+		return "", errors.Wrap(err, "RegisterWebhook request failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
-		return "", "", ErrWebhookConflict
+		return "", ErrWebhookConflict
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", "", fmt.Errorf("RegisterWebhook: unexpected status %d", resp.StatusCode)
+		return "", fmt.Errorf("RegisterWebhook: unexpected status %d", resp.StatusCode)
 	}
 
-	var result apiResponse[registerWebhookData]
+	var result registerWebhookResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", errors.Wrap(err, "failed to decode RegisterWebhook response")
+		return "", errors.Wrap(err, "failed to decode RegisterWebhook response")
 	}
-	return result.Data.ID, result.Data.Secret, nil
+	if !result.Success {
+		return "", fmt.Errorf("RegisterWebhook: API returned success=false")
+	}
+	return result.Data.ID, nil
 }
 
 // listWebhookItem is a single entry in the list-webhooks response.
@@ -224,9 +221,11 @@ type listWebhookItem struct {
 	URL string `json:"url"`
 }
 
-// listWebhooksData is the data field in the list-webhooks response.
-type listWebhooksData struct {
-	Webhooks []listWebhookItem `json:"webhooks"`
+// listWebhooksResponse wraps the array of webhooks.
+// The RTK list-webhooks endpoint returns {"success":true,"data":[...]}.
+type listWebhooksResponse struct {
+	Success bool              `json:"success"`
+	Data    []listWebhookItem `json:"data"`
 }
 
 // ListWebhooks returns all webhooks registered for this organisation.
@@ -242,13 +241,18 @@ func (c *client) ListWebhooks() ([]WebhookInfo, error) {
 		return nil, fmt.Errorf("ListWebhooks: unexpected status %d", resp.StatusCode)
 	}
 
-	var result apiResponse[listWebhooksData]
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, errors.Wrap(err, "failed to decode ListWebhooks response")
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read ListWebhooks response body")
 	}
 
-	out := make([]WebhookInfo, 0, len(result.Data.Webhooks))
-	for _, w := range result.Data.Webhooks {
+	var result listWebhooksResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, errors.Wrapf(err, "failed to decode ListWebhooks response: %s", string(body))
+	}
+
+	out := make([]WebhookInfo, 0, len(result.Data))
+	for _, w := range result.Data {
 		out = append(out, WebhookInfo{ID: w.ID, URL: w.URL})
 	}
 	return out, nil
@@ -269,22 +273,24 @@ func (c *client) DeleteWebhook(webhookID string) error {
 	return nil
 }
 
-// meetingParticipantItem is a single entry in the list-participants response.
-type meetingParticipantItem struct {
-	CustomParticipantID string `json:"custom_participant_id"`
+// getMeetingData is the data field in the Get Meeting by ID response.
+// Only the ID is consumed; remaining fields are ignored intentionally.
+type getMeetingData struct {
+	ID string `json:"id"`
 }
 
-// meetingParticipantsData wraps the participants array returned by the API.
-type meetingParticipantsData struct {
-	Participants []meetingParticipantItem `json:"participants"`
-}
-
-// GetMeetingParticipants returns the custom participant IDs currently connected to a meeting.
-func (c *client) GetMeetingParticipants(meetingID string) ([]string, error) {
-	url := fmt.Sprintf("%s/meetings/%s/active-participants", c.baseURL, meetingID)
+// GetMeeting fetches a meeting by ID to verify it still exists in Cloudflare.
+// Returns ErrMeetingNotFound on HTTP 404. All other non-2xx responses or
+// transport errors are surfaced as wrapped errors and must be treated as
+// transient by callers (i.e. do not infer "meeting deleted" from them).
+//
+// Endpoint: GET /meetings/{meetingID}
+// Cloudflare docs: MeetingGetMeetingByIDResponse model.
+func (c *client) GetMeeting(meetingID string) (*Meeting, error) {
+	url := fmt.Sprintf("%s/meetings/%s", c.baseURL, meetingID)
 	resp, err := c.doRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetMeetingParticipants request failed")
+		return nil, errors.Wrap(err, "GetMeeting request failed")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -292,21 +298,17 @@ func (c *client) GetMeetingParticipants(meetingID string) ([]string, error) {
 		return nil, ErrMeetingNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GetMeetingParticipants: unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("GetMeeting: unexpected status %d", resp.StatusCode)
 	}
 
-	var result apiResponse[meetingParticipantsData]
+	var result apiResponse[getMeetingData]
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, errors.Wrap(err, "failed to decode GetMeetingParticipants response")
+		return nil, errors.Wrap(err, "failed to decode GetMeeting response")
 	}
-
-	ids := make([]string, 0, len(result.Data.Participants))
-	for _, p := range result.Data.Participants {
-		if p.CustomParticipantID != "" {
-			ids = append(ids, p.CustomParticipantID)
-		}
+	if result.Result.ID == "" {
+		return nil, fmt.Errorf("GetMeeting: API returned empty meeting ID")
 	}
-	return ids, nil
+	return &Meeting{ID: result.Result.ID}, nil
 }
 
 // doRequest executes an authenticated HTTP request.
@@ -321,7 +323,7 @@ func (c *client) doRequest(method, url string, body []byte) (*http.Response, err
 		return nil, errors.Wrap(err, "failed to create HTTP request")
 	}
 
-	req.SetBasicAuth(c.orgID, c.apiKey)
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

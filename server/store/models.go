@@ -12,10 +12,14 @@ type CallSession struct {
 	MeetingID string `json:"meeting_id"`
 	// Participants holds the current participant UserIDs.
 	Participants []string `json:"participants"`
-	// StartAt is the Unix timestamp (ms) when the call was created.
-	StartAt int64 `json:"start_at"`
+	// CreateAt is the Unix timestamp (ms) when the call was created.
+	CreateAt int64 `json:"create_at"`
+	// UpdateAt is the Unix timestamp (ms) when the call was last updated.
+	UpdateAt int64 `json:"update_at"`
 	// EndAt is the Unix timestamp (ms) when the call ended; 0 means active.
 	EndAt int64 `json:"end_at"`
 	// PostID is the ID of the custom_cf_call post in the channel.
 	PostID string `json:"post_id"`
+	// AppConfigID is the ID of the rtk_app_config entry that was active when this call was created.
+	AppConfigID string `json:"app_config_id"`
 }

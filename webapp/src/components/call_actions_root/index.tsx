@@ -9,6 +9,7 @@ import {
     setCallError,
     setMyActiveCall,
     setPendingSwitchCallId,
+    upsertCall,
 } from 'redux/calls_slice';
 import {playJoinSound} from 'utils/sounds';
 import {
@@ -20,7 +21,14 @@ import {
 import SwitchCallModal from 'components/switch_call_modal';
 
 interface JoinCallResponse {
-    call: {id: string; channel_id: string};
+    call: {
+        id: string;
+        channel_id: string;
+        creator_id: string;
+        participants: string[];
+        create_at: number;
+        post_id: string;
+    };
     token: string;
 }
 
@@ -58,6 +66,14 @@ const CallActionsRoot = () => {
             return;
         }
         playJoinSound();
+        dispatch(upsertCall({
+            id: result.data.call.id,
+            channelId: result.data.call.channel_id,
+            creatorId: result.data.call.creator_id,
+            participants: result.data.call.participants,
+            startAt: result.data.call.create_at,
+            postId: result.data.call.post_id,
+        }));
         dispatch(setMyActiveCall({
             callId: result.data.call.id,
             channelId: result.data.call.channel_id,

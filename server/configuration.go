@@ -21,40 +21,40 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	// CloudflareOrgID is the Cloudflare Organization ID for the RealtimeKit integration.
-	CloudflareOrgID string `json:"CloudflareOrgID"`
-	// CloudflareAPIKey is the Cloudflare API Key for the RealtimeKit integration.
-	CloudflareAPIKey string `json:"CloudflareAPIKey"`
+	// CloudflareAccountID is the Cloudflare Account ID for the RealtimeKit integration.
+	CloudflareAccountID string `json:"CloudflareAccountID"`
+	// CloudflareAPIToken is the Cloudflare API Token for the RealtimeKit integration.
+	CloudflareAPIToken string `json:"CloudflareAPIToken"`
 }
 
-// OrgIDFromEnv reports whether RTK_ORG_ID is set as an environment variable.
-func (c *configuration) OrgIDFromEnv() bool {
-	_, ok := os.LookupEnv("RTK_ORG_ID")
+// AccountIDFromEnv reports whether RTK_ACCOUNT_ID is set as an environment variable.
+func (c *configuration) AccountIDFromEnv() bool {
+	_, ok := os.LookupEnv("RTK_ACCOUNT_ID")
 	return ok
 }
 
-// APIKeyFromEnv reports whether RTK_API_KEY is set as an environment variable.
-func (c *configuration) APIKeyFromEnv() bool {
-	_, ok := os.LookupEnv("RTK_API_KEY")
+// APITokenFromEnv reports whether RTK_API_TOKEN is set as an environment variable.
+func (c *configuration) APITokenFromEnv() bool {
+	_, ok := os.LookupEnv("RTK_API_TOKEN")
 	return ok
 }
 
-// GetEffectiveOrgID returns the Cloudflare Organization ID.
-// Environment variable RTK_ORG_ID takes strict precedence over the stored config value.
-func (c *configuration) GetEffectiveOrgID() string {
-	if val, ok := os.LookupEnv("RTK_ORG_ID"); ok {
+// GetEffectiveAccountID returns the Cloudflare Account ID.
+// Environment variable RTK_ACCOUNT_ID takes strict precedence over the stored config value.
+func (c *configuration) GetEffectiveAccountID() string {
+	if val, ok := os.LookupEnv("RTK_ACCOUNT_ID"); ok {
 		return val
 	}
-	return c.CloudflareOrgID
+	return c.CloudflareAccountID
 }
 
-// GetEffectiveAPIKey returns the Cloudflare API Key.
-// Environment variable RTK_API_KEY takes strict precedence over the stored config value.
-func (c *configuration) GetEffectiveAPIKey() string {
-	if val, ok := os.LookupEnv("RTK_API_KEY"); ok {
+// GetEffectiveAPIToken returns the Cloudflare API Token.
+// Environment variable RTK_API_TOKEN takes strict precedence over the stored config value.
+func (c *configuration) GetEffectiveAPIToken() string {
+	if val, ok := os.LookupEnv("RTK_API_TOKEN"); ok {
 		return val
 	}
-	return c.CloudflareAPIKey
+	return c.CloudflareAPIToken
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -118,15 +118,29 @@ func (p *Plugin) OnConfigurationChange() error {
 
 	p.setConfiguration(configuration)
 
-	credentialsChanged := prev.GetEffectiveOrgID() != configuration.GetEffectiveOrgID() ||
-		prev.GetEffectiveAPIKey() != configuration.GetEffectiveAPIKey()
+	credentialsChanged := prev.GetEffectiveAccountID() != configuration.GetEffectiveAccountID() ||
+		prev.GetEffectiveAPIToken() != configuration.GetEffectiveAPIToken()
 
-	if credentialsChanged && p.application != nil {
-		if configuration.GetEffectiveOrgID() != "" && configuration.GetEffectiveAPIKey() != "" {
-			newClient := rtkclient.NewClient(configuration.GetEffectiveOrgID(), configuration.GetEffectiveAPIKey())
-			p.application.UpdateRTKClient(newClient)
-			p.application.ReRegisterWebhook(p.webhookURL())
+	// Also re-initialize when the RTK client was never set up (e.g., EnsureApp failed at startup).
+	// This allows recovery by saving configuration without changing credentials.
+	rtkNotReady := p.application != nil && !p.application.IsConfigured()
+
+	if (credentialsChanged || rtkNotReady) && p.application != nil {
+		if configuration.GetEffectiveAccountID() != "" && configuration.GetEffectiveAPIToken() != "" {
+			newAccountClient := rtkclient.NewAccountClient(configuration.GetEffectiveAccountID(), configuration.GetEffectiveAPIToken())
+			p.application.UpdateAccountClient(newAccountClient)
+
+			appID, appConfigID, err := p.application.EnsureApp(configuration.GetEffectiveAccountID())
+			if err != nil {
+				p.API.LogWarn("OnConfigurationChange: EnsureApp failed", "err", err.Error())
+				p.application.UpdateRTKClient(nil)
+			} else {
+				newClient := rtkclient.NewClient(configuration.GetEffectiveAccountID(), appID, configuration.GetEffectiveAPIToken())
+				p.application.UpdateRTKClient(newClient)
+				p.application.ReRegisterWebhook(p.webhookURL(), appConfigID)
+			}
 		} else {
+			p.application.UpdateAccountClient(nil)
 			p.application.UpdateRTKClient(nil)
 		}
 	}

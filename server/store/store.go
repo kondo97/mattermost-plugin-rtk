@@ -15,12 +15,26 @@ type Store interface {
 	// EndCall marks a call as ended with the given timestamp.
 	EndCall(callID string, endAt int64) error
 
-	// StoreWebhookID persists the registered RTK webhook ID.
-	StoreWebhookID(id string) error
-	// GetWebhookID retrieves the registered RTK webhook ID, or empty string if not set.
-	GetWebhookID() (string, error)
-	// StoreWebhookSecret persists the RTK webhook signing secret.
-	StoreWebhookSecret(secret string) error
-	// GetWebhookSecret retrieves the RTK webhook signing secret.
-	GetWebhookSecret() (string, error)
+	// GetChannelMeeting returns the stored RTK meeting ID and the app config ID for a channel.
+	// Returns empty strings if none exists.
+	GetChannelMeeting(channelID string) (meetingID string, appConfigID string, err error)
+	// SaveChannelMeeting persists the RTK meeting ID and app config ID for a channel.
+	SaveChannelMeeting(channelID, meetingID string, appConfigID string) error
+
+	// GetLatestAppConfigID returns the ID of the most recent rtk_app_config entry, or empty string.
+	GetLatestAppConfigID() (string, error)
+
+	// StoreAppConfig records a new app configuration entry (append-only history).
+	// Returns the ID of the newly inserted entry.
+	StoreAppConfig(accountID, appID string) (string, error)
+	// GetAppID retrieves the most recent RTK app ID, or empty string if not set.
+	GetAppID() (string, error)
+
+	// StoreWebhookConfig records a new webhook configuration entry (append-only history).
+	StoreWebhookConfig(appConfigID string, webhookID string) error
+	// ClearWebhookConfig appends a cleared-state entry to the webhook history.
+	ClearWebhookConfig(appConfigID string) error
+	// GetWebhookConfig retrieves the most recent webhook ID.
+	// Returns empty string if no configuration has been stored yet.
+	GetWebhookConfig() (webhookID string, err error)
 }

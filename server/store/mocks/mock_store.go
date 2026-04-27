@@ -40,6 +40,20 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
+// ClearWebhookConfig mocks base method.
+func (m *MockStore) ClearWebhookConfig(appConfigID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearWebhookConfig", appConfigID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearWebhookConfig indicates an expected call of ClearWebhookConfig.
+func (mr *MockStoreMockRecorder) ClearWebhookConfig(appConfigID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearWebhookConfig", reflect.TypeOf((*MockStore)(nil).ClearWebhookConfig), appConfigID)
+}
+
 // EndCall mocks base method.
 func (m *MockStore) EndCall(callID string, endAt int64) error {
 	m.ctrl.T.Helper()
@@ -52,6 +66,21 @@ func (m *MockStore) EndCall(callID string, endAt int64) error {
 func (mr *MockStoreMockRecorder) EndCall(callID, endAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndCall", reflect.TypeOf((*MockStore)(nil).EndCall), callID, endAt)
+}
+
+// GetAppID mocks base method.
+func (m *MockStore) GetAppID() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppID")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppID indicates an expected call of GetAppID.
+func (mr *MockStoreMockRecorder) GetAppID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppID", reflect.TypeOf((*MockStore)(nil).GetAppID))
 }
 
 // GetCallByChannel mocks base method.
@@ -99,34 +128,50 @@ func (mr *MockStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCallByMeetingID", reflect.TypeOf((*MockStore)(nil).GetCallByMeetingID), meetingID)
 }
 
-// GetWebhookID mocks base method.
-func (m *MockStore) GetWebhookID() (string, error) {
+// GetChannelMeeting mocks base method.
+func (m *MockStore) GetChannelMeeting(channelID string) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWebhookID")
+	ret := m.ctrl.Call(m, "GetChannelMeeting", channelID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetChannelMeeting indicates an expected call of GetChannelMeeting.
+func (mr *MockStoreMockRecorder) GetChannelMeeting(channelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChannelMeeting", reflect.TypeOf((*MockStore)(nil).GetChannelMeeting), channelID)
+}
+
+// GetLatestAppConfigID mocks base method.
+func (m *MockStore) GetLatestAppConfigID() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestAppConfigID")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetWebhookID indicates an expected call of GetWebhookID.
-func (mr *MockStoreMockRecorder) GetWebhookID() *gomock.Call {
+// GetLatestAppConfigID indicates an expected call of GetLatestAppConfigID.
+func (mr *MockStoreMockRecorder) GetLatestAppConfigID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookID", reflect.TypeOf((*MockStore)(nil).GetWebhookID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestAppConfigID", reflect.TypeOf((*MockStore)(nil).GetLatestAppConfigID))
 }
 
-// GetWebhookSecret mocks base method.
-func (m *MockStore) GetWebhookSecret() (string, error) {
+// GetWebhookConfig mocks base method.
+func (m *MockStore) GetWebhookConfig() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWebhookSecret")
+	ret := m.ctrl.Call(m, "GetWebhookConfig")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetWebhookSecret indicates an expected call of GetWebhookSecret.
-func (mr *MockStoreMockRecorder) GetWebhookSecret() *gomock.Call {
+// GetWebhookConfig indicates an expected call of GetWebhookConfig.
+func (mr *MockStoreMockRecorder) GetWebhookConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookSecret", reflect.TypeOf((*MockStore)(nil).GetWebhookSecret))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookConfig", reflect.TypeOf((*MockStore)(nil).GetWebhookConfig))
 }
 
 // SaveCall mocks base method.
@@ -143,32 +188,47 @@ func (mr *MockStoreMockRecorder) SaveCall(session any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveCall", reflect.TypeOf((*MockStore)(nil).SaveCall), session)
 }
 
-// StoreWebhookID mocks base method.
-func (m *MockStore) StoreWebhookID(id string) error {
+// SaveChannelMeeting mocks base method.
+func (m *MockStore) SaveChannelMeeting(channelID, meetingID string, appConfigID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreWebhookID", id)
+	ret := m.ctrl.Call(m, "SaveChannelMeeting", channelID, meetingID, appConfigID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StoreWebhookID indicates an expected call of StoreWebhookID.
-func (mr *MockStoreMockRecorder) StoreWebhookID(id any) *gomock.Call {
+// SaveChannelMeeting indicates an expected call of SaveChannelMeeting.
+func (mr *MockStoreMockRecorder) SaveChannelMeeting(channelID, meetingID, appConfigID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWebhookID", reflect.TypeOf((*MockStore)(nil).StoreWebhookID), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveChannelMeeting", reflect.TypeOf((*MockStore)(nil).SaveChannelMeeting), channelID, meetingID, appConfigID)
 }
 
-// StoreWebhookSecret mocks base method.
-func (m *MockStore) StoreWebhookSecret(secret string) error {
+// StoreAppConfig mocks base method.
+func (m *MockStore) StoreAppConfig(accountID, appID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreWebhookSecret", secret)
+	ret := m.ctrl.Call(m, "StoreAppConfig", accountID, appID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StoreAppConfig indicates an expected call of StoreAppConfig.
+func (mr *MockStoreMockRecorder) StoreAppConfig(accountID, appID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreAppConfig", reflect.TypeOf((*MockStore)(nil).StoreAppConfig), accountID, appID)
+}
+
+// StoreWebhookConfig mocks base method.
+func (m *MockStore) StoreWebhookConfig(appConfigID string, webhookID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreWebhookConfig", appConfigID, webhookID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StoreWebhookSecret indicates an expected call of StoreWebhookSecret.
-func (mr *MockStoreMockRecorder) StoreWebhookSecret(secret any) *gomock.Call {
+// StoreWebhookConfig indicates an expected call of StoreWebhookConfig.
+func (mr *MockStoreMockRecorder) StoreWebhookConfig(appConfigID, webhookID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWebhookSecret", reflect.TypeOf((*MockStore)(nil).StoreWebhookSecret), secret)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWebhookConfig", reflect.TypeOf((*MockStore)(nil).StoreWebhookConfig), appConfigID, webhookID)
 }
 
 // UpdateCallParticipants mocks base method.

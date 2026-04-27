@@ -2,9 +2,6 @@ package api
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -22,39 +19,14 @@ import (
 	storemocks "github.com/kondo97/mattermost-plugin-rtk/server/store/mocks"
 )
 
-const testWebhookSecret = "test-secret"
-
-// signBody computes the HMAC-SHA256 signature for the given body using the test secret.
-func signBody(body []byte) string {
-	mac := hmac.New(sha256.New, []byte(testWebhookSecret))
-	mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
-// sendWebhook sends a POST to /api/v1/webhook/rtk with an optional HMAC signature.
-func sendWebhook(t *testing.T, h *API, body []byte, signature string) *httptest.ResponseRecorder {
+// sendWebhook sends a POST to /api/v1/webhook/rtk.
+func sendWebhook(t *testing.T, h *API, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhook/rtk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	if signature != "" {
-		req.Header.Set("dyte-signature", signature)
-	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	return w
-}
-
-func TestHandleRTKWebhook_InvalidSignature(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockStore := storemocks.NewMockStore(ctrl)
-	h, _ := newTestAPI(t, nil, mockStore)
-
-	body, _ := json.Marshal(rtkWebhookEvent{Event: "meeting.ended"})
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
-
-	w := sendWebhook(t, h, body, "invalidsig")
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
@@ -63,9 +35,8 @@ func TestHandleRTKWebhook_UnknownEvent(t *testing.T) {
 	h, _ := newTestAPI(t, nil, mockStore)
 
 	body, _ := json.Marshal(rtkWebhookEvent{Event: "some.unknown.event"})
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -87,7 +58,6 @@ func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 
@@ -99,7 +69,7 @@ func TestHandleRTKWebhook_ParticipantJoined(t *testing.T) {
 	})).Return(existingPost, nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserJoined, mock.Anything, mock.Anything).Return()
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	mmAPI.AssertCalled(t, "GetPost", "post1")
@@ -119,10 +89,9 @@ func TestHandleRTKWebhook_ParticipantJoined_SessionNotFound(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(nil, nil)
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -145,14 +114,13 @@ func TestHandleRTKWebhook_ParticipantLeft(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
 	// LeaveCall internals
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	require.Equal(t, http.StatusOK, w.Code)
 }
@@ -169,10 +137,9 @@ func TestHandleRTKWebhook_ParticipantLeft_SessionNotFound(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(nil, nil)
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -185,7 +152,7 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 
 	session := &store.CallSession{
 		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1",
-		StartAt: 1000,
+		CreateAt: 1000,
 	}
 
 	event := rtkWebhookEvent{
@@ -194,17 +161,15 @@ func TestHandleRTKWebhook_MeetingEnded(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
 	// Re-read inside lock (TOCTOU guard)
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	// endCallInternal internals
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	require.Equal(t, http.StatusOK, w.Code)
 }
@@ -224,12 +189,11 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEndedAfterLock(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(active, nil)
 	// Re-read inside lock returns already-ended session — no endCallInternal should run.
 	mockStore.EXPECT().GetCallByID("call1").Return(ended, nil)
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -250,10 +214,9 @@ func TestHandleRTKWebhook_MeetingEnded_AlreadyEnded(t *testing.T) {
 	}
 	body, _ := json.Marshal(event)
 
-	mockStore.EXPECT().GetWebhookSecret().Return(testWebhookSecret, nil)
 	mockStore.EXPECT().GetCallByMeetingID("mtg1").Return(session, nil)
 
-	w := sendWebhook(t, h, body, signBody(body))
+	w := sendWebhook(t, h, body)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }

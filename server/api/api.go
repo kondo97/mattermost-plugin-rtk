@@ -11,10 +11,10 @@ import (
 
 // ConfigStatus describes the current RTK plugin configuration state.
 type ConfigStatus struct {
-	Enabled      bool
-	OrgIDViaEnv  bool
-	APIKeyViaEnv bool
-	OrgID        string
+	Enabled         bool
+	AccountIDViaEnv bool
+	APITokenViaEnv  bool
+	AccountID       string
 }
 
 // StaticFiles holds the embedded static assets to serve.
@@ -64,7 +64,7 @@ func (h *API) initRouter() {
 	router.HandleFunc("/call.js", h.serveCallJS).Methods(http.MethodGet)
 	router.HandleFunc("/worker.js", h.serveWorkerJS).Methods(http.MethodGet)
 
-	// RTK webhook route (RTK signature auth, not Mattermost auth)
+	// RTK webhook route (no auth — RTK does not support signature verification)
 	router.HandleFunc("/api/v1/webhook/rtk", h.handleRTKWebhook).Methods(http.MethodPost)
 
 	// Authenticated API routes

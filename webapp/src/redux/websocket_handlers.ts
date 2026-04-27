@@ -174,7 +174,7 @@ export function handleCallStarted(store: Store<GlobalState>, currentUserId: stri
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function handleUserJoined(store: Store<GlobalState>, _currentUserId: string) {
+export function handleUserJoined(store: Store<GlobalState>) {
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isUserJoinedPayload(data)) {
@@ -217,12 +217,15 @@ export function handleUserLeft(store: Store<GlobalState>, currentUserId: string)
         }
 
         if (data.user_id === currentUserId) {
-            store.dispatch(clearMyActiveCall());
+            const myActiveCall = selectMyActiveCall(store.getState() as unknown as GlobalState);
+            if (myActiveCall?.callId === data.call_id) {
+                store.dispatch(clearMyActiveCall());
+            }
         }
     };
 }
 
-export function handleCallEnded(store: Store<GlobalState>, currentUserId: string) {
+export function handleCallEnded(store: Store<GlobalState>) {
     return (msg: {data: unknown}) => {
         const data = parseEventData(msg);
         if (!isCallEndedPayload(data)) {
@@ -230,7 +233,13 @@ export function handleCallEnded(store: Store<GlobalState>, currentUserId: string
             return;
         }
 
-        store.dispatch(removeCall(data.channel_id));
+        // Guard: only remove the channel's call entry if it matches the ended call.
+        // A delayed call_ended for an old call must not wipe a newer call already stored
+        // for the same channel (stale-event race condition).
+        const currentCall = selectCallByChannel(data.channel_id)(store.getState() as unknown as GlobalState);
+        if (!currentCall || currentCall.id === data.call_id) {
+            store.dispatch(removeCall(data.channel_id));
+        }
 
         const myActiveCall = selectMyActiveCall(store.getState() as unknown as GlobalState);
         if (myActiveCall?.callId === data.call_id) {
@@ -241,9 +250,6 @@ export function handleCallEnded(store: Store<GlobalState>, currentUserId: string
         if (incomingCall?.callId === data.call_id) {
             store.dispatch(clearIncomingCall());
         }
-
-        // suppress unused parameter warning
-        void currentUserId; // eslint-disable-line no-void
     };
 }
 

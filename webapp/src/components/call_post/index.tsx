@@ -32,7 +32,7 @@ interface CallResponse {
         creator_id: string;
         meeting_id: string;
         participants: string[];
-        start_at: number;
+        create_at: number;
         end_at: number;
         post_id: string;
     };
@@ -78,7 +78,7 @@ const CallPost = ({post}: Props) => {
                     channelId: d.channel_id,
                     creatorId: d.creator_id,
                     participants: d.participants,
-                    startAt: d.start_at,
+                    startAt: d.create_at,
                     postId: d.post_id,
                 }));
             }
@@ -110,10 +110,18 @@ const CallPost = ({post}: Props) => {
         }
         const {data} = result;
 
-        // Do NOT dispatch upsertCall here. The participant update will arrive via
-        // the user_joined WebSocket event, which is emitted by the server only after
-        // the RTK webhook confirms the user has actually connected via WebRTC.
-        // This prevents the post from showing "participating" before the SDK joins.
+        // Ensure callsByChannel has an entry before setMyActiveCall so FloatingWidget
+        // can render. The server emits user_joined immediately (not just after RTK webhook),
+        // so this upsert may briefly show the caller as a participant before the WS event
+        // arrives — this is acceptable and matches the eventual-consistency WS behavior.
+        dispatch(upsertCall({
+            id: data.call.id,
+            channelId: data.call.channel_id,
+            creatorId: data.call.creator_id,
+            participants: data.call.participants,
+            startAt: data.call.create_at,
+            postId: data.call.post_id,
+        }));
         playJoinSound();
         dispatch(setMyActiveCall({
             callId: data.call.id,

@@ -190,7 +190,7 @@ describe('handleUserJoined', () => {
 
     it('dispatches upsertCall with updated participants', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleUserJoined(store, currentUserId);
+        const handler = handleUserJoined(store);
         handler(makeEvent({call_id: 'call1', user_id: 'user2', channel_id: 'channel1', participants: ['user1', 'user2']}));
         expect(store.dispatched).toHaveLength(1);
         const action = store.dispatched[0] as ReturnType<typeof upsertCall>;
@@ -200,7 +200,7 @@ describe('handleUserJoined', () => {
 
     it('does NOT dispatch setMyActiveCall when joined user is current user (token only from API)', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleUserJoined(store, currentUserId);
+        const handler = handleUserJoined(store);
         handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1', participants: ['user1', currentUserId]}));
         expect(store.dispatched).toHaveLength(1);
         expect(store.dispatched[0]).toEqual(upsertCall(expect.anything()));
@@ -208,7 +208,7 @@ describe('handleUserJoined', () => {
 
     it('ignores invalid payload', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleUserJoined(store, currentUserId);
+        const handler = handleUserJoined(store);
         handler(makeEvent({user_id: 'user2'}));
         expect(store.dispatched).toHaveLength(0);
     });
@@ -260,6 +260,25 @@ describe('handleUserLeft', () => {
         expect(clearAction).toBeDefined();
     });
 
+    it('does NOT dispatch clearMyActiveCall when user_left call_id does not match myActiveCall (stale event)', () => {
+        const stateWithMyCall = {
+            ...stateWithCall,
+            'plugins-com.kondo97.mattermost-plugin-rtk': {
+                ...stateWithCall['plugins-com.kondo97.mattermost-plugin-rtk'],
+                // User is now in a new call (call2), but a stale user_left event for call1 arrives
+                myActiveCall: {callId: 'call2', channelId: 'channel2', token: 'tok2'},
+            },
+        };
+        const store = makeStore(stateWithMyCall);
+        const handler = handleUserLeft(store, currentUserId);
+        handler(makeEvent({call_id: 'call1', user_id: currentUserId, channel_id: 'channel1', participants: []}));
+        const clearAction = store.dispatched.find(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (a: any) => a.type === clearMyActiveCall().type,
+        );
+        expect(clearAction).toBeUndefined();
+    });
+
     it('does NOT dispatch clearMyActiveCall for other users', () => {
         const store = makeStore(stateWithCall);
         const handler = handleUserLeft(store, currentUserId);
@@ -280,7 +299,6 @@ describe('handleUserLeft', () => {
 });
 
 describe('handleCallEnded', () => {
-    const currentUserId = 'currentUser';
     const stateWithCall = {
         ...baseState,
         'plugins-com.kondo97.mattermost-plugin-rtk': {
@@ -300,7 +318,7 @@ describe('handleCallEnded', () => {
 
     it('dispatches removeCall', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleCallEnded(store, currentUserId);
+        const handler = handleCallEnded(store);
         handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const removeAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -312,7 +330,7 @@ describe('handleCallEnded', () => {
 
     it('dispatches clearMyActiveCall when active call matches ended call', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleCallEnded(store, currentUserId);
+        const handler = handleCallEnded(store);
         handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -330,7 +348,7 @@ describe('handleCallEnded', () => {
             },
         };
         const store = makeStore(stateWithDifferentCall);
-        const handler = handleCallEnded(store, currentUserId);
+        const handler = handleCallEnded(store);
         handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 2000000, duration_ms: 1000000}));
         const clearAction = store.dispatched.find(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -339,9 +357,47 @@ describe('handleCallEnded', () => {
         expect(clearAction).toBeUndefined();
     });
 
+    it('does NOT dispatch removeCall when callsByChannel has a newer call (stale event)', () => {
+        const stateWithNewerCall = {
+            ...baseState,
+            'plugins-com.kondo97.mattermost-plugin-rtk': {
+                ...baseState['plugins-com.kondo97.mattermost-plugin-rtk'],
+                callsByChannel: {
+                    channel1: {
+                        id: 'call2',
+                        channelId: 'channel1',
+                        creatorId: 'user1',
+                        participants: ['user1'],
+                        startAt: 2000000,
+                        postId: '',
+                    },
+                },
+                myActiveCall: {callId: 'call2', channelId: 'channel1', token: 'tok2'},
+            },
+        };
+        const store = makeStore(stateWithNewerCall);
+        const handler = handleCallEnded(store);
+
+        // Stale event: call1 ended, but callsByChannel already has the newer call2
+        handler(makeEvent({call_id: 'call1', channel_id: 'channel1', end_at: 1500000, duration_ms: 500000}));
+
+        const removeAction = store.dispatched.find(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (a: any) => a.type === removeCall('').type,
+        );
+        expect(removeAction).toBeUndefined();
+
+        const clearAction = store.dispatched.find(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (a: any) => a.type === clearMyActiveCall().type,
+        );
+        expect(clearAction).toBeUndefined();
+        expect(store.dispatched).toHaveLength(0);
+    });
+
     it('ignores invalid payload', () => {
         const store = makeStore(stateWithCall);
-        const handler = handleCallEnded(store, currentUserId);
+        const handler = handleCallEnded(store);
         handler(makeEvent({channel_id: 'channel1'}));
         expect(store.dispatched).toHaveLength(0);
     });

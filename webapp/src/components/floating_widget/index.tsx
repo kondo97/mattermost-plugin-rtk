@@ -9,7 +9,7 @@ import manifest from 'manifest';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector, useDispatch} from 'react-redux';
-import {clearMyActiveCall} from 'redux/calls_slice';
+import {clearMyActiveCall, upsertCall} from 'redux/calls_slice';
 import {selectCallByChannel, selectMyActiveCall} from 'redux/selectors';
 import jaDict from 'utils/rtk_lang_ja';
 
@@ -135,6 +135,19 @@ const FloatingWidget = () => {
         };
     }, [meeting, myActiveCall?.callId, dispatch]);
 
+    // Track current meeting in a ref so the call_ended effect can reach it.
+    const meetingRef = useRef(meeting);
+    useEffect(() => {
+        meetingRef.current = meeting;
+    }, [meeting]);
+
+    // Leave the RTK room when the host ends the call (myActiveCall → null via WS event).
+    useEffect(() => {
+        if (!myActiveCall && meetingRef.current) {
+            meetingRef.current.leaveRoom().catch(() => {});
+        }
+    }, [myActiveCall]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Exit fullscreen on Escape key
     useEffect(() => {
         if (!isFullscreen) {
@@ -194,6 +207,56 @@ const FloatingWidget = () => {
         window.addEventListener('beforeunload', handler);
         return () => window.removeEventListener('beforeunload', handler);
     }, [myActiveCall?.callId]);
+
+    // Defense-in-depth: if myActiveCall is set but callsByChannel is missing the entry
+    // (e.g. a missed WS event), fetch the call from the server and re-populate Redux.
+    // The primary prevention is upsertCall before setMyActiveCall in every join path,
+    // so this effect should rarely fire in normal operation.
+    useEffect(() => {
+        if (!myActiveCall || activeCall) {
+            return undefined;
+        }
+        let cancelled = false;
+        const reconcile = async () => {
+            interface CallSessionResponse {
+                id: string;
+                channel_id: string;
+                creator_id: string;
+                participants: string[];
+                create_at: number;
+                end_at: number;
+                post_id: string;
+            }
+            const result = await pluginFetch<CallSessionResponse>(
+                `/api/v1/calls/${myActiveCall.callId}`,
+            );
+            if (cancelled) {
+                return;
+            }
+            if ('error' in result) {
+                // Could not verify — leave cleanup to WS events.
+                return;
+            }
+            const session = result.data;
+            if (session.end_at !== 0) {
+                // Call has ended; clear stale active-call state (defense against missed WS events).
+                dispatch(clearMyActiveCall());
+                return;
+            }
+            dispatch(upsertCall({
+                id: session.id,
+                channelId: session.channel_id,
+                creatorId: session.creator_id,
+                participants: session.participants,
+                startAt: session.create_at,
+                postId: session.post_id,
+            }));
+        };
+        reconcile();
+        return () => {
+            cancelled = true;
+        };
+    }, [myActiveCall?.callId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!myActiveCall || !activeCall) {
         if (myActiveCall) {

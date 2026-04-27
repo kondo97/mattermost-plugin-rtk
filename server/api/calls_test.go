@@ -47,7 +47,7 @@ func newTestAPI(t *testing.T, rtkClient rtkclient.RTKClient, store store.Store) 
 	mmAPI.On("GetChannelMember", mock.Anything, mock.Anything).Maybe().Return(&model.ChannelMember{}, nil)
 	t.Cleanup(func() { mmAPI.AssertExpectations(t) })
 
-	a := app.New(store, rtkClient, mmAPI)
+	a := app.New(store, rtkClient, nil, mmAPI)
 	h := Init(a, StaticFiles{}, func() ConfigStatus { return ConfigStatus{} })
 	return h, mmAPI
 }
@@ -74,7 +74,10 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	meetingID := "mtg1"
 	tokenStr := "tok1"
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(nil, nil)
-	mockRTK.EXPECT().CreateMeeting(gomock.Any()).Return(&rtkclient.Meeting{ID: meetingID}, nil)
+	mockStore.EXPECT().GetChannelMeeting("chan1").Return("", "", nil)
+	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
+	mockStore.EXPECT().SaveChannelMeeting("chan1", meetingID, "cfg1").Return(nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), app.RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	mmAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
@@ -113,7 +116,7 @@ func TestHandleCreateCall_AlreadyActive(t *testing.T) {
 	existing := &store.CallSession{ID: "existing", ChannelID: "chan1", MeetingID: "mtg1"}
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(existing, nil)
 	// Meeting is still alive — normal conflict.
-	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user0"}, nil)
+	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
 
 	body, _ := json.Marshal(map[string]string{"channel_id": "chan1"})
 	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls", "user1", body)
@@ -125,7 +128,7 @@ func TestHandleCreateCall_NotChannelMember(t *testing.T) {
 	mmAPI := &plugintest.API{}
 	mmAPI.On("GetChannelMember", "chan1", "user1").Return(nil, &model.AppError{Message: "not a member"})
 	t.Cleanup(func() { mmAPI.AssertExpectations(t) })
-	a := app.New(nil, nil, mmAPI)
+	a := app.New(nil, nil, nil, mmAPI)
 	h := Init(a, StaticFiles{}, func() ConfigStatus { return ConfigStatus{} })
 
 	body, _ := json.Marshal(map[string]string{"channel_id": "chan1"})
@@ -159,7 +162,7 @@ func TestHandleJoinCall_Success(t *testing.T) {
 	tokenStr := "tok2"
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
-	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user0"}, nil)
+	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
 	mockRTK.EXPECT().GenerateToken("mtg1", "user1", gomock.Any(), app.RTKPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().UpdateCallParticipants(callID, gomock.Any()).Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserJoined, mock.Anything, mock.Anything).Return()
@@ -180,12 +183,12 @@ func TestHandleJoinCall_NotChannelMember(t *testing.T) {
 	mmAPI := &plugintest.API{}
 	mmAPI.On("GetChannelMember", "chan1", "user1").Return(nil, &model.AppError{Message: "not a member"})
 	t.Cleanup(func() { mmAPI.AssertExpectations(t) })
-	a := app.New(mockStore, mockRTK, mmAPI)
+	a := app.New(mockStore, mockRTK, nil, mmAPI)
 	h := Init(a, StaticFiles{}, func() ConfigStatus { return ConfigStatus{} })
 
 	session := &store.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", Participants: []string{"user0"}}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
-	// GetChannelMember check happens before RTK liveness — no GetMeetingParticipants call expected.
+	// GetChannelMember check happens before RTK liveness — no GetMeeting call expected.
 
 	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls/call1/token", "user1", nil)
 
@@ -216,7 +219,6 @@ func TestHandleLeaveCall_Success(t *testing.T) {
 	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
 	// last participant left → auto-end
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
@@ -235,7 +237,6 @@ func TestHandleEndCall_Success(t *testing.T) {
 	session := &store.CallSession{ID: "call1", ChannelID: "chan1", CreatorID: "user1", MeetingID: "mtg1"}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
 
@@ -268,7 +269,7 @@ func TestHandleGetCall_ActiveCall(t *testing.T) {
 	// First fetch (handleGetCall) + second fetch (re-fetch after reconcile).
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil).Times(2)
 	// Meeting is alive — no force-end.
-	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return([]string{"user0"}, nil)
+	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
 
 	w := serveWithUser(t, h, http.MethodGet, "/api/v1/calls/call1", "user1", nil)
 
@@ -285,10 +286,10 @@ func TestHandleGetCall_ZombieCall(t *testing.T) {
 	h, mmAPI := newTestAPI(t, mockRTK, mockStore)
 
 	activeSession := &store.CallSession{
-		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", StartAt: 1000, EndAt: 0,
+		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", CreateAt: 1000, EndAt: 0,
 	}
 	endedSession := &store.CallSession{
-		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", StartAt: 1000, EndAt: 2000,
+		ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", CreateAt: 1000, EndAt: 2000,
 	}
 	// Three ordered GetCallByID calls:
 	// 1. initial fetch in handleGetCall
@@ -300,11 +301,10 @@ func TestHandleGetCall_ZombieCall(t *testing.T) {
 		mockStore.EXPECT().GetCallByID("call1").Return(endedSession, nil),
 	)
 	// RTK returns 404 — zombie call.
-	mockRTK.EXPECT().GetMeetingParticipants("mtg1").Return(nil, rtkclient.ErrMeetingNotFound)
+	mockRTK.EXPECT().GetMeeting("mtg1").Return(nil, rtkclient.ErrMeetingNotFound)
 
 	// endCallInternal path inside ReconcileCallOnDemand.
 	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
-	mockRTK.EXPECT().EndMeeting("mtg1").Return(nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()
 

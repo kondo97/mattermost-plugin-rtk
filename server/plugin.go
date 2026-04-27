@@ -11,7 +11,6 @@ import (
 
 	rtapi "github.com/kondo97/mattermost-plugin-rtk/server/api"
 	"github.com/kondo97/mattermost-plugin-rtk/server/app"
-	"github.com/kondo97/mattermost-plugin-rtk/server/command"
 	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 	"github.com/kondo97/mattermost-plugin-rtk/server/store/sqlstore"
 )
@@ -22,9 +21,6 @@ type Plugin struct {
 
 	// client is the Mattermost server API client.
 	client *pluginapi.Client
-
-	// commandClient is the client used to register and execute slash commands.
-	commandClient command.Command
 
 	// application is the business logic layer.
 	application *app.App
@@ -56,18 +52,34 @@ func (p *Plugin) OnActivate() error {
 		return fmt.Errorf("failed to run SQL migrations: %w", err)
 	}
 
-	p.commandClient = command.NewCommandHandler(p.client)
-
 	cfg := p.getConfiguration()
-	var rtkClient rtkclient.RTKClient
-	if cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != "" {
-		rtkClient = rtkclient.NewClient(cfg.GetEffectiveOrgID(), cfg.GetEffectiveAPIKey())
+
+	// Phase 1: Create an account-level client and ensure the RTK app exists.
+	// EnsureApp creates the app if it doesn't exist yet, or recovers the stored ID.
+	var accountClient rtkclient.AccountClient
+	var appID string
+	var appConfigID string
+	if cfg.GetEffectiveAccountID() != "" && cfg.GetEffectiveAPIToken() != "" {
+		accountClient = rtkclient.NewAccountClient(cfg.GetEffectiveAccountID(), cfg.GetEffectiveAPIToken())
+		// Use a temporary App to call EnsureApp before the full App is wired up.
+		tmpApp := app.New(store, nil, accountClient, p.API)
+		var err error
+		appID, appConfigID, err = tmpApp.EnsureApp(cfg.GetEffectiveAccountID())
+		if err != nil {
+			p.API.LogWarn("OnActivate: EnsureApp failed", "err", err.Error())
+		}
 	}
 
-	p.application = app.New(store, rtkClient, p.API)
+	// Phase 2: With the confirmed app ID, create the app-scoped RTK client.
+	var rtkClient rtkclient.RTKClient
+	if cfg.GetEffectiveAccountID() != "" && appID != "" && cfg.GetEffectiveAPIToken() != "" {
+		rtkClient = rtkclient.NewClient(cfg.GetEffectiveAccountID(), appID, cfg.GetEffectiveAPIToken())
+	}
+
+	p.application = app.New(store, rtkClient, accountClient, p.API)
 
 	if rtkClient != nil {
-		p.application.RegisterWebhookIfNeeded(p.webhookURL())
+		p.application.RegisterWebhookIfNeeded(p.webhookURL(), appConfigID)
 	}
 
 	p.apiHandler = rtapi.Init(p.application, rtapi.StaticFiles{
@@ -91,11 +103,13 @@ func (p *Plugin) webhookURL() string {
 // configStatus returns the current plugin configuration state for the API layer.
 func (p *Plugin) configStatus() rtapi.ConfigStatus {
 	cfg := p.getConfiguration()
+	credentialsOK := cfg.GetEffectiveAccountID() != "" && cfg.GetEffectiveAPIToken() != ""
+	rtkReady := p.application != nil && p.application.IsConfigured()
 	return rtapi.ConfigStatus{
-		Enabled:      cfg.GetEffectiveOrgID() != "" && cfg.GetEffectiveAPIKey() != "",
-		OrgIDViaEnv:  cfg.OrgIDFromEnv(),
-		APIKeyViaEnv: cfg.APIKeyFromEnv(),
-		OrgID:        cfg.CloudflareOrgID,
+		Enabled:         credentialsOK && rtkReady,
+		AccountIDViaEnv: cfg.AccountIDFromEnv(),
+		APITokenViaEnv:  cfg.APITokenFromEnv(),
+		AccountID:       cfg.CloudflareAccountID,
 	}
 }
 
@@ -107,15 +121,6 @@ func (p *Plugin) OnDeactivate() error {
 // ServeHTTP implements the plugin HTTP interface.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	p.apiHandler.ServeHTTP(w, r)
-}
-
-// ExecuteCommand hook calls this method to execute the commands that were registered in the NewCommandHandler function.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
-	response, err := p.commandClient.Handle(args)
-	if err != nil {
-		return nil, model.NewAppError("ExecuteCommand", "plugin.command.execute_command.app_error", nil, err.Error(), http.StatusInternalServerError)
-	}
-	return response, nil
 }
 
 // NotificationWillBePushed delegates push notification handling to the app layer.

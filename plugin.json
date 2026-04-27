@@ -19,18 +19,18 @@
         "footer": "",
         "settings": [
             {
-                "key": "CloudflareOrgID",
-                "display_name": "Cloudflare Organization ID",
+                "key": "CloudflareAccountID",
+                "display_name": "Cloudflare Account ID",
                 "type": "text",
-                "help_text": "Your Cloudflare Organization ID for the RealtimeKit integration.",
+                "help_text": "Your Cloudflare Account ID. Found in the Cloudflare dashboard sidebar.",
                 "placeholder": ""
             },
             {
-                "key": "CloudflareAPIKey",
-                "display_name": "Cloudflare API Key",
+                "key": "CloudflareAPIToken",
+                "display_name": "Cloudflare API Token",
                 "type": "text",
                 "secret": true,
-                "help_text": "Your Cloudflare API Key for the RealtimeKit integration.",
+                "help_text": "Your Cloudflare API Token with Realtime or Realtime Admin permissions.",
                 "placeholder": ""
             }
         ]

@@ -4,11 +4,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
-// GetWebhookSecret returns the stored RTK webhook secret.
-func (a *App) GetWebhookSecret() (string, error) {
-	return a.store.GetWebhookSecret()
-}
-
 // HandleWebhookParticipantJoined processes a meeting.participantJoined event from RTK.
 func (a *App) HandleWebhookParticipantJoined(meetingID, userID string) {
 	if meetingID == "" || userID == "" {

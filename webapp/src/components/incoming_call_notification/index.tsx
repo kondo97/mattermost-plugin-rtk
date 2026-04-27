@@ -18,12 +18,7 @@ interface CallResponse {
     token: string;
 }
 
-interface Props {
-    currentUserId?: string;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const IncomingCallNotification = ({currentUserId: _currentUserId}: Props) => {
+const IncomingCallNotification = () => {
     const intl = useIntl();
     const dispatch = useDispatch();
 
