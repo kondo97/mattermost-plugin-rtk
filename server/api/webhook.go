@@ -14,7 +14,8 @@ type rtkWebhookEvent struct {
 }
 
 type rtkWebhookMeeting struct {
-	ID string `json:"id"`
+	ID        string `json:"id"`
+	SessionID string `json:"sessionId"`
 }
 
 type rtkWebhookParticipant struct {
@@ -39,7 +40,7 @@ func (h *API) handleRTKWebhook(w http.ResponseWriter, r *http.Request) {
 
 	switch event.Event {
 	case "meeting.participantJoined":
-		h.app.HandleWebhookParticipantJoined(event.Meeting.ID, event.Participant.CustomParticipantID)
+		h.app.HandleWebhookParticipantJoined(event.Meeting.ID, event.Participant.CustomParticipantID, event.Meeting.SessionID)
 	case "meeting.participantLeft":
 		h.app.HandleWebhookParticipantLeft(event.Meeting.ID, event.Participant.CustomParticipantID)
 	case "meeting.ended":

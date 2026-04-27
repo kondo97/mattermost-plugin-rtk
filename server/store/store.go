@@ -14,6 +14,9 @@ type Store interface {
 	UpdateCallParticipants(callID string, participants []string) error
 	// EndCall marks a call as ended with the given timestamp.
 	EndCall(callID string, endAt int64) error
+	// UpdateCallSessionID sets the RTK session ID for a call.
+	// Called from the webhook handler when meeting.participantJoined is received.
+	UpdateCallSessionID(callID, sessionID string) error
 
 	// GetChannelMeeting returns the stored RTK meeting ID and the app config ID for a channel.
 	// Returns empty strings if none exists.

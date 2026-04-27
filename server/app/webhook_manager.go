@@ -8,7 +8,7 @@ import (
 )
 
 // rtkWebhookEvents are the RTK webhook events this plugin subscribes to.
-var rtkWebhookEvents = []string{"meeting.participantLeft", "meeting.ended"}
+var rtkWebhookEvents = []string{"meeting.participantJoined", "meeting.participantLeft", "meeting.ended"}
 
 // RegisterWebhookIfNeeded ensures a valid RTK webhook is registered and its ID stored.
 //

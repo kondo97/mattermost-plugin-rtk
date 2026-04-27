@@ -89,9 +89,9 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 |  |  api_config.go      GET /config/status, /admin-status          | |
 |  |  api_mobile.go      POST /calls/{id}/dismiss                   | |
 |  |  api_static.go      GET /call, /call.js, /worker.js            | |
-|  |  api_webhook.go     POST /api/v1/webhook/rtk (HMAC verify)     | |
+|  |  api_webhook.go     POST /api/v1/webhook/rtk                    | |
 |  |  rtkclient/         Cloudflare RTK API client                  | |
-|  |  store/kvstore/     KVStore interface + models                  | |
+|  |  store/             Store interface + models                    | |
 |  |  store/sqlstore/    SQL-backed store implementation             | |
 |  +----------------+----------------------------+------------------+ |
 |                   |                            |                    |
@@ -102,11 +102,11 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
         +-----------------------+   +---------------------------+
         |  SQL Tables           |   |  Browser WebSocket        |
         |  rtk_call_sessions    |   |  custom_{pluginID}_       |
-        |  rtk_config           |   |  call_started, etc.       |
-        |  rtk_schema_migrations|   +---------------------------+
+        |  rtk_app_config       |   |  call_started, etc.       |
+        |  rtk_db_migrations    |   +---------------------------+
         +-----------------------+
                     ^
-                    | Webhook (HMAC-SHA256)
+                    | Webhook
         +-----------------------+
         |  Cloudflare RTK       |
         |  api.realtime.        |
@@ -125,13 +125,9 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 ```go
 type Plugin struct {
     plugin.MattermostPlugin
-    kvStore           kvstore.KVStore     // SQL-backed store (implements kvstore.KVStore)
-    rtkClient         rtkclient.RTKClient // Cloudflare RTK API (nil = not configured)
     client            *pluginapi.Client   // Mattermost pluginapi
-    commandClient     command.Command     // Slash command handler
-    router            *mux.Router         // HTTP router
-    callMu            sync.Mutex          // Guards all call state mutations
-    stopCleanup       chan struct{}        // Stops cleanup goroutine
+    application       *app.App            // Business logic layer
+    apiHandler        *rtapi.API          // HTTP API layer
     configurationLock sync.RWMutex        // Guards configuration pointer
     configuration     *configuration      // Current config (immutable pointer)
 }
@@ -139,20 +135,19 @@ type Plugin struct {
 
 | Hook | Behavior |
 |------|----------|
-| `OnActivate()` | Get master DB, run SQL migrations, initialize SQL store, RTKClient, router; register webhook; start cleanup goroutine |
-| `OnDeactivate()` | Stop cleanup goroutine |
+| `OnActivate()` | Get master DB, run SQL migrations, initialize SQL store, RTKClient, App; register webhook |
+| `OnDeactivate()` | (cleanup on shutdown) |
 | `OnConfigurationChange()` | Reload config; re-initialize RTKClient and re-register webhook if credentials changed |
-| `ExecuteCommand()` | Handle `/hello` slash command (starter template) |
 
-**Webhook registration logic** (`registerWebhookIfNeeded`):
-- Skip if both `webhook_id` and `webhook_secret` exist in `rtk_config` table
-- If either is missing, register with the RTK API and persist the returned ID and secret
+**Webhook registration logic** (`RegisterWebhookIfNeeded`):
+- If a webhook ID is stored, verify it still exists on RTK via `GetWebhook`; if 404, clear and re-register
+- If no ID is stored, call `RegisterWebhook`; on 409 conflict (same URL already registered), delete the conflicting webhook and retry
 - Failures are best-effort (log warning only, does not block activation)
 
-**On credential change** (`reRegisterWebhook`):
+**On credential change** (`ReRegisterWebhook`):
 1. Delete existing webhook via RTK API
-2. Clear `webhook_id` and `webhook_secret` in `rtk_config` table
-3. Call `registerWebhookIfNeeded`
+2. Clear webhook config from DB
+3. Call `RegisterWebhookIfNeeded`
 
 ---
 
@@ -164,7 +159,7 @@ type Plugin struct {
 /call                          <- No auth (static HTML)
 /call.js                       <- No auth (static JS)
 /worker.js                     <- No auth (static JS)
-/api/v1/webhook/rtk            <- No Mattermost auth (HMAC-SHA256 verified in handler)
+/api/v1/webhook/rtk            <- No Mattermost auth (HMAC signature not yet verified)
 
 /api/v1/* <- MattermostAuthorizationRequired middleware (Mattermost-User-ID header required)
   POST   /calls                    Start a call
@@ -200,10 +195,10 @@ callMu.Lock()
   1. GetCallByChannel -> ErrCallAlreadyActive if active call exists
   2. rtkClient.CreateMeeting() -> abort on failure (no DB writes)
   3. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_host")
-  4. Build CallSession (UUID, creator=participants[0], StartAt=nowMs())
-  5. kvStore.SaveCall(session) + AddActiveCallID
+  4. Build CallSession (UUID, creator=participants[0], CreateAt=nowMs())
+  5. store.SaveCall(session) + AddActiveCallID
   6. API.CreatePost(type="custom_cf_call")  [best-effort]
-  7. kvStore.SaveCall(session) to persist PostID  [best-effort]
+  7. store.SaveCall(session) to persist PostID  [best-effort]
   8. PublishWebSocketEvent("call_started", ...) broadcast to channel
 callMu.Unlock()
 Returns: (session, token.Token, nil)
@@ -216,7 +211,7 @@ callMu.Lock()
   1. GetCallByID -> ErrCallNotFound if nil or EndAt != 0
   2. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_participant")
   3. Append userID to Participants (deduplicated)
-  4. kvStore.UpdateCallParticipants
+  4. store.UpdateCallParticipants
   5. updatePostParticipants  [best-effort]
   6. PublishWebSocketEvent("user_joined", ...) broadcast to channel
 callMu.Unlock()
@@ -229,7 +224,7 @@ Returns: (session, token.Token, nil)
 callMu.Lock()
   1. GetCallByID -> no-op if nil or EndAt != 0 (idempotent)
   2. Remove userID from Participants
-  3. kvStore.UpdateCallParticipants
+  3. store.UpdateCallParticipants
   4. updatePostParticipants  [best-effort]
   5. PublishWebSocketEvent("user_left", ...)
   6. If Participants is now empty -> endCallInternal()  [auto-end]
@@ -249,11 +244,13 @@ callMu.Unlock()
 #### endCallInternal (shared termination logic)
 
 ```
-  1. kvStore.EndCall(callID, nowMs()) + RemoveActiveCallID
-  2. rtkClient.EndMeeting(meetingID)  [best-effort]
-  3. API.UpdatePost: write end_at and duration_ms to post props  [best-effort]
-  4. PublishWebSocketEvent("call_ended", {call_id, channel_id, end_at, duration_ms})
+  1. store.EndCall(callID, nowMs()) + RemoveActiveCallID
+  2. API.UpdatePost: write end_at and duration_ms to post props  [best-effort]
+  3. PublishWebSocketEvent("call_ended", {call_id, channel_id, end_at, duration_ms})
 ```
+
+> **Note**: `EndMeeting` is NOT called — Meeting is a permanent reusable room in Cloudflare RTK.
+> Ending the session (all participants leaving or the host ending the call) does not delete the meeting.
 
 **Sentinel errors** (`server/errors.go`):
 
@@ -276,9 +273,10 @@ callMu.Unlock()
 type RTKClient interface {
     CreateMeeting() (*Meeting, error)
     GenerateToken(meetingID, userID, displayName, preset string) (*Token, error)
-    EndMeeting(meetingID string) error
-    RegisterWebhook(url string, events []string) (id, secret string, err error)
+    RegisterWebhook(url string, events []string) (id string, err error)
     DeleteWebhook(webhookID string) error
+    GetWebhook(id string) (*WebhookInfo, error)
+    ListWebhooks() ([]WebhookInfo, error)
     GetMeeting(meetingID string) (*Meeting, error)
 }
 ```
@@ -298,9 +296,10 @@ type RTKClient interface {
 |--------|---------|-------------|
 | `CreateMeeting()` | `POST /meetings` | Create a meeting |
 | `GenerateToken()` | `POST /meetings/{id}/participants` | Add participant + issue JWT |
-| `EndMeeting()` | `DELETE /meetings/{id}` | Terminate meeting |
 | `RegisterWebhook()` | `POST /webhooks` | Register webhook |
 | `DeleteWebhook()` | `DELETE /webhooks/{id}` | Remove webhook |
+| `GetWebhook()` | `GET /webhooks/{id}` | Verify webhook still exists (404 ⇒ deleted) |
+| `ListWebhooks()` | `GET /webhooks` | List all registered webhooks |
 | `GetMeeting()` | `GET /meetings/{id}` | Probe meeting existence (404 ⇒ deleted) |
 
 **RTK presets**:
@@ -314,22 +313,24 @@ type RTKClient interface {
 
 ### 3.5 SQL Store
 
-**Interface**: `server/store/kvstore/kvstore.go`
+**Interface**: `server/store/store.go`
 **Implementation**: `server/store/sqlstore/` (calls.go, config.go, migrate.go)
 
 **Schema**:
 
 | Table | Columns | Description |
 |-------|---------|-------------|
-| `rtk_schema_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
-| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `start_at`, `end_at`, `post_id`, `app_config_id` | One row per call (active and historical) |
-| `rtk_config` | `config_key VARCHAR PK`, `config_value TEXT` | Plugin key-value config (webhook ID, secret) |
+| `rtk_db_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
+| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `createat`, `updateat`, `endat`, `post_id`, `app_config_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. |
+| `rtk_app_config` | `id SERIAL PK`, `account_id TEXT`, `app_id TEXT`, `created_at TIMESTAMP` | RTK app credentials history |
+| `rtk_webhook_config` | `id SERIAL PK`, `webhook_id TEXT`, `webhook_secret TEXT`, `created_at TIMESTAMP`, `app_config_id INT` | RTK webhook registration history |
+| `rtk_channel_meetings` | `channel_id VARCHAR(26) PK`, `meeting_id TEXT`, `app_config_id INT` | Per-channel RTK meeting ID |
 
 **Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`
 
-**Active call detection**: `WHERE end_at = 0` (no separate index table needed)
+**Active call detection**: `WHERE endat = 0` (no separate index table needed)
 
-**Migration system**: `RunMigrations()` is called in `OnActivate()`. The `rtk_schema_migrations` table tracks which versions have been applied; each new migration runs exactly once.
+**Migration system**: `RunMigrations()` is called in `OnActivate()`. The `rtk_db_migrations` table tracks which versions have been applied; each new migration runs exactly once.
 
 **PostgreSQL / MySQL compatibility**: UPSERT uses `ON CONFLICT … DO UPDATE` (PostgreSQL) or `ON DUPLICATE KEY UPDATE` (MySQL). SQL placeholders use `$N` (PostgreSQL) or `?` (MySQL), selected via `driverName`.
 
@@ -377,21 +378,24 @@ If credentials changed:
 
 ### 3.7 RTK Webhook
 
-**Implementation**: `server/api_webhook.go`
+**Implementation**: `server/api/webhook.go`, `server/app/webhook.go`
 
 RTK delivers the following events to `POST /api/v1/webhook/rtk`:
 
 | Event | Handling |
 |-------|---------|
+| `meeting.participantJoined` | `GetCallByMeetingID` -> `HandleWebhookParticipantJoined(meetingID, userID, sessionID)` -> best-effort `UpdateCallSessionID` |
 | `meeting.participantLeft` | `GetCallByMeetingID` -> `LeaveCall(callID, userID)` |
 | `meeting.ended` | `GetCallByMeetingID` -> `callMu.Lock()` -> re-read from DB -> `endCallInternal()` |
 | Others | Ignored (200 OK) |
 
-**Signature verification**:
-```
-HMAC-SHA256(secret, rawBody) == hex(dyte-signature header)
-If secret is empty, always reject (401)
-```
+> **Note**: HMAC-SHA256 signature verification (`dyte-signature` header) is not yet implemented.
+
+**`session_id` backfill via `meeting.participantJoined`**:
+- All RTK webhook events include `meeting.sessionId` in the payload
+- On the first `participantJoined`, `UpdateCallSessionID` persists the session UUID
+- Subsequent events for the same call skip the update (idempotent: backfill only if `session_id` is still empty)
+- If the webhook is not delivered, `session_id` remains an empty string (no impact on existing functionality)
 
 **Double-end prevention for `meeting.ended`**:
 - Check `EndAt != 0` before acquiring the lock
@@ -604,9 +608,12 @@ type CallSession struct {
     CreatorID    string   `json:"creator_id"`    // Host's Mattermost userID
     MeetingID    string   `json:"meeting_id"`    // Cloudflare RTK meeting ID
     Participants []string `json:"participants"`  // Current participant userIDs (deduplicated)
-    StartAt      int64    `json:"start_at"`      // Start Unix timestamp (ms)
+    CreateAt     int64    `json:"create_at"`     // Creation Unix timestamp (ms)
+    UpdateAt     int64    `json:"update_at"`     // Last update Unix timestamp (ms)
     EndAt        int64    `json:"end_at"`        // End Unix timestamp (ms); 0 = active
     PostID       string   `json:"post_id"`       // ID of the custom_cf_call post
+    AppConfigID  string   `json:"app_config_id"` // RTK app config row active at call creation
+    SessionID    string   `json:"session_id"`    // RTK session UUID; empty until first participantJoined webhook
 }
 ```
 
@@ -692,7 +699,6 @@ FloatingWidget (x button or beforeunload)
   |    PublishWebSocketEvent("user_left")
   |    If Participants empty -> endCallInternal()
   |          EndCall in SQL DB
-  |          rtkClient.EndMeeting (best-effort)
   |          UpdatePost (end_at, duration_ms)
   |          PublishWebSocketEvent("call_ended")
 ```
@@ -715,7 +721,11 @@ CallPost end button (or other UI)
 Cloudflare RTK
     |
     |--POST /api/v1/webhook/rtk
-    |   dyte-signature: HMAC-SHA256(secret, body)
+    |
+    +-- meeting.participantJoined:
+    |     GetCallByMeetingID
+    |     HandleWebhookParticipantJoined(meetingID, userID, sessionID)
+    |       If session_id == "" in DB: UpdateCallSessionID (best-effort)
     |
     +-- meeting.participantLeft:
     |     GetCallByMeetingID
@@ -750,9 +760,12 @@ Cloudflare RTK
     "creator_id": "string",
     "meeting_id": "string",
     "participants": ["userID"],
-    "start_at": 1234567890000,
+    "create_at": 1234567890000,
+    "update_at": 1234567890000,
     "end_at": 0,
-    "post_id": "string"
+    "post_id": "string",
+    "app_config_id": "string",
+    "session_id": ""
   },
   "token": "RTK JWT"
 }
@@ -841,7 +854,7 @@ No RTK JWT required. Publishes `notification_dismissed` WebSocket event to the r
   "channel_id": "string",
   "creator_id": "string",
   "participants": ["userID"],
-  "start_at": 1234567890000,
+  "create_at": 1234567890000,
   "post_id": "string"
 }
 ```
@@ -924,7 +937,7 @@ Environment variables take **strict precedence** over System Console settings (e
 |-------|-----------|
 | General APIs | `Mattermost-User-ID` header (set by Mattermost on authenticated requests) |
 | Admin APIs | `model.PermissionManageSystem` check |
-| RTK Webhook | HMAC-SHA256 signature verification (`dyte-signature` header) |
+| RTK Webhook | No signature verification implemented yet (`dyte-signature` header is present but not verified) |
 | Static files | No authentication (`call.html`, `call.js`, `worker.js`) |
 
 ### Credential Protection
@@ -1033,15 +1046,15 @@ mattermost-plugin-rtk/
 │   │   ├── interface.go           # RTKClient interface and type definitions
 │   │   ├── client.go              # HTTP client implementation
 │   │   └── mocks/mock_rtkclient.go
-│   ├── store/kvstore/
-│   │   ├── kvstore.go             # KVStore interface
+│   ├── store/
+│   │   ├── store.go               # Store interface
 │   │   ├── models.go              # CallSession type definition
-│   │   └── mocks/mock_kvstore.go
+│   │   └── mocks/mock_store.go
 │   ├── store/sqlstore/
-│   │   ├── store.go               # SQL Store struct, NewStore(), placeholder helpers
+│   │   ├── store.go               # SQL Store struct, NewStore(), helpers
 │   │   ├── migrate.go             # RunMigrations(), versioned schema migrations
 │   │   ├── calls.go               # CallSession CRUD (SQL)
-│   │   └── config.go              # rtk_config CRUD (WebhookID, Secret)
+│   │   └── config.go              # Webhook config CRUD (WebhookID)
 │   └── command/
 │       ├── command.go             # /hello slash command
 │       └── mocks/mock_commands.go

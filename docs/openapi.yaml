@@ -232,14 +232,17 @@ paths:
       summary: Receive RTK webhook events
       description: |
         Endpoint that receives event notifications from Cloudflare RTK.
-        Validates the HMAC-SHA256 signature in the `dyte-signature` header.
 
         Supported events:
-        - `meeting.participantJoined` -- a participant entered the meeting
+        - `meeting.participantJoined` -- a participant entered the meeting (used to capture `session_id`)
         - `meeting.participantLeft` -- a participant left the meeting
         - `meeting.ended` -- the meeting ended
 
         Unknown event types are ignored.
+
+        > **Note**: HMAC-SHA256 signature verification (`dyte-signature` header) is not yet
+        > implemented. The endpoint currently accepts all POST requests without verifying
+        > the signature.
       security:
         - RTKSignature: []
       requestBody:
@@ -255,6 +258,7 @@ paths:
                   event: "meeting.participantJoined"
                   meeting:
                     id: "meeting-uuid"
+                    sessionId: "session-uuid"
                   participant:
                     customParticipantId: "user-mattermost-id"
               meetingEnded:
@@ -289,8 +293,9 @@ components:
       in: header
       name: dyte-signature
       description: |
-        HMAC-SHA256 signature for verifying requests from RTK.
+        HMAC-SHA256 signature header sent by RTK.
         Format: `hex(HMAC-SHA256(webhook_secret, raw_body))`.
+        **Note**: Signature verification is not yet implemented in the plugin.
 
   parameters:
     CallID:
@@ -335,10 +340,14 @@ components:
           items:
             type: string
           description: List of Mattermost User IDs of current participants
-        start_at:
+        create_at:
           type: integer
           format: int64
           description: Call start time (Unix milliseconds)
+        update_at:
+          type: integer
+          format: int64
+          description: Last update time (Unix milliseconds)
         end_at:
           type: integer
           format: int64
@@ -346,15 +355,24 @@ components:
         post_id:
           type: string
           description: ID of the call notification post published to the channel
+        app_config_id:
+          type: string
+          description: ID of the RTK app config row active when the call was created
+        session_id:
+          type: string
+          description: Cloudflare RTK session UUID. Populated via webhook when the first participant connects; empty string if the webhook has not yet been received.
       example:
         id: "550e8400-e29b-41d4-a716-446655440000"
         channel_id: "abc123def456ghi789"
         creator_id: "user001"
         meeting_id: "rtk-meeting-id"
         participants: ["user001", "user002"]
-        start_at: 1700000000000
+        create_at: 1700000000000
+        update_at: 1700000001000
         end_at: 0
         post_id: "post001"
+        app_config_id: "cfg001"
+        session_id: "05e57591-d89e-4c2a-b3f1-123456789abc"
 
     CallWithToken:
       type: object
@@ -407,6 +425,9 @@ components:
             id:
               type: string
               description: RTK meeting ID
+            sessionId:
+              type: string
+              description: RTK session UUID (one per active call instance). Present in all event types.
         participant:
           type: object
           properties:

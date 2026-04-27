@@ -22,4 +22,8 @@ type CallSession struct {
 	PostID string `json:"post_id"`
 	// AppConfigID is the ID of the rtk_app_config entry that was active when this call was created.
 	AppConfigID string `json:"app_config_id"`
+	// SessionID is the Cloudflare RTK session identifier.
+	// Populated when the first participant connects (via webhook).
+	// Empty string means the webhook has not been received yet.
+	SessionID string `json:"session_id"`
 }

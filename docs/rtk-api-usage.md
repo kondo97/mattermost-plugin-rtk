@@ -37,17 +37,6 @@ Base URL: `https://api.cloudflare.com/client/v4/accounts/{accountID}/realtime/ki
 | Success status | 200 / 201 |
 | Used in | `server/rtkclient/client.go` → `GenerateToken()` |
 
-#### EndMeeting
-
-| Field | Value |
-|-------|-------|
-| Method | `DELETE` |
-| Path | `/meetings/{meetingID}` |
-| Request body | none |
-| Response | none (empty body) |
-| Success status | 200 / 204 |
-| Used in | `server/rtkclient/client.go` → `EndMeeting()` |
-
 #### GetMeeting
 
 | Field | Value |

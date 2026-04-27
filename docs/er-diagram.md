@@ -26,18 +26,20 @@ erDiagram
     }
 
     rtk_call_sessions {
-        VARCHAR_36 id PK
+        VARCHAR_26 id PK
         VARCHAR_26 channel_id
         VARCHAR_26 creator_id
         VARCHAR_64 meeting_id
         TEXT       participants
-        BIGINT     start_at
-        BIGINT     end_at
+        BIGINT     createat
+        BIGINT     updateat
+        BIGINT     endat
         VARCHAR_26 post_id
         INTEGER    app_config_id FK
+        VARCHAR_64 session_id
     }
 
-    rtk_schema_migrations {
+    rtk_db_migrations {
         INT    version PK
         BIGINT applied_at
     }
@@ -54,8 +56,8 @@ erDiagram
 | `rtk_app_config` | RTK アプリ設定（account_id / app_id）の履歴。最新行が有効。 |
 | `rtk_webhook_config` | RTK Webhook 設定の履歴。`app_config_id` で紐付く `rtk_app_config` の行が有効時に登録されたものを識別できる。 |
 | `rtk_channel_meetings` | チャンネルごとの RTK ミーティング ID マッピング。PK は `channel_id`（1チャンネル1ミーティング）。 |
-| `rtk_call_sessions` | 通話セッション。`end_at = 0` が進行中。`participants` は JSON 配列で格納。 |
-| `rtk_schema_migrations` | 適用済みマイグレーションのバージョン管理テーブル。 |
+| `rtk_call_sessions` | 通話セッション。`endat = 0` が進行中。`participants` は JSON 配列で格納。`session_id` は RTK セッション UUID（Webhook 受信前は空文字）。 |
+| `rtk_db_migrations` | 適用済みマイグレーションのバージョン管理テーブル。 |
 
 ## インデックス
 

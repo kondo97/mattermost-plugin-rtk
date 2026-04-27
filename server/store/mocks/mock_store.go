@@ -189,7 +189,7 @@ func (mr *MockStoreMockRecorder) SaveCall(session any) *gomock.Call {
 }
 
 // SaveChannelMeeting mocks base method.
-func (m *MockStore) SaveChannelMeeting(channelID, meetingID string, appConfigID string) error {
+func (m *MockStore) SaveChannelMeeting(channelID, meetingID, appConfigID string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveChannelMeeting", channelID, meetingID, appConfigID)
 	ret0, _ := ret[0].(error)
@@ -218,7 +218,7 @@ func (mr *MockStoreMockRecorder) StoreAppConfig(accountID, appID any) *gomock.Ca
 }
 
 // StoreWebhookConfig mocks base method.
-func (m *MockStore) StoreWebhookConfig(appConfigID string, webhookID string) error {
+func (m *MockStore) StoreWebhookConfig(appConfigID, webhookID string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreWebhookConfig", appConfigID, webhookID)
 	ret0, _ := ret[0].(error)
@@ -243,4 +243,18 @@ func (m *MockStore) UpdateCallParticipants(callID string, participants []string)
 func (mr *MockStoreMockRecorder) UpdateCallParticipants(callID, participants any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCallParticipants", reflect.TypeOf((*MockStore)(nil).UpdateCallParticipants), callID, participants)
+}
+
+// UpdateCallSessionID mocks base method.
+func (m *MockStore) UpdateCallSessionID(callID, sessionID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCallSessionID", callID, sessionID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCallSessionID indicates an expected call of UpdateCallSessionID.
+func (mr *MockStoreMockRecorder) UpdateCallSessionID(callID, sessionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCallSessionID", reflect.TypeOf((*MockStore)(nil).UpdateCallSessionID), callID, sessionID)
 }

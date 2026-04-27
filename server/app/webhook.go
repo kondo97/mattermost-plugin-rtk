@@ -5,7 +5,7 @@ import (
 )
 
 // HandleWebhookParticipantJoined processes a meeting.participantJoined event from RTK.
-func (a *App) HandleWebhookParticipantJoined(meetingID, userID string) {
+func (a *App) HandleWebhookParticipantJoined(meetingID, userID, sessionID string) {
 	if meetingID == "" || userID == "" {
 		return
 	}
@@ -32,6 +32,14 @@ func (a *App) HandleWebhookParticipantJoined(meetingID, userID string) {
 
 	// Update post participants — best effort
 	a.updatePostParticipants(fresh.PostID, fresh.Participants)
+
+	// Backfill session ID if not yet set (best-effort).
+	if sessionID != "" && fresh.SessionID == "" {
+		if err := a.store.UpdateCallSessionID(fresh.ID, sessionID); err != nil {
+			a.api.LogWarn("HandleWebhookParticipantJoined: UpdateCallSessionID failed",
+				"call_id", fresh.ID, "err", err.Error())
+		}
+	}
 
 	// Emit WebSocket event now that the participant is actually in the room
 	a.api.PublishWebSocketEvent(WSEventUserJoined, map[string]any{

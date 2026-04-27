@@ -12,7 +12,7 @@ import (
 // GetCallByChannel returns the active call (endat = 0) for a channel, or nil.
 func (s *Store) GetCallByChannel(channelID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE channel_id = $1 AND endat = 0`,
 		channelID,
@@ -23,7 +23,7 @@ func (s *Store) GetCallByChannel(channelID string) (*store.CallSession, error) {
 // GetCallByID returns the call with the given ID (active or ended), or nil if not found.
 func (s *Store) GetCallByID(callID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE id = $1`,
 		callID,
@@ -34,7 +34,7 @@ func (s *Store) GetCallByID(callID string) (*store.CallSession, error) {
 // GetCallByMeetingID returns the active call matching the given RTK meeting ID, or nil if not found.
 func (s *Store) GetCallByMeetingID(meetingID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE meeting_id = $1 AND endat = 0`,
 		meetingID,
@@ -56,6 +56,7 @@ func (s *Store) scanSession(row *sql.Row) (*store.CallSession, error) {
 		&session.EndAt,
 		&session.PostID,
 		&session.AppConfigID,
+		&session.SessionID,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -91,8 +92,8 @@ func (s *Store) SaveCall(session *store.CallSession) error {
 
 	_, err = s.db.Exec(
 		`INSERT INTO rtk_call_sessions
-			(id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			(id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (id) DO UPDATE SET
 				channel_id    = EXCLUDED.channel_id,
 				creator_id    = EXCLUDED.creator_id,
@@ -101,7 +102,8 @@ func (s *Store) SaveCall(session *store.CallSession) error {
 				updateat      = EXCLUDED.updateat,
 				endat         = EXCLUDED.endat,
 				post_id       = EXCLUDED.post_id,
-				app_config_id = EXCLUDED.app_config_id`,
+				app_config_id = EXCLUDED.app_config_id,
+				session_id    = EXCLUDED.session_id`,
 		session.ID,
 		session.ChannelID,
 		session.CreatorID,
@@ -112,6 +114,7 @@ func (s *Store) SaveCall(session *store.CallSession) error {
 		session.EndAt,
 		session.PostID,
 		session.AppConfigID,
+		session.SessionID,
 	)
 	return errors.Wrap(err, "failed to save call session")
 }
@@ -147,6 +150,25 @@ func (s *Store) EndCall(callID string, endAt int64) error {
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to end call")
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "failed to get rows affected")
+	}
+	if n == 0 {
+		return errors.New("call not found")
+	}
+	return nil
+}
+
+// UpdateCallSessionID sets the RTK session ID for the given call.
+func (s *Store) UpdateCallSessionID(callID, sessionID string) error {
+	result, err := s.db.Exec(
+		`UPDATE rtk_call_sessions SET session_id = $1, updateat = $2 WHERE id = $3`,
+		sessionID, time.Now().UnixMilli(), callID,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to update call session ID")
 	}
 	n, err := result.RowsAffected()
 	if err != nil {
