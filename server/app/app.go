@@ -101,6 +101,54 @@ func (a *App) ensureAppLocked(accountID, appName string) (string, string, error)
 	return app.ID, appConfigID, nil
 }
 
+// ResolveAppByID verifies that the given app ID exists in the Cloudflare account and
+// records it as the active app config. Used when the App ID is supplied via the
+// RTK_APP_ID environment variable so the plugin does not implicitly create apps.
+//
+// Like EnsureApp, the lookup-then-store sequence is serialized cluster-wide via the
+// store advisory lock to avoid racing with another node.
+func (a *App) ResolveAppByID(accountID, appID string) (string, string, error) {
+	if a.account == nil {
+		return "", "", errors.New("ResolveAppByID: account client is not configured")
+	}
+	if appID == "" {
+		return "", "", errors.New("ResolveAppByID: app ID is empty")
+	}
+
+	appName := a.rtkAppName()
+
+	var (
+		appConfigID string
+		innerErr    error
+	)
+	if err := a.store.WithAppLock(context.Background(), appName, func() error {
+		appConfigID, innerErr = a.resolveAppByIDLocked(accountID, appID)
+		return innerErr
+	}); err != nil {
+		return appID, appConfigID, err
+	}
+	return appID, appConfigID, nil
+}
+
+// resolveAppByIDLocked confirms appID exists on the Cloudflare account and stores it
+// as active under the caller-held advisory lock.
+func (a *App) resolveAppByIDLocked(accountID, appID string) (string, error) {
+	apps, err := a.account.ListApps()
+	if err != nil {
+		return "", errors.Wrap(err, "ResolveAppByID: ListApps failed")
+	}
+	for _, app := range apps {
+		if app.ID == appID {
+			appConfigID, err := a.store.StoreAppConfig(accountID, appID)
+			if err != nil {
+				a.api.LogWarn("ResolveAppByID: failed to store app config", "error", err.Error())
+			}
+			return appConfigID, nil
+		}
+	}
+	return "", errors.Errorf("ResolveAppByID: app ID %q not found in Cloudflare account %q", appID, accountID)
+}
+
 // rtkAppName returns the deterministic RTK app name derived from the Mattermost site URL.
 // Using the site URL ensures the name is unique per Mattermost deployment and human-readable
 // in the Cloudflare dashboard.

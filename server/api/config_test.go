@@ -40,7 +40,7 @@ func TestHandleConfigStatus_Disabled(t *testing.T) {
 func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 	h, mmAPI := newTestAPI(t, nil, nil)
 	h.configFn = func() ConfigStatus {
-		return ConfigStatus{Enabled: true, AccountID: "account1"}
+		return ConfigStatus{Enabled: true, AccountID: "account1", AppIDViaEnv: true}
 	}
 	mmAPI.On("HasPermissionTo", "admin1", model.PermissionManageSystem).Return(true)
 
@@ -51,6 +51,7 @@ func TestHandleAdminConfigStatus_Admin(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, true, resp["enabled"])
 	assert.Equal(t, "account1", resp["cloudflare_account_id"])
+	assert.Equal(t, true, resp["app_id_via_env"])
 	assert.Nil(t, resp["cloudflare_api_token"], "API token must never be returned")
 	assert.Nil(t, resp["feature_flags"], "feature_flags must not be present")
 }

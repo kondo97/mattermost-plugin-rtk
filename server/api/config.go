@@ -32,6 +32,7 @@ func (h *API) handleAdminConfigStatus(w http.ResponseWriter, r *http.Request) {
 		"enabled":               status.Enabled,
 		"account_id_via_env":    status.AccountIDViaEnv,
 		"api_token_via_env":     status.APITokenViaEnv,
+		"app_id_via_env":        status.AppIDViaEnv,
 		"cloudflare_account_id": status.AccountID,
 	})
 }

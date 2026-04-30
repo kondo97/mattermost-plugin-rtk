@@ -43,3 +43,26 @@ func TestGetEffectiveAPIToken_NoEnv(t *testing.T) {
 	cfg := &configuration{CloudflareAPIToken: "config-api-token"}
 	assert.Equal(t, "config-api-token", cfg.GetEffectiveAPIToken())
 }
+
+// --- AppIDFromEnv / GetEffectiveAppID ---
+
+func TestGetEffectiveAppID_EnvSet(t *testing.T) {
+	t.Setenv("RTK_APP_ID", "env-app-id")
+	cfg := &configuration{}
+	assert.Equal(t, "env-app-id", cfg.GetEffectiveAppID())
+	assert.True(t, cfg.AppIDFromEnv())
+}
+
+func TestGetEffectiveAppID_EnvEmpty(t *testing.T) {
+	t.Setenv("RTK_APP_ID", "")
+	cfg := &configuration{}
+	assert.Equal(t, "", cfg.GetEffectiveAppID())
+	// LookupEnv considers empty-but-set as set.
+	assert.True(t, cfg.AppIDFromEnv())
+}
+
+func TestGetEffectiveAppID_NoEnv(t *testing.T) {
+	cfg := &configuration{}
+	assert.Equal(t, "", cfg.GetEffectiveAppID())
+	assert.False(t, cfg.AppIDFromEnv())
+}

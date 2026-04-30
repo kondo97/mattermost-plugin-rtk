@@ -15,12 +15,12 @@ The activation pipeline performs the following, in order:
 1. Wrap the plugin API in a typed client (`pluginapi.Client`).
 2. Open the master database handle and run schema migrations.
 3. Read the active plugin configuration (settings + environment variables).
-4. Provision (or recover) the single Cloudflare RTK app for this Mattermost instance — `EnsureApp`.
+4. Provision (or resolve) the single Cloudflare RTK app for this Mattermost instance — `EnsureApp` (default) or `ResolveAppByID` (when `RTK_APP_ID` is set).
 5. Build the app-scoped RTK client and the business-logic layer (`app.App`).
 6. Register (or verify) the RTK webhook that delivers meeting events back to this plugin.
 7. Initialize the HTTP API handler with the embedded static assets.
 
-Phases 1 and 2 are **fatal**: any failure aborts activation. Phases 4 and 6 are **best-effort**: failures are logged and activation continues so that the operator can fix credentials or networking later via `OnConfigurationChange`.
+Phases 1, 2, 3 (credentials check) and 4 are **fatal**: any failure aborts activation. Phase 6 is **best-effort**: failures are logged and activation continues so that the operator can fix networking later via `OnConfigurationChange`.
 
 ---
 
@@ -42,9 +42,19 @@ sequenceDiagram
 
     P->>P: getConfiguration() (settings + env vars)
 
-    alt credentials present
-        P->>DB: Store.WithAppLock(appName) — pg_advisory_lock でクラスタ間直列化
-        P->>CF: AccountClient.ListApps()
+    alt credentials missing
+        P-->>MM: error (activation aborted)
+    end
+
+    P->>DB: Store.WithAppLock(appName) — pg_advisory_lock でクラスタ間直列化
+    P->>CF: AccountClient.ListApps()
+    alt RTK_APP_ID is set (ResolveAppByID)
+        alt app with id == RTK_APP_ID exists
+            P->>DB: Store.StoreAppConfig(accountID, RTK_APP_ID)
+        else not found
+            P-->>MM: error (activation aborted — no implicit CreateApp)
+        end
+    else RTK_APP_ID unset (EnsureApp)
         alt app named "mm-<siteURL>" exists
             P->>DB: Store.StoreAppConfig(accountID, app.ID)
             Note over P,DB: 旧 active を inactive に更新し、対象 app_id 行を active に upsert
@@ -52,13 +62,11 @@ sequenceDiagram
             P->>CF: AccountClient.CreateApp(name)
             P->>DB: Store.StoreAppConfig(accountID, app.ID)
         end
-        Note over P,DB: pg_advisory_unlock (defer)
     end
-    Note over P,CF: EnsureApp errors are logged, not fatal.
+    Note over P,DB: pg_advisory_unlock (defer)
+    Note over P,CF: EnsureApp / ResolveAppByID errors are fatal — activation aborts.
 
-    alt accountID + appID + token are all set
-        P->>P: rtkclient.NewClient(...)
-    end
+    P->>P: rtkclient.NewClient(accountID, appID, apiToken)
 
     P->>P: app.New(store, rtk, account, API)
 
@@ -118,20 +126,37 @@ Files: `server/configuration.go`.
 - `CloudflareAccountID`
 - `CloudflareAPIToken`
 
-Each has an environment-variable override that takes **strict precedence** over the stored setting:
+Each has an environment-variable override that takes **strict precedence** over the stored setting. The Cloudflare RealtimeKit App ID is **environment-only** (no settings field): when `RTK_APP_ID` is set, the plugin verifies the app exists in the configured Cloudflare account and uses it as the active app; when unset, the plugin falls back to discover-or-create via `EnsureApp` (Phase 4).
 
-| Setting               | Environment variable | Resolver                                         |
-|-----------------------|----------------------|--------------------------------------------------|
-| `CloudflareAccountID` | `RTK_ACCOUNT_ID`     | `configuration.GetEffectiveAccountID()`          |
-| `CloudflareAPIToken`  | `RTK_API_TOKEN`      | `configuration.GetEffectiveAPIToken()`           |
+| Setting / Source       | Environment variable | Resolver                                |
+|------------------------|----------------------|-----------------------------------------|
+| `CloudflareAccountID`  | `RTK_ACCOUNT_ID`     | `configuration.GetEffectiveAccountID()` |
+| `CloudflareAPIToken`   | `RTK_API_TOKEN`      | `configuration.GetEffectiveAPIToken()`  |
+| (env-only, no setting) | `RTK_APP_ID`         | `configuration.GetEffectiveAppID()`     |
 
-If either resolved value is empty, the RTK-related phases below are skipped and the plugin activates in a "configured but disabled" state. The operator can then save configuration to trigger `OnConfigurationChange`, which will re-attempt the RTK setup.
+If either resolved credential (`AccountID` or `APIToken`) is empty, activation is aborted with an error directing the operator to set them in System Console or via the env vars above. Once credentials are present, the RTK provisioning phase below runs.
 
-### Phase 4 — RTK app provisioning (`EnsureApp`)
+### Phase 4 — RTK app provisioning (`EnsureApp` / `ResolveAppByID`)
 
 Files: `server/app/app.go`.
 
-When both an account ID and an API token are available:
+Both code paths produce the same `(appID, appConfigID)` outputs and are serialized cluster-wide via the same advisory lock. The branch is selected purely by whether the `RTK_APP_ID` environment variable is set.
+
+#### 4a. `RTK_APP_ID` is set — `ResolveAppByID`
+
+When `cfg.GetEffectiveAppID() != ""`, the plugin **never** auto-creates an app. Instead it:
+
+1. Creates an account-level client: `rtkclient.NewAccountClient(accountID, apiToken)`.
+2. Constructs a temporary `App` and calls `ResolveAppByID(accountID, envAppID)`.
+3. Inside the advisory lock, calls `AccountClient.ListApps()` and searches for an entry with `app.ID == envAppID`.
+   - **Found** → persists the mapping via `Store.StoreAppConfig(accountID, envAppID)` (the same idempotent transaction used by `EnsureApp`) and returns `(envAppID, appConfigID)`.
+   - **Not found** → returns a wrapped error `ResolveAppByID: app ID %q not found in Cloudflare account %q`. **Activation is aborted.**
+
+This guarantees that an env-supplied app ID maps to a real Cloudflare app under the configured account, with no implicit `CreateApp` side effects.
+
+#### 4b. `RTK_APP_ID` is unset — `EnsureApp`
+
+When the env var is not set, the plugin falls back to the original discover-or-create flow:
 
 1. An account-level client is created: `rtkclient.NewAccountClient(accountID, apiToken)`.
 2. A temporary `App` is constructed solely to call `EnsureApp(accountID)`.
@@ -143,23 +168,25 @@ When both an account ID and an API token are available:
    - **Not found**: call `AccountClient.CreateApp(name)` and persist the new mapping the same way.
 5. The returned `(appID, appConfigID)` are used in the next phases.
 
-The whole sequence (`ListApps → CreateApp → StoreAppConfig`) is wrapped in `Store.WithAppLock(ctx, appName, fn)`, which acquires a PostgreSQL advisory lock keyed on the app name. This serializes EnsureApp across cluster nodes so two Mattermost servers cannot race on `CreateApp` and create duplicate Cloudflare apps. The advisory lock is connection-scoped: a dedicated `db.Conn` is checked out for the lock and released (along with the lock) when `WithAppLock` returns.
+#### Concurrency & failure handling (both branches)
+
+The whole sequence (`ListApps → CreateApp/verify → StoreAppConfig`) is wrapped in `Store.WithAppLock(ctx, appName, fn)`, which acquires a PostgreSQL advisory lock keyed on the deterministic app name (the same key is used regardless of branch). This serializes the operation across cluster nodes so two Mattermost servers cannot race on `CreateApp` and create duplicate Cloudflare apps, nor double-write `rtk_app_config` for an env-supplied ID. The advisory lock is connection-scoped: a dedicated `db.Conn` is checked out for the lock and released (along with the lock) when `WithAppLock` returns.
 
 Even if the advisory lock is bypassed (e.g. lock acquisition error), the partial UNIQUE INDEX on `rtk_app_config(status='active')` provides a second line of defense: a concurrent `StoreAppConfig` for a different `app_id` will fail with SQLSTATE `23505`, and the implementation retries by re-reading the active row.
 
-`EnsureApp` errors are **logged with `LogWarn` and swallowed** so activation continues. If `EnsureApp` fails, `appID` is empty and Phase 5 below skips RTK client construction.
+Errors from either branch (network failure, invalid token, env App ID not found, etc.) are **fatal** — `OnActivate` returns a wrapped error and the plugin is deactivated by Mattermost.
 
 ### Phase 5 — App-scoped RTK client & business layer
 
 Files: `server/rtkclient/client.go`, `server/app/app.go`.
 
-If `accountID`, `appID` and `apiToken` are all non-empty:
+Phase 4 guarantees a non-empty `appID` (otherwise activation would have aborted). The app-scoped client is then constructed unconditionally:
 
 ```go
 rtkClient = rtkclient.NewClient(accountID, appID, apiToken)
 ```
 
-The business-logic layer is then created with all dependencies (the RTK client may be `nil`):
+The business-logic layer is then created with all dependencies:
 
 ```go
 p.application = app.New(store, rtkClient, accountClient, p.API)
@@ -225,6 +252,7 @@ The `Plugin.configStatus()` helper exposes the post-activation state to the API 
 | `Enabled`         | `true` only if credentials are present **and** `app.IsConfigured()` is true (i.e. Phases 4-5 succeeded). |
 | `AccountIDViaEnv` | `RTK_ACCOUNT_ID` is set; the stored setting is therefore overridden.        |
 | `APITokenViaEnv`  | `RTK_API_TOKEN` is set; the stored setting is therefore overridden.         |
+| `AppIDViaEnv`     | `RTK_APP_ID` is set; Phase 4 used `ResolveAppByID` (no implicit CreateApp). |
 | `AccountID`       | The raw `CloudflareAccountID` setting value (not the env-resolved value).   |
 
 When `Enabled == false` the API layer can still serve UI/status endpoints but RTK-dependent operations are unavailable.
@@ -238,9 +266,10 @@ When `Enabled == false` the API layer can still serve UI/status endpoints but RT
 | 2. Master DB acquisition | error from `GetMasterDB` | **Fatal** — `OnActivate` returns wrapped error; plugin is deactivated. |
 | 2. Store creation        | error from `sqlstore.NewStore` | **Fatal**. |
 | 2. Migrations            | error from `RunMigrations` | **Fatal**. |
-| 3. Config load           | (handled in `OnConfigurationChange`, not `OnActivate`) | n/a |
-| 4. EnsureApp             | network/auth error, missing credentials | **Best-effort** — logged; `appID` stays empty so Phase 5 skips RTK client setup. |
-| 5. RTK client construction | skipped if any of accountID/appID/token is empty | Plugin activates with `IsConfigured() == false`. |
+| 3. Config load           | resolved AccountID or APIToken empty | **Fatal** — operator must set them in System Console or via `RTK_ACCOUNT_ID`/`RTK_API_TOKEN`. |
+| 4. EnsureApp             | network/auth error, list-or-create failure | **Fatal**. |
+| 4. ResolveAppByID        | `RTK_APP_ID` not found in account, network/auth error | **Fatal** — no implicit `CreateApp`. |
+| 5. RTK client construction | none expected (Phase 4 guarantees non-empty `appID`) | n/a |
 | 6. Webhook verify/register | any RTK API error, missing SiteURL | **Best-effort** — logged; activation continues. |
 | 7. API handler init        | none expected | n/a |
 
@@ -260,6 +289,6 @@ Recovery path: when the operator saves configuration in the System Console (or r
 | `server/store/sqlstore/migrations/postgres/*.sql` | Embedded schema migrations                               |
 | `server/rtkclient/account_client.go`              | `ListApps`, `CreateApp` (account-level RTK API)          |
 | `server/rtkclient/client.go`                      | `GetWebhook`, `RegisterWebhook`, `ListWebhooks`, `DeleteWebhook` (app-scoped RTK API) |
-| `server/app/app.go`                               | `EnsureApp`, `rtkAppName`, `IsConfigured`                |
+| `server/app/app.go`                               | `EnsureApp`, `ResolveAppByID`, `rtkAppName`, `IsConfigured` |
 | `server/app/webhook_manager.go`                   | `RegisterWebhookIfNeeded`, conflict resolution           |
 | `server/api/`                                     | `rtapi.Init` HTTP handler wiring                         |

@@ -63,19 +63,34 @@ func (p *Plugin) OnActivate() error {
 		return err
 	}
 
-	// Phase 1: Create an account-level client and ensure the RTK app exists.
-	// EnsureApp creates the app if it doesn't exist yet, or recovers the stored ID.
+	// Phase 1: Create an account-level client and resolve the RTK app.
+	// When RTK_APP_ID is set, verify that app exists in the account and use it
+	// (no implicit CreateApp). Otherwise fall back to the discover-or-create
+	// EnsureApp flow keyed by the deterministic app name.
 	accountClient := rtkclient.NewAccountClient(cfg.GetEffectiveAccountID(), cfg.GetEffectiveAPIToken())
-	// Use a temporary App to call EnsureApp before the full App is wired up.
+	// Use a temporary App to call EnsureApp/ResolveAppByID before the full App is wired up.
 	tmpApp := app.New(store, nil, accountClient, p.API)
-	appID, appConfigID, err := tmpApp.EnsureApp(cfg.GetEffectiveAccountID())
-	if err != nil {
-		wrapped := fmt.Errorf("RTK plugin activation failed: EnsureApp failed: %w", err)
-		p.API.LogError(wrapped.Error())
-		return wrapped
+	var (
+		appID       string
+		appConfigID string
+	)
+	if envAppID := cfg.GetEffectiveAppID(); envAppID != "" {
+		appID, appConfigID, err = tmpApp.ResolveAppByID(cfg.GetEffectiveAccountID(), envAppID)
+		if err != nil {
+			wrapped := fmt.Errorf("RTK plugin activation failed: ResolveAppByID failed: %w", err)
+			p.API.LogError(wrapped.Error())
+			return wrapped
+		}
+	} else {
+		appID, appConfigID, err = tmpApp.EnsureApp(cfg.GetEffectiveAccountID())
+		if err != nil {
+			wrapped := fmt.Errorf("RTK plugin activation failed: EnsureApp failed: %w", err)
+			p.API.LogError(wrapped.Error())
+			return wrapped
+		}
 	}
 	if appID == "" {
-		err := fmt.Errorf("RTK plugin activation failed: EnsureApp returned an empty app ID")
+		err := fmt.Errorf("RTK plugin activation failed: empty app ID")
 		p.API.LogError(err.Error())
 		return err
 	}
@@ -114,6 +129,7 @@ func (p *Plugin) configStatus() rtapi.ConfigStatus {
 		Enabled:         credentialsOK && rtkReady,
 		AccountIDViaEnv: cfg.AccountIDFromEnv(),
 		APITokenViaEnv:  cfg.APITokenFromEnv(),
+		AppIDViaEnv:     cfg.AppIDFromEnv(),
 		AccountID:       cfg.CloudflareAccountID,
 	}
 }

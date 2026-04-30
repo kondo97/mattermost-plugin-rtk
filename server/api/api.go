@@ -14,6 +14,7 @@ type ConfigStatus struct {
 	Enabled         bool
 	AccountIDViaEnv bool
 	APITokenViaEnv  bool
+	AppIDViaEnv     bool
 	AccountID       string
 }
 

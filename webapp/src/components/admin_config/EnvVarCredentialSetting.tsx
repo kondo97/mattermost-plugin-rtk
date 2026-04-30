@@ -9,6 +9,7 @@ type AdminStatusResponse = {
     enabled: boolean;
     account_id_via_env: boolean;
     api_token_via_env: boolean;
+    app_id_via_env: boolean;
     cloudflare_account_id: string;
 };
 
@@ -36,7 +37,7 @@ const EnvVarCredentialSetting: React.FC<Props> = ({id, value, disabled, onChange
             if ('data' in result) {
                 const keyMap: Record<string, keyof AdminStatusResponse> = {
                     CloudflareAccountID: 'account_id_via_env',
-                    CloudflareAppID: 'account_id_via_env',
+                    CloudflareAppID: 'app_id_via_env',
                     CloudflareAPIToken: 'api_token_via_env',
                 };
                 const key = keyMap[id] ?? 'account_id_via_env';

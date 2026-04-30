@@ -26,6 +26,13 @@
                 "placeholder": ""
             },
             {
+                "key": "CloudflareAppID",
+                "display_name": "Cloudflare RealtimeKit App ID",
+                "type": "custom",
+                "help_text": "Optional. When the RTK_APP_ID environment variable is set at startup, the plugin verifies the app exists in your Cloudflare account and uses it as the active app. Leave unset to let the plugin discover or create the app automatically.",
+                "placeholder": ""
+            },
+            {
                 "key": "CloudflareAPIToken",
                 "display_name": "Cloudflare API Token",
                 "type": "text",

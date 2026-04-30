@@ -39,6 +39,21 @@ func (c *configuration) APITokenFromEnv() bool {
 	return ok
 }
 
+// AppIDFromEnv reports whether RTK_APP_ID is set as an environment variable.
+func (c *configuration) AppIDFromEnv() bool {
+	_, ok := os.LookupEnv("RTK_APP_ID")
+	return ok
+}
+
+// GetEffectiveAppID returns the Cloudflare RealtimeKit App ID from the RTK_APP_ID
+// environment variable, or "" if not set. App ID is currently env-only: when set,
+// the plugin verifies the app exists in the configured Cloudflare account and uses
+// it as the active app; otherwise the plugin discovers/creates the app via
+// EnsureApp.
+func (c *configuration) GetEffectiveAppID() string {
+	return os.Getenv("RTK_APP_ID")
+}
+
 // GetEffectiveAccountID returns the Cloudflare Account ID.
 // Environment variable RTK_ACCOUNT_ID takes strict precedence over the stored config value.
 func (c *configuration) GetEffectiveAccountID() string {
@@ -146,16 +161,31 @@ func (p *Plugin) OnConfigurationChange() error {
 	newAccountClient := rtkclient.NewAccountClient(configuration.GetEffectiveAccountID(), configuration.GetEffectiveAPIToken())
 	p.application.UpdateAccountClient(newAccountClient)
 
-	appID, appConfigID, err := p.application.EnsureApp(configuration.GetEffectiveAccountID())
-	if err != nil {
-		p.application.UpdateRTKClient(nil)
-		wrapped := errors.Wrap(err, "RTK plugin configuration update failed: EnsureApp failed")
-		p.API.LogError(wrapped.Error())
-		return wrapped
+	var (
+		appID       string
+		appConfigID string
+		err         error
+	)
+	if envAppID := configuration.GetEffectiveAppID(); envAppID != "" {
+		appID, appConfigID, err = p.application.ResolveAppByID(configuration.GetEffectiveAccountID(), envAppID)
+		if err != nil {
+			p.application.UpdateRTKClient(nil)
+			wrapped := errors.Wrap(err, "RTK plugin configuration update failed: ResolveAppByID failed")
+			p.API.LogError(wrapped.Error())
+			return wrapped
+		}
+	} else {
+		appID, appConfigID, err = p.application.EnsureApp(configuration.GetEffectiveAccountID())
+		if err != nil {
+			p.application.UpdateRTKClient(nil)
+			wrapped := errors.Wrap(err, "RTK plugin configuration update failed: EnsureApp failed")
+			p.API.LogError(wrapped.Error())
+			return wrapped
+		}
 	}
 	if appID == "" {
 		p.application.UpdateRTKClient(nil)
-		err := errors.New("RTK plugin configuration update failed: EnsureApp returned an empty app ID")
+		err := errors.New("RTK plugin configuration update failed: empty app ID")
 		p.API.LogError(err.Error())
 		return err
 	}
