@@ -321,10 +321,10 @@ type RTKClient interface {
 | Table | Columns | Description |
 |-------|---------|-------------|
 | `rtk_db_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
-| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `createat`, `updateat`, `endat`, `post_id`, `app_config_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. |
-| `rtk_app_config` | `id SERIAL PK`, `account_id TEXT`, `app_id TEXT`, `created_at TIMESTAMP` | RTK app credentials history |
-| `rtk_webhook_config` | `id SERIAL PK`, `webhook_id TEXT`, `webhook_secret TEXT`, `created_at TIMESTAMP`, `app_config_id INT` | RTK webhook registration history |
-| `rtk_channel_meetings` | `channel_id VARCHAR(26) PK`, `meeting_id TEXT`, `app_config_id INT` | Per-channel RTK meeting ID |
+| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `createat`, `updateat`, `endat`, `post_id`, `rtk_channel_meeting_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. `rtk_channel_meeting_id` is a logical FK to `rtk_channel_meetings.id` — Sessions belong to Meetings, not directly to App configs. |
+| `rtk_app_config` | `id VARCHAR(26) PK`, `account_id TEXT`, `app_id TEXT UNIQUE`, `status TEXT` (`active`/`inactive`), `createat BIGINT`, `updateat BIGINT` | RTK app credentials. Exactly one row has `status='active'` (enforced by partial UNIQUE INDEX). Switching `app_id` x→y→x reuses the original x row (status flips back to `active`), so existing Meetings keyed by it remain valid. |
+| `rtk_webhook_config` | `id VARCHAR(26) PK`, `webhook_id TEXT`, `webhook_secret TEXT`, `createat BIGINT`, `app_config_id VARCHAR(26)` | RTK webhook registration history |
+| `rtk_channel_meetings` | `channel_id VARCHAR(26) PK`, `id VARCHAR(26) UNIQUE`, `meeting_id TEXT`, `app_config_id VARCHAR(26)`, `createat BIGINT`, `updateat BIGINT` | Per-channel RTK meeting ID. The surrogate `id` column is referenced by `rtk_call_sessions.rtk_channel_meeting_id`. |
 
 **Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`
 
@@ -612,8 +612,8 @@ type CallSession struct {
     UpdateAt     int64    `json:"update_at"`     // Last update Unix timestamp (ms)
     EndAt        int64    `json:"end_at"`        // End Unix timestamp (ms); 0 = active
     PostID       string   `json:"post_id"`       // ID of the custom_cf_call post
-    AppConfigID  string   `json:"app_config_id"` // RTK app config row active at call creation
-    SessionID    string   `json:"session_id"`    // RTK session UUID; empty until first participantJoined webhook
+    ChannelMeetingID string   `json:"rtk_channel_meeting_id"` // Logical FK to rtk_channel_meetings.id (the Meeting that owns this Session)
+    SessionID        string   `json:"session_id"`         // RTK session UUID; empty until first participantJoined webhook
 }
 ```
 
@@ -764,7 +764,7 @@ Cloudflare RTK
     "update_at": 1234567890000,
     "end_at": 0,
     "post_id": "string",
-    "app_config_id": "string",
+    "rtk_channel_meeting_id": "string",
     "session_id": ""
   },
   "token": "RTK JWT"

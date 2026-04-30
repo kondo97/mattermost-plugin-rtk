@@ -20,8 +20,8 @@ type CallSession struct {
 	EndAt int64 `json:"end_at"`
 	// PostID is the ID of the custom_cf_call post in the channel.
 	PostID string `json:"post_id"`
-	// AppConfigID is the ID of the rtk_app_config entry that was active when this call was created.
-	AppConfigID string `json:"app_config_id"`
+	// ChannelMeetingID is the ID of the rtk_channel_meetings entry that this call was created against.
+	ChannelMeetingID string `json:"rtk_channel_meeting_id"`
 	// SessionID is the Cloudflare RTK session identifier.
 	// Populated when the first participant connects (via webhook).
 	// Empty string means the webhook has not been received yet.

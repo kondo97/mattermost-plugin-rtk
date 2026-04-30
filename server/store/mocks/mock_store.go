@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	store "github.com/kondo97/mattermost-plugin-rtk/server/store"
@@ -66,6 +67,21 @@ func (m *MockStore) EndCall(callID string, endAt int64) error {
 func (mr *MockStoreMockRecorder) EndCall(callID, endAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndCall", reflect.TypeOf((*MockStore)(nil).EndCall), callID, endAt)
+}
+
+// GetActiveAppConfigID mocks base method.
+func (m *MockStore) GetActiveAppConfigID() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveAppConfigID")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveAppConfigID indicates an expected call of GetActiveAppConfigID.
+func (mr *MockStoreMockRecorder) GetActiveAppConfigID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveAppConfigID", reflect.TypeOf((*MockStore)(nil).GetActiveAppConfigID))
 }
 
 // GetAppID mocks base method.
@@ -129,34 +145,20 @@ func (mr *MockStoreMockRecorder) GetCallByMeetingID(meetingID any) *gomock.Call 
 }
 
 // GetChannelMeeting mocks base method.
-func (m *MockStore) GetChannelMeeting(channelID string) (string, string, error) {
+func (m *MockStore) GetChannelMeeting(channelID string) (string, string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetChannelMeeting", channelID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(string)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // GetChannelMeeting indicates an expected call of GetChannelMeeting.
 func (mr *MockStoreMockRecorder) GetChannelMeeting(channelID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChannelMeeting", reflect.TypeOf((*MockStore)(nil).GetChannelMeeting), channelID)
-}
-
-// GetLatestAppConfigID mocks base method.
-func (m *MockStore) GetLatestAppConfigID() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLatestAppConfigID")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetLatestAppConfigID indicates an expected call of GetLatestAppConfigID.
-func (mr *MockStoreMockRecorder) GetLatestAppConfigID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestAppConfigID", reflect.TypeOf((*MockStore)(nil).GetLatestAppConfigID))
 }
 
 // GetWebhookConfig mocks base method.
@@ -189,11 +191,12 @@ func (mr *MockStoreMockRecorder) SaveCall(session any) *gomock.Call {
 }
 
 // SaveChannelMeeting mocks base method.
-func (m *MockStore) SaveChannelMeeting(channelID, meetingID, appConfigID string) error {
+func (m *MockStore) SaveChannelMeeting(channelID, meetingID, appConfigID string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveChannelMeeting", channelID, meetingID, appConfigID)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SaveChannelMeeting indicates an expected call of SaveChannelMeeting.
@@ -257,4 +260,18 @@ func (m *MockStore) UpdateCallSessionID(callID, sessionID string) error {
 func (mr *MockStoreMockRecorder) UpdateCallSessionID(callID, sessionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCallSessionID", reflect.TypeOf((*MockStore)(nil).UpdateCallSessionID), callID, sessionID)
+}
+
+// WithAppLock mocks base method.
+func (m *MockStore) WithAppLock(ctx context.Context, key string, fn func() error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithAppLock", ctx, key, fn)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WithAppLock indicates an expected call of WithAppLock.
+func (mr *MockStoreMockRecorder) WithAppLock(ctx, key, fn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAppLock", reflect.TypeOf((*MockStore)(nil).WithAppLock), ctx, key, fn)
 }

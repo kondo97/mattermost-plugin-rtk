@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/kondo97/mattermost-plugin-rtk/server/store"
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/pkg/errors"
+
+	"github.com/kondo97/mattermost-plugin-rtk/server/store"
 )
 
 // GetCallByChannel returns the active call (endat = 0) for a channel, or nil.
 func (s *Store) GetCallByChannel(channelID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, rtk_channel_meeting_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE channel_id = $1 AND endat = 0`,
 		channelID,
@@ -23,7 +25,7 @@ func (s *Store) GetCallByChannel(channelID string) (*store.CallSession, error) {
 // GetCallByID returns the call with the given ID (active or ended), or nil if not found.
 func (s *Store) GetCallByID(callID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, rtk_channel_meeting_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE id = $1`,
 		callID,
@@ -34,7 +36,7 @@ func (s *Store) GetCallByID(callID string) (*store.CallSession, error) {
 // GetCallByMeetingID returns the active call matching the given RTK meeting ID, or nil if not found.
 func (s *Store) GetCallByMeetingID(meetingID string) (*store.CallSession, error) {
 	row := s.db.QueryRow(
-		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id
+		`SELECT id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, rtk_channel_meeting_id, session_id
 		 FROM rtk_call_sessions
 		 WHERE meeting_id = $1 AND endat = 0`,
 		meetingID,
@@ -55,7 +57,7 @@ func (s *Store) scanSession(row *sql.Row) (*store.CallSession, error) {
 		&session.UpdateAt,
 		&session.EndAt,
 		&session.PostID,
-		&session.AppConfigID,
+		&session.ChannelMeetingID,
 		&session.SessionID,
 	)
 	if err == sql.ErrNoRows {
@@ -92,18 +94,18 @@ func (s *Store) SaveCall(session *store.CallSession) error {
 
 	_, err = s.db.Exec(
 		`INSERT INTO rtk_call_sessions
-			(id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, app_config_id, session_id)
+			(id, channel_id, creator_id, meeting_id, participants, createat, updateat, endat, post_id, rtk_channel_meeting_id, session_id)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (id) DO UPDATE SET
-				channel_id    = EXCLUDED.channel_id,
-				creator_id    = EXCLUDED.creator_id,
-				meeting_id    = EXCLUDED.meeting_id,
-				participants  = EXCLUDED.participants,
-				updateat      = EXCLUDED.updateat,
-				endat         = EXCLUDED.endat,
-				post_id       = EXCLUDED.post_id,
-				app_config_id = EXCLUDED.app_config_id,
-				session_id    = EXCLUDED.session_id`,
+				channel_id         = EXCLUDED.channel_id,
+				creator_id         = EXCLUDED.creator_id,
+				meeting_id         = EXCLUDED.meeting_id,
+				participants       = EXCLUDED.participants,
+				updateat           = EXCLUDED.updateat,
+				endat              = EXCLUDED.endat,
+				post_id            = EXCLUDED.post_id,
+				rtk_channel_meeting_id = EXCLUDED.rtk_channel_meeting_id,
+				session_id         = EXCLUDED.session_id`,
 		session.ID,
 		session.ChannelID,
 		session.CreatorID,
@@ -113,7 +115,7 @@ func (s *Store) SaveCall(session *store.CallSession) error {
 		session.UpdateAt,
 		session.EndAt,
 		session.PostID,
-		session.AppConfigID,
+		session.ChannelMeetingID,
 		session.SessionID,
 	)
 	return errors.Wrap(err, "failed to save call session")
@@ -180,33 +182,42 @@ func (s *Store) UpdateCallSessionID(callID, sessionID string) error {
 	return nil
 }
 
-// GetChannelMeeting returns the stored RTK meeting ID and app config ID for a channel.
+// GetChannelMeeting returns the row id, RTK meeting ID, and app config ID for a channel.
 // Returns empty strings if none exists.
-func (s *Store) GetChannelMeeting(channelID string) (meetingID string, appConfigID string, err error) {
+func (s *Store) GetChannelMeeting(channelID string) (id string, meetingID string, appConfigID string, err error) {
 	err = s.db.QueryRow(
-		`SELECT meeting_id, app_config_id FROM rtk_channel_meetings WHERE channel_id = $1`,
+		`SELECT id, meeting_id, app_config_id FROM rtk_channel_meetings WHERE channel_id = $1`,
 		channelID,
-	).Scan(&meetingID, &appConfigID)
+	).Scan(&id, &meetingID, &appConfigID)
 	if err == sql.ErrNoRows {
-		return "", "", nil
+		return "", "", "", nil
 	}
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to get channel meeting")
+		return "", "", "", errors.Wrap(err, "failed to get channel meeting")
 	}
-	return meetingID, appConfigID, nil
+	return id, meetingID, appConfigID, nil
 }
 
 // SaveChannelMeeting persists the RTK meeting ID and app config ID for a channel (upsert).
-func (s *Store) SaveChannelMeeting(channelID, meetingID string, appConfigID string) error {
+// On conflict, the existing row id is preserved. Returns the row id.
+func (s *Store) SaveChannelMeeting(channelID, meetingID string, appConfigID string) (string, error) {
 	if meetingID == "" {
-		return errors.New("meetingID must not be empty")
+		return "", errors.New("meetingID must not be empty")
 	}
 	now := time.Now().UnixMilli()
-	_, err := s.db.Exec(
-		`INSERT INTO rtk_channel_meetings (channel_id, meeting_id, app_config_id, createat, updateat) VALUES ($1, $2, $3, $4, $4)
-		 ON CONFLICT (channel_id) DO UPDATE SET meeting_id = EXCLUDED.meeting_id, app_config_id = EXCLUDED.app_config_id, updateat = EXCLUDED.updateat`,
-		channelID, meetingID, appConfigID, now,
-	)
-	return errors.Wrap(err, "failed to save channel meeting")
+	var id string
+	err := s.db.QueryRow(
+		`INSERT INTO rtk_channel_meetings (id, channel_id, meeting_id, app_config_id, createat, updateat)
+		 VALUES ($1, $2, $3, $4, $5, $5)
+		 ON CONFLICT (channel_id) DO UPDATE
+		   SET meeting_id    = EXCLUDED.meeting_id,
+		       app_config_id = EXCLUDED.app_config_id,
+		       updateat      = EXCLUDED.updateat
+		 RETURNING id`,
+		model.NewId(), channelID, meetingID, appConfigID, now,
+	).Scan(&id)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to save channel meeting")
+	}
+	return id, nil
 }
-

@@ -74,10 +74,10 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	meetingID := "mtg1"
 	tokenStr := "tok1"
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting("chan1").Return("", "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting("chan1").Return("", "", "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockStore.EXPECT().SaveChannelMeeting("chan1", meetingID, "cfg1").Return(nil)
+	mockStore.EXPECT().SaveChannelMeeting("chan1", meetingID, "cfg1").Return("cm-api", nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), app.RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	mmAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)

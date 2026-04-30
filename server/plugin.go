@@ -54,33 +54,38 @@ func (p *Plugin) OnActivate() error {
 
 	cfg := p.getConfiguration()
 
+	// Require credentials at activation time. Without them the plugin cannot
+	// reach Cloudflare RTK, so refuse to activate rather than running in a
+	// half-configured state.
+	if cfg.GetEffectiveAccountID() == "" || cfg.GetEffectiveAPIToken() == "" {
+		err := fmt.Errorf("RTK plugin activation failed: Cloudflare Account ID and API Token are required (set them in System Console or via RTK_ACCOUNT_ID/RTK_API_TOKEN environment variables)")
+		p.API.LogError(err.Error())
+		return err
+	}
+
 	// Phase 1: Create an account-level client and ensure the RTK app exists.
 	// EnsureApp creates the app if it doesn't exist yet, or recovers the stored ID.
-	var accountClient rtkclient.AccountClient
-	var appID string
-	var appConfigID string
-	if cfg.GetEffectiveAccountID() != "" && cfg.GetEffectiveAPIToken() != "" {
-		accountClient = rtkclient.NewAccountClient(cfg.GetEffectiveAccountID(), cfg.GetEffectiveAPIToken())
-		// Use a temporary App to call EnsureApp before the full App is wired up.
-		tmpApp := app.New(store, nil, accountClient, p.API)
-		var err error
-		appID, appConfigID, err = tmpApp.EnsureApp(cfg.GetEffectiveAccountID())
-		if err != nil {
-			p.API.LogWarn("OnActivate: EnsureApp failed", "err", err.Error())
-		}
+	accountClient := rtkclient.NewAccountClient(cfg.GetEffectiveAccountID(), cfg.GetEffectiveAPIToken())
+	// Use a temporary App to call EnsureApp before the full App is wired up.
+	tmpApp := app.New(store, nil, accountClient, p.API)
+	appID, appConfigID, err := tmpApp.EnsureApp(cfg.GetEffectiveAccountID())
+	if err != nil {
+		wrapped := fmt.Errorf("RTK plugin activation failed: EnsureApp failed: %w", err)
+		p.API.LogError(wrapped.Error())
+		return wrapped
+	}
+	if appID == "" {
+		err := fmt.Errorf("RTK plugin activation failed: EnsureApp returned an empty app ID")
+		p.API.LogError(err.Error())
+		return err
 	}
 
 	// Phase 2: With the confirmed app ID, create the app-scoped RTK client.
-	var rtkClient rtkclient.RTKClient
-	if cfg.GetEffectiveAccountID() != "" && appID != "" && cfg.GetEffectiveAPIToken() != "" {
-		rtkClient = rtkclient.NewClient(cfg.GetEffectiveAccountID(), appID, cfg.GetEffectiveAPIToken())
-	}
+	rtkClient := rtkclient.NewClient(cfg.GetEffectiveAccountID(), appID, cfg.GetEffectiveAPIToken())
 
 	p.application = app.New(store, rtkClient, accountClient, p.API)
 
-	if rtkClient != nil {
-		p.application.RegisterWebhookIfNeeded(p.webhookURL(), appConfigID)
-	}
+	p.application.RegisterWebhookIfNeeded(p.webhookURL(), appConfigID)
 
 	p.apiHandler = rtapi.Init(p.application, rtapi.StaticFiles{
 		CallHTML: callHTML,

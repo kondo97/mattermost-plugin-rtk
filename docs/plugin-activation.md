@@ -43,16 +43,16 @@ sequenceDiagram
     P->>P: getConfiguration() (settings + env vars)
 
     alt credentials present
+        P->>DB: Store.WithAppLock(appName) — pg_advisory_lock でクラスタ間直列化
         P->>CF: AccountClient.ListApps()
         alt app named "mm-<siteURL>" exists
-            P->>DB: Store.GetAppID() / GetLatestAppConfigID()
-            opt app ID changed
-                P->>DB: Store.StoreAppConfig(...)
-            end
+            P->>DB: Store.StoreAppConfig(accountID, app.ID)
+            Note over P,DB: 旧 active を inactive に更新し、対象 app_id 行を active に upsert
         else not found
             P->>CF: AccountClient.CreateApp(name)
-            P->>DB: Store.StoreAppConfig(...)
+            P->>DB: Store.StoreAppConfig(accountID, app.ID)
         end
+        Note over P,DB: pg_advisory_unlock (defer)
     end
     Note over P,CF: EnsureApp errors are logged, not fatal.
 
@@ -139,9 +139,13 @@ When both an account ID and an API token are available:
    - Strips the scheme and trailing slash from `ServiceSettings.SiteURL`.
    - Returns `"mm-" + siteURL` (e.g. `mm-mattermost.example.com`).
 4. It calls `AccountClient.ListApps()` (Cloudflare RTK has no `GET /apps/{id}` endpoint, so a list-and-match is required) and looks for an app with that name:
-   - **Found**: if the app ID matches the one previously stored, return the stored `app_config_id`. Otherwise, persist a new `app_config` row via `Store.StoreAppConfig`.
-   - **Not found**: call `AccountClient.CreateApp(name)` and persist the new mapping.
+   - **Found**: persist the mapping via `Store.StoreAppConfig(accountID, app.ID)`. Internally this is transactional and idempotent — the row for `app.ID` is upserted to `status='active'` and any other previously-active row is flipped to `status='inactive'`. Re-running with the same `app.ID` is a no-op.
+   - **Not found**: call `AccountClient.CreateApp(name)` and persist the new mapping the same way.
 5. The returned `(appID, appConfigID)` are used in the next phases.
+
+The whole sequence (`ListApps → CreateApp → StoreAppConfig`) is wrapped in `Store.WithAppLock(ctx, appName, fn)`, which acquires a PostgreSQL advisory lock keyed on the app name. This serializes EnsureApp across cluster nodes so two Mattermost servers cannot race on `CreateApp` and create duplicate Cloudflare apps. The advisory lock is connection-scoped: a dedicated `db.Conn` is checked out for the lock and released (along with the lock) when `WithAppLock` returns.
+
+Even if the advisory lock is bypassed (e.g. lock acquisition error), the partial UNIQUE INDEX on `rtk_app_config(status='active')` provides a second line of defense: a concurrent `StoreAppConfig` for a different `app_id` will fail with SQLSTATE `23505`, and the implementation retries by re-reading the active row.
 
 `EnsureApp` errors are **logged with `LogWarn` and swallowed** so activation continues. If `EnsureApp` fails, `appID` is empty and Phase 5 below skips RTK client construction.
 

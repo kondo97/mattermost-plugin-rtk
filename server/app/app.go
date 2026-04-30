@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -43,7 +44,11 @@ func (a *App) IsConfigured() bool {
 
 // EnsureApp creates or recovers the single RTK app for this Mattermost instance.
 // It stores the app ID in the database to survive plugin restarts.
-// Returns the app ID and the ID of the stored app config entry on success.
+// Returns the app ID and the ID of the active app config row on success.
+//
+// The whole operation is serialized across cluster nodes via a PostgreSQL
+// advisory lock keyed on the deterministic app name. This prevents two nodes
+// from racing on Cloudflare's CreateApp endpoint and creating duplicate apps.
 func (a *App) EnsureApp(accountID string) (string, string, error) {
 	if a.account == nil {
 		return "", "", errors.New("EnsureApp: account client is not configured")
@@ -51,6 +56,23 @@ func (a *App) EnsureApp(accountID string) (string, string, error) {
 
 	appName := a.rtkAppName()
 
+	var (
+		appID       string
+		appConfigID string
+		innerErr    error
+	)
+	if err := a.store.WithAppLock(context.Background(), appName, func() error {
+		appID, appConfigID, innerErr = a.ensureAppLocked(accountID, appName)
+		return innerErr
+	}); err != nil {
+		return appID, appConfigID, err
+	}
+	return appID, appConfigID, nil
+}
+
+// ensureAppLocked runs the ListApps → (CreateApp) → StoreAppConfig sequence under
+// the caller-held advisory lock.
+func (a *App) ensureAppLocked(accountID, appName string) (string, string, error) {
 	// The Cloudflare RTK API does not provide a GET /apps/{id} endpoint.
 	// Always list all apps and find by deterministic name.
 	apps, err := a.account.ListApps()
@@ -59,18 +81,6 @@ func (a *App) EnsureApp(accountID string) (string, string, error) {
 	}
 	for _, app := range apps {
 		if app.Name == appName {
-			// Only store a new record if the app_id has changed since last startup.
-			storedAppID, err := a.store.GetAppID()
-			if err != nil {
-				a.api.LogWarn("EnsureApp: failed to get stored app ID", "error", err.Error())
-			}
-			if storedAppID == app.ID {
-				appConfigID, err := a.store.GetLatestAppConfigID()
-				if err != nil {
-					a.api.LogWarn("EnsureApp: failed to get latest app config ID", "error", err.Error())
-				}
-				return app.ID, appConfigID, nil
-			}
 			appConfigID, err := a.store.StoreAppConfig(accountID, app.ID)
 			if err != nil {
 				a.api.LogWarn("EnsureApp: failed to store app config", "error", err.Error())

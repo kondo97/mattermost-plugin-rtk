@@ -49,13 +49,15 @@ API tokens grant access at the account level; the App ID selects which app the t
 
 | Aspect | Implementation |
 |--------|----------------|
-| Storage | `rtk_app_config` table. Each row holds `account_id` + `app_id`; the latest row is treated as active. |
+| Storage | `rtk_app_config` table. Each row holds `account_id` + `app_id` + `status`. Exactly one row has `status='active'` (enforced by a partial UNIQUE INDEX on `WHERE status='active'`); all previous configurations remain as `status='inactive'`. |
 | Account-scoped client | [`server/rtkclient/account_client.go`](../server/rtkclient/account_client.go) — `AccountClient` with `CreateApp` / `ListApps`. Used before an App ID is known (admin setup). |
 | App-scoped client | [`server/rtkclient/client.go`](../server/rtkclient/client.go) — `RTKClient` is constructed with the active App ID and used for all Meeting / Webhook operations. |
-| Historical reference | Every `rtk_call_sessions`, `rtk_channel_meetings`, and `rtk_webhook_config` row stores the `app_config_id` that was active when it was created (logical FK; no DB constraint). This preserves the link to the specific App config used, even if the active App is later changed. |
-| Setup flow | An admin selects an existing App or creates a new one through the configuration UI. The chosen App ID is persisted as a new `rtk_app_config` row. |
+| Historical reference | Every `rtk_channel_meetings` and `rtk_webhook_config` row stores the `app_config_id` that was active when it was created (logical FK; no DB constraint). `rtk_call_sessions` instead links to its parent Meeting via `rtk_channel_meeting_id`, since Sessions logically belong to Meetings, not directly to App configs. |
+| Setup flow | An admin selects an existing App or creates a new one through the configuration UI. The chosen App ID is persisted via `Store.StoreAppConfig`, which transactionally flips the previously-active row to `inactive` and upserts the row for the new `app_id` to `active`. |
+| Switch-back idempotency | Switching `app_id` from x → y → x leaves the original x row in place: it transitions `active → inactive → active` while keeping the same surrogate `id`. As a result, the staleness check in `CreateCall` does not fire and the existing channel Meeting is reused. |
+| Cluster-safe provisioning | `EnsureApp` (which runs `ListApps → CreateApp → StoreAppConfig`) is wrapped in `Store.WithAppLock`, a `pg_advisory_lock` keyed on the deterministic app name. This serializes provisioning across cluster nodes and prevents duplicate `CreateApp` calls. The partial UNIQUE INDEX is a second line of defense: a concurrent `StoreAppConfig` for a different `app_id` fails with SQLSTATE `23505` and the implementation retries by re-reading the active row. |
 
-> Changing the active App does not migrate existing Meetings or Sessions; they remain associated with the App in which they were created via `app_config_id`.
+> Changing the active App does not migrate existing Meetings or Sessions; the Meetings remain associated with the App in which they were created via `app_config_id`. Sessions remain linked to those Meetings via `rtk_channel_meeting_id`.
 
 ---
 
@@ -79,7 +81,7 @@ The plugin uses these RTK endpoints against Meetings (full request/response deta
 | Reuse policy | When a new call is started in a channel, the plugin first looks up the existing Meeting for that channel. If `GetMeeting` confirms it still exists on RTK, it is reused; otherwise a fresh `CreateMeeting` is issued and the row is replaced. This is the "stale-check" pattern — see `BR-27` in `server/app/calls.go`. |
 | Token issuance | Tokens are minted per join (`GenerateToken`) with one of two presets: `group_call_host` for the call creator, `group_call_participant` for everyone else (constants `RTKPresetHost` / `RTKPresetParticipant` in `server/app/calls.go`). |
 | Lifecycle | **`EndMeeting` is intentionally never called.** Ending a call (all participants leaving or the host invoking `EndCall`) ends only the current Session — the Meeting itself remains so the next call in the same channel can reuse it. |
-| Logical link to App | Each `rtk_channel_meetings` row stores `app_config_id`, recording which App owns the Meeting. |
+| Logical link to App | Each `rtk_channel_meetings` row stores `app_config_id`, recording which App owns the Meeting. The surrogate `id` column on this table is what `rtk_call_sessions.rtk_channel_meeting_id` points at. |
 
 > Because Meetings are permanent, deletion only happens out-of-band (e.g. via Cloudflare dashboard or maintenance scripts). The plugin recovers transparently on the next `CreateCall` when `GetMeeting` returns 404.
 
@@ -112,7 +114,7 @@ A Session in RTK corresponds 1:1 to a **call** in the Mattermost UI. The plugin'
 | `session_id` | RTK Session UUID. **Empty string until the first `participantJoined` webhook arrives**, then back-filled best-effort by `HandleWebhookParticipantJoined`. |
 | `participants` | JSON array of currently-joined Mattermost user IDs. |
 | `post_id` | The `custom_cf_call` post used as the channel-side UI for this call. |
-| `app_config_id` | App config active at call creation time (logical FK to `rtk_app_config`). |
+| `rtk_channel_meeting_id` | Logical FK to `rtk_channel_meetings.id` — the Meeting that owns this Session. (Replaces the previous direct `app_config_id` link, matching the RTK concept "a Session belongs to a Meeting".) |
 | `create_at` / `update_at` | Lifecycle timestamps (Unix ms). |
 | `end_at` | `0` while the Session is active; set to a timestamp once ended. **`end_at = 0` is the canonical "active call" predicate** used throughout the codebase. |
 

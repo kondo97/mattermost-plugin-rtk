@@ -120,14 +120,15 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 	}
 
 	// BR-02/BR-05: resolve or create RTK meeting for this channel
-	meetingID, savedAppConfigID, err := a.store.GetChannelMeeting(channelID)
+	savedChannelMeetingID, meetingID, savedAppConfigID, err := a.store.GetChannelMeeting(channelID)
 	if err != nil {
 		a.api.LogWarn("CreateCall: GetChannelMeeting failed, will create new meeting", "channel_id", channelID, "err", err.Error())
 		meetingID = ""
+		savedChannelMeetingID = ""
 	}
 
 	// Get the current app config ID for staleness check and saving.
-	currentAppConfigID, err := a.store.GetLatestAppConfigID()
+	currentAppConfigID, err := a.store.GetActiveAppConfigID()
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get app config ID: %w", err)
 	}
@@ -142,6 +143,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 			a.api.LogInfo("CreateCall: app config changed since meeting creation, creating new one",
 				"channel_id", channelID, "old_app_config_id", savedAppConfigID, "current_app_config_id", currentAppConfigID)
 			meetingID = ""
+			savedChannelMeetingID = ""
 		}
 	}
 
@@ -170,8 +172,11 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 			a.api.LogError("CreateCall: CreateMeeting returned empty meeting ID", "channel_id", channelID, "user_id", userID)
 			return nil, "", fmt.Errorf("CreateMeeting returned empty meeting ID")
 		}
-		if saveErr := a.store.SaveChannelMeeting(channelID, meeting.ID, currentAppConfigID); saveErr != nil {
+		newID, saveErr := a.store.SaveChannelMeeting(channelID, meeting.ID, currentAppConfigID)
+		if saveErr != nil {
 			a.api.LogWarn("CreateCall: SaveChannelMeeting failed (best effort)", "channel_id", channelID, "meeting_id", meeting.ID, "err", saveErr.Error())
+		} else {
+			savedChannelMeetingID = newID
 		}
 	}
 
@@ -184,15 +189,15 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 
 	// BR-03: creator is added to participants
 	session := &store.CallSession{
-		ID:           model.NewId(),
-		ChannelID:    channelID,
-		CreatorID:    userID,
-		MeetingID:    meeting.ID,
-		Participants: []string{userID},
-		CreateAt:     nowMs(),
-		UpdateAt:     nowMs(),
-		EndAt:        0,
-		AppConfigID:  currentAppConfigID,
+		ID:               model.NewId(),
+		ChannelID:        channelID,
+		CreatorID:        userID,
+		MeetingID:        meeting.ID,
+		Participants:     []string{userID},
+		CreateAt:         nowMs(),
+		UpdateAt:         nowMs(),
+		EndAt:            0,
+		ChannelMeetingID: savedChannelMeetingID,
 	}
 
 	if err := a.store.SaveCall(session); err != nil {

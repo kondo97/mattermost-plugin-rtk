@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS rtk_channel_meetings (
+    id            VARCHAR(26) NOT NULL UNIQUE,
     channel_id    VARCHAR(26) NOT NULL,
-    meeting_id    TEXT        NOT NULL,
+    meeting_id    TEXT        NOT NULL UNIQUE,
     app_config_id VARCHAR(26) NOT NULL,
     createat      BIGINT      NOT NULL,
     updateat      BIGINT      NOT NULL,

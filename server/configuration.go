@@ -125,25 +125,44 @@ func (p *Plugin) OnConfigurationChange() error {
 	// This allows recovery by saving configuration without changing credentials.
 	rtkNotReady := p.application != nil && !p.application.IsConfigured()
 
-	if (credentialsChanged || rtkNotReady) && p.application != nil {
-		if configuration.GetEffectiveAccountID() != "" && configuration.GetEffectiveAPIToken() != "" {
-			newAccountClient := rtkclient.NewAccountClient(configuration.GetEffectiveAccountID(), configuration.GetEffectiveAPIToken())
-			p.application.UpdateAccountClient(newAccountClient)
-
-			appID, appConfigID, err := p.application.EnsureApp(configuration.GetEffectiveAccountID())
-			if err != nil {
-				p.API.LogWarn("OnConfigurationChange: EnsureApp failed", "err", err.Error())
-				p.application.UpdateRTKClient(nil)
-			} else {
-				newClient := rtkclient.NewClient(configuration.GetEffectiveAccountID(), appID, configuration.GetEffectiveAPIToken())
-				p.application.UpdateRTKClient(newClient)
-				p.application.ReRegisterWebhook(p.webhookURL(), appConfigID)
-			}
-		} else {
-			p.application.UpdateAccountClient(nil)
-			p.application.UpdateRTKClient(nil)
-		}
+	// p.application is nil during the initial OnConfigurationChange call that fires
+	// before OnActivate. Defer credential validation to OnActivate in that case.
+	if p.application == nil {
+		return nil
 	}
+
+	if !credentialsChanged && !rtkNotReady {
+		return nil
+	}
+
+	if configuration.GetEffectiveAccountID() == "" || configuration.GetEffectiveAPIToken() == "" {
+		p.application.UpdateAccountClient(nil)
+		p.application.UpdateRTKClient(nil)
+		err := errors.New("RTK plugin configuration is incomplete: Cloudflare Account ID and API Token are required")
+		p.API.LogError(err.Error())
+		return err
+	}
+
+	newAccountClient := rtkclient.NewAccountClient(configuration.GetEffectiveAccountID(), configuration.GetEffectiveAPIToken())
+	p.application.UpdateAccountClient(newAccountClient)
+
+	appID, appConfigID, err := p.application.EnsureApp(configuration.GetEffectiveAccountID())
+	if err != nil {
+		p.application.UpdateRTKClient(nil)
+		wrapped := errors.Wrap(err, "RTK plugin configuration update failed: EnsureApp failed")
+		p.API.LogError(wrapped.Error())
+		return wrapped
+	}
+	if appID == "" {
+		p.application.UpdateRTKClient(nil)
+		err := errors.New("RTK plugin configuration update failed: EnsureApp returned an empty app ID")
+		p.API.LogError(err.Error())
+		return err
+	}
+
+	newClient := rtkclient.NewClient(configuration.GetEffectiveAccountID(), appID, configuration.GetEffectiveAPIToken())
+	p.application.UpdateRTKClient(newClient)
+	p.application.ReRegisterWebhook(p.webhookURL(), appConfigID)
 
 	return nil
 }

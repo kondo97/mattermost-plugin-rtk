@@ -62,10 +62,10 @@ func TestCreateCall_Success(t *testing.T) {
 	tokenStr := "jwt-token"
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting(channelID).Return("", "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting(channelID).Return("", "", "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
-	mockStore.EXPECT().SaveChannelMeeting(channelID, meetingID, "cfg1").Return(nil)
+	mockStore.EXPECT().SaveChannelMeeting(channelID, meetingID, "cfg1").Return("cm1", nil)
 	mockRTK.EXPECT().GenerateToken(meetingID, userID, gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 
@@ -84,6 +84,8 @@ func TestCreateCall_Success(t *testing.T) {
 	assert.Equal(t, channelID, session.ChannelID)
 	assert.Equal(t, userID, session.CreatorID)
 	assert.Contains(t, session.Participants, userID)
+	// Newly-saved channel meeting id must be linked to the session.
+	assert.Equal(t, "cm1", session.ChannelMeetingID)
 }
 
 func TestCreateCall_NotChannelMember(t *testing.T) {
@@ -131,10 +133,10 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	// New call creation path.
 	newMeetingID := "new-mtg"
 	newToken := "new-token"
-	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: newMeetingID}, nil)
-	mockStore.EXPECT().SaveChannelMeeting("ch1", newMeetingID, "cfg1").Return(nil)
+	mockStore.EXPECT().SaveChannelMeeting("ch1", newMeetingID, "cfg1").Return("cm-new", nil)
 	mockRTK.EXPECT().GenerateToken(newMeetingID, "user1", gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: newToken}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
@@ -165,8 +167,8 @@ func TestCreateCall_CreateMeetingFails(t *testing.T) {
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	mockRTK.EXPECT().CreateMeeting().Return(nil, errors.New("RTK error"))
 
 	_, _, err := a.CreateCall("ch1", "user1")
@@ -180,8 +182,8 @@ func TestCreateCall_CreateMeetingReturnsEmptyID(t *testing.T) {
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	// Simulate the Cloudflare API returning a meeting with empty ID (e.g. wrong JSON key).
 	// SaveChannelMeeting must NOT be called with an empty meeting ID.
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: ""}, nil)
@@ -501,8 +503,8 @@ func TestCreateCall_ReusesChannelMeeting(t *testing.T) {
 	tokenStr := "jwt-token"
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting(channelID).Return(existingMeetingID, "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting(channelID).Return("cm1", existingMeetingID, "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	// Meeting is alive in Cloudflare — no CreateMeeting call expected.
 	mockRTK.EXPECT().GetMeeting(existingMeetingID).Return(&rtkclient.Meeting{ID: existingMeetingID}, nil)
 	mockRTK.EXPECT().GenerateToken(existingMeetingID, userID, gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
@@ -517,6 +519,8 @@ func TestCreateCall_ReusesChannelMeeting(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tokenStr, tok)
 	assert.Equal(t, existingMeetingID, session.MeetingID)
+	// Reusing an existing channel meeting must propagate its id to the session.
+	assert.Equal(t, "cm1", session.ChannelMeetingID)
 }
 
 func TestCreateCall_ChannelMeetingGone(t *testing.T) {
@@ -532,13 +536,13 @@ func TestCreateCall_ChannelMeetingGone(t *testing.T) {
 	tokenStr := "jwt-token"
 
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
-	mockStore.EXPECT().GetChannelMeeting(channelID).Return(staleMeetingID, "", nil)
-	mockStore.EXPECT().GetLatestAppConfigID().Return("cfg1", nil)
+	mockStore.EXPECT().GetChannelMeeting(channelID).Return("cm-stale", staleMeetingID, "", nil)
+	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	// Cloudflare returns 404 — stored meeting is gone.
 	mockRTK.EXPECT().GetMeeting(staleMeetingID).Return(nil, rtkclient.ErrMeetingNotFound)
 	// Creates a fresh meeting and saves it.
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: newMeetingID}, nil)
-	mockStore.EXPECT().SaveChannelMeeting(channelID, newMeetingID, "cfg1").Return(nil)
+	mockStore.EXPECT().SaveChannelMeeting(channelID, newMeetingID, "cfg1").Return("cm-new", nil)
 	mockRTK.EXPECT().GenerateToken(newMeetingID, userID, gomock.Any(), RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
 	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
 	api.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "post1"}, nil)
@@ -551,4 +555,7 @@ func TestCreateCall_ChannelMeetingGone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tokenStr, tok)
 	assert.Equal(t, newMeetingID, session.MeetingID)
+	// On stale meeting recovery the session must link to the freshly-saved channel meeting id,
+	// not the prior stale one.
+	assert.Equal(t, "cm-new", session.ChannelMeetingID)
 }
