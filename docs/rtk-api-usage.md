@@ -132,7 +132,7 @@ Implementation files: `webapp/src/call_page/CallPage.tsx`, `webapp/src/component
 
 ---
 
-### 2-1. `@cloudflare/realtimekit-react` (v1.2.5)
+### 2-1. `@cloudflare/realtimekit-react` (v1.4.0)
 
 #### `useRealtimeKitClient()`
 
@@ -160,7 +160,7 @@ initMeeting({
 
 ---
 
-### 2-2. `@cloudflare/realtimekit-react-ui` (v1.1.1)
+### 2-2. `@cloudflare/realtimekit-react-ui` (v1.1.2)
 
 #### `RtkMeeting`
 
@@ -182,7 +182,7 @@ initMeeting({
 
 ---
 
-### 2-3. `@cloudflare/realtimekit-ui` (v1.1.1)
+### 2-3. `@cloudflare/realtimekit-ui` (v1.1.2)
 
 #### `useLanguage(dict?)`
 
@@ -203,7 +203,7 @@ initMeeting({
 
 ---
 
-### 2-4. Meeting Object API (`@cloudflare/realtimekit` v1.2.5)
+### 2-4. Meeting Object API (`@cloudflare/realtimekit` v1.4.0)
 
 Methods and events called on the `meeting` object (`DyteClient`) returned by `useRealtimeKitClient()`.
 
@@ -250,10 +250,10 @@ meeting.self.off('roomLeft', handler)
 
 | Package | Version |
 |---------|---------|
-| `@cloudflare/realtimekit` | `1.2.5` |
-| `@cloudflare/realtimekit-react` | `1.2.5` |
-| `@cloudflare/realtimekit-react-ui` | `1.1.1` |
-| `@cloudflare/realtimekit-ui` | `1.1.1` (peer dependency of realtimekit-react-ui) |
+| `@cloudflare/realtimekit` | `1.4.0` |
+| `@cloudflare/realtimekit-react` | `1.4.0` |
+| `@cloudflare/realtimekit-react-ui` | `1.1.2` |
+| `@cloudflare/realtimekit-ui` | `1.1.2` (peer dependency of realtimekit-react-ui) |
 
 Versions are managed in `webapp/package.json` and `webapp/package-lock.json`.
 
