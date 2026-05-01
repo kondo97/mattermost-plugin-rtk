@@ -141,7 +141,6 @@ All settings are configurable from the System Console. Each can also be overridd
 | [docs/mobile-push-notifications.md](./docs/mobile-push-notifications.md) | Mobile push notification design: prerequisites, payload reference for call-started and call-ended, suppression mechanism, and lifecycle flow |
 | [docs/openapi.yaml](./docs/openapi.yaml) | REST API schema definition (OpenAPI 3.0) |
 | [docs/asyncapi.yaml](./docs/asyncapi.yaml) | WebSocket event schema definition (AsyncAPI) |
-| [aidlc-docs/](./aidlc-docs/) | AI-DLC design artifacts: requirements, user stories, functional design, NFR design, and code generation plans for each unit |
 
 ---
 

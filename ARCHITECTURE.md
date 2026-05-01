@@ -1111,9 +1111,4 @@ mattermost-plugin-rtk/
 │       ├── en.json                # English translations
 │       └── ja.json                # Japanese translations
 │
-└── aidlc-docs/                    # AI-DLC methodology design documents
-    ├── aidlc-state.md
-    ├── audit.md
-    ├── inception/
-    └── construction/
 ```
