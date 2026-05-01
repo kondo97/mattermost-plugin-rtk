@@ -78,8 +78,8 @@ func TestHandleCreateCall_Success(t *testing.T) {
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
 	mockRTK.EXPECT().CreateMeeting().Return(&rtkclient.Meeting{ID: meetingID}, nil)
 	mockStore.EXPECT().SaveChannelMeeting("chan1", meetingID, "cfg1").Return("cm-api", nil)
-	mockRTK.EXPECT().GenerateToken(meetingID, "user1", gomock.Any(), app.RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
-	mockStore.EXPECT().SaveCall(gomock.Any()).Return(nil).Times(2)
+	mockRTK.EXPECT().GenerateToken(meetingID, gomock.Any(), "user1", gomock.Any(), app.RTKPresetHost).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockStore.EXPECT().CreateCallSession(gomock.Any()).Return(nil)
 	mmAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{Id: "p1"}, nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallStarted, mock.Anything, mock.Anything).Return()
 	// sendPushNotifications will call GetConfig; return push disabled to keep this test focused
@@ -163,8 +163,8 @@ func TestHandleJoinCall_Success(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
-	mockRTK.EXPECT().GenerateToken("mtg1", "user1", gomock.Any(), app.RTKPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
-	mockStore.EXPECT().UpdateCallParticipants(callID, gomock.Any()).Return(nil)
+	mockRTK.EXPECT().GenerateToken("mtg1", callID, "user1", gomock.Any(), app.RTKPresetParticipant).Return(&rtkclient.Token{Token: tokenStr}, nil)
+	mockStore.EXPECT().AddCallParticipant(callID, "user1").Return([]string{"user0", "user1"}, true, true, nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserJoined, mock.Anything, mock.Anything).Return()
 
 	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls/"+callID+"/token", "user1", nil)
@@ -216,9 +216,8 @@ func TestHandleLeaveCall_Success(t *testing.T) {
 
 	session := &store.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", Participants: []string{"user1"}}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
-	mockStore.EXPECT().UpdateCallParticipants("call1", gomock.Any()).Return(nil)
-	// last participant left → auto-end
-	mockStore.EXPECT().EndCall("call1", gomock.Any()).Return(nil)
+	// last participant left → store atomically marks the call ended (BR-13)
+	mockStore.EXPECT().RemoveCallParticipant("call1", "user1").Return([]string{}, true, int64(2000), nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()
 	mmAPI.On("GetPost", mock.Anything).Return(nil, &model.AppError{Message: "not found"}).Maybe()

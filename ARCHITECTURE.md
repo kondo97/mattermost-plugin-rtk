@@ -184,7 +184,7 @@ func MattermostAuthorizationRequired(next http.Handler) http.Handler {
 
 ### 3.3 Call Business Logic
 
-**Implementation**: `server/calls.go`
+**Implementation**: `server/app/calls.go`
 
 All call state mutations acquire `callMu sync.Mutex` before executing.
 
@@ -195,8 +195,8 @@ callMu.Lock()
   1. GetCallByChannel -> ErrCallAlreadyActive if active call exists
   2. rtkClient.CreateMeeting() -> abort on failure (no DB writes)
   3. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_host")
-  4. Build CallSession (UUID, creator=participants[0], CreateAt=nowMs())
-  5. store.SaveCall(session) + AddActiveCallID
+  4. Build CallSession (UUID, creator=userID, Participants=[userID], CreateAt=nowMs())
+  5. store.CreateCallSession(session)  // atomically inserts the session row + creator participant
   6. API.CreatePost(type="custom_cf_call")  [best-effort]
   7. store.SaveCall(session) to persist PostID  [best-effort]
   8. PublishWebSocketEvent("call_started", ...) broadcast to channel
@@ -209,11 +209,15 @@ Returns: (session, token.Token, nil)
 ```
 callMu.Lock()
   1. GetCallByID -> ErrCallNotFound if nil or EndAt != 0
-  2. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_participant")
-  3. Append userID to Participants (deduplicated)
-  4. store.UpdateCallParticipants
-  5. updatePostParticipants  [best-effort]
-  6. PublishWebSocketEvent("user_joined", ...) broadcast to channel
+  2. store.AddCallParticipant(callID, userID)
+       -> serializes via SELECT ... FOR UPDATE on rtk_call_sessions
+       -> returns (participants, active, added)
+       -> active=false (call ended between check and insert) -> ErrCallNotFound
+  3. rtkClient.GenerateToken(meetingID, userID, displayName, "group_call_participant")
+       -> on failure AND added=true: compensating store.RemoveCallParticipant
+          (auto-ends the call if user was the sole participant -> emitCallEnded)
+  4. updatePostParticipants  [best-effort]
+  5. PublishWebSocketEvent("user_joined", ...) broadcast to channel
 callMu.Unlock()
 Returns: (session, token.Token, nil)
 ```
@@ -223,11 +227,13 @@ Returns: (session, token.Token, nil)
 ```
 callMu.Lock()
   1. GetCallByID -> no-op if nil or EndAt != 0 (idempotent)
-  2. Remove userID from Participants
-  3. store.UpdateCallParticipants
-  4. updatePostParticipants  [best-effort]
-  5. PublishWebSocketEvent("user_left", ...)
-  6. If Participants is now empty -> endCallInternal()  [auto-end]
+  2. store.RemoveCallParticipant(callID, userID)
+       -> atomic: deletes the participant row and, if it was the last participant,
+          marks endat in the same transaction (BR-13)
+       -> returns (participants, endedNow, endAt)
+  3. updatePostParticipants  [best-effort]
+  4. PublishWebSocketEvent("user_left", ...)
+  5. If endedNow == true -> emitCallEnded(session, endAt, "last_participant_left")
 callMu.Unlock()
 ```
 
@@ -244,15 +250,17 @@ callMu.Unlock()
 #### endCallInternal (shared termination logic)
 
 ```
-  1. store.EndCall(callID, nowMs()) + RemoveActiveCallID
+  1. store.EndCall(callID, nowMs())
   2. API.UpdatePost: write end_at and duration_ms to post props  [best-effort]
   3. PublishWebSocketEvent("call_ended", {call_id, channel_id, end_at, duration_ms})
 ```
 
+> **Note**: `LeaveCall`'s auto-end path does NOT call `endCallInternal` — `RemoveCallParticipant` already wrote `endat` inside the same transaction that removed the last participant; the app code only needs to emit the side effects (`emitCallEnded`).
+>
 > **Note**: `EndMeeting` is NOT called — Meeting is a permanent reusable room in Cloudflare RTK.
 > Ending the session (all participants leaving or the host ending the call) does not delete the meeting.
 
-**Sentinel errors** (`server/errors.go`):
+**Sentinel errors** (`server/app/errors.go`):
 
 | Constant | HTTP Status | Description |
 |----------|-------------|-------------|
@@ -321,12 +329,13 @@ type RTKClient interface {
 | Table | Columns | Description |
 |-------|---------|-------------|
 | `rtk_db_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
-| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `participants` (JSON), `createat`, `updateat`, `endat`, `post_id`, `rtk_channel_meeting_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. `rtk_channel_meeting_id` is a logical FK to `rtk_channel_meetings.id` — Sessions belong to Meetings, not directly to App configs. |
+| `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `createat`, `updateat`, `endat`, `post_id`, `rtk_channel_meeting_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. `rtk_channel_meeting_id` is a logical FK to `rtk_channel_meetings.id` — Sessions belong to Meetings, not directly to App configs. Participants are stored in `rtk_call_participants` (no JSON column). |
+| `rtk_call_participants` | `call_id VARCHAR(26)`, `user_id VARCHAR(26)`, `joined_at BIGINT`, PK `(call_id, user_id)` | Normalized participant list. 1-row INSERT/DELETE plus `SELECT … FOR UPDATE` on the parent `rtk_call_sessions` row prevents lost updates and ghost participants in HA. The transaction that removes the last participant also writes `endat` (BR-13). |
 | `rtk_app_config` | `id VARCHAR(26) PK`, `account_id TEXT`, `app_id TEXT UNIQUE`, `status TEXT` (`active`/`inactive`), `createat BIGINT`, `updateat BIGINT` | RTK app credentials. Exactly one row has `status='active'` (enforced by partial UNIQUE INDEX). Switching `app_id` x→y→x reuses the original x row (status flips back to `active`), so existing Meetings keyed by it remain valid. |
 | `rtk_webhook_config` | `id VARCHAR(26) PK`, `webhook_id TEXT`, `webhook_secret TEXT`, `createat BIGINT`, `app_config_id VARCHAR(26)` | RTK webhook registration history |
 | `rtk_channel_meetings` | `channel_id VARCHAR(26) PK`, `id VARCHAR(26) UNIQUE`, `meeting_id TEXT`, `app_config_id VARCHAR(26)`, `createat BIGINT`, `updateat BIGINT` | Per-channel RTK meeting ID. The surrogate `id` column is referenced by `rtk_call_sessions.rtk_channel_meeting_id`. |
 
-**Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`
+**Indexes**: `idx_rtk_call_channel (channel_id)`, `idx_rtk_call_meeting (meeting_id)`, `idx_rtk_call_participants_call (call_id)`
 
 **Active call detection**: `WHERE endat = 0` (no separate index table needed)
 
@@ -364,7 +373,7 @@ type RTKClient interface {
 
 **Feature flag defaults**: A `nil` `*bool` field is treated as `true` (enabled). Exception: `WaitingRoomEnabled` defaults to `false` (opt-in).
 
-> Feature flag の詳細な管理表（SDK対応状況・未対応モジュール・既知の問題）は [docs/feature-flags.md](../docs/feature-flags.md) を参照。
+> For a detailed feature flag management table (SDK support status, unsupported modules, known issues), see [docs/feature-flags.md](../docs/feature-flags.md).
 
 **`OnConfigurationChange` flow**:
 ```
@@ -384,8 +393,8 @@ RTK delivers the following events to `POST /api/v1/webhook/rtk`:
 
 | Event | Handling |
 |-------|---------|
-| `meeting.participantJoined` | `GetCallByMeetingID` -> `HandleWebhookParticipantJoined(meetingID, userID, sessionID)` -> best-effort `UpdateCallSessionID` |
-| `meeting.participantLeft` | `GetCallByMeetingID` -> `LeaveCall(callID, userID)` |
+| `meeting.participantJoined` | `ParseCustomParticipantID` (legacy token → drop) → `HandleWebhookParticipantJoined(meetingID, callID, userID, sessionID)` → verify callID match → rescue `AddCallParticipant` → best-effort `UpdateCallSessionID` |
+| `meeting.participantLeft` | `ParseCustomParticipantID` (legacy token → drop) → `HandleWebhookParticipantLeft(meetingID, callID, userID)` → verify callID match → `LeaveCall(callID, userID)` |
 | `meeting.ended` | `GetCallByMeetingID` -> `callMu.Lock()` -> re-read from DB -> `endCallInternal()` |
 | Others | Ignored (200 OK) |
 
@@ -396,6 +405,15 @@ RTK delivers the following events to `POST /api/v1/webhook/rtk`:
 - On the first `participantJoined`, `UpdateCallSessionID` persists the session UUID
 - Subsequent events for the same call skip the update (idempotent: backfill only if `session_id` is still empty)
 - If the webhook is not delivered, `session_id` remains an empty string (no impact on existing functionality)
+
+**`customParticipantId`-based callID binding** (`server/rtkclient/participant_id.go`):
+- RTK Meetings are persistent and reused across multiple calls within the same channel
+- To prevent delayed webhooks from a previous call being misapplied to a new call,
+  the token encodes `customParticipantId` as `"callID:userID"` at issuance time
+  (`rtkclient.BuildCustomParticipantID`)
+- On webhook receipt, `rtkclient.ParseCustomParticipantID` decodes the token;
+  legacy tokens without a separator are dropped (backward compatibility)
+- The decoded `callID` is compared against `session.ID`; a mismatch causes the event to be discarded as stale
 
 **Double-end prevention for `meeting.ended`**:
 - Check `EndAt != 0` before acquiring the lock
@@ -607,7 +625,7 @@ type CallSession struct {
     ChannelID    string   `json:"channel_id"`    // Mattermost channel ID
     CreatorID    string   `json:"creator_id"`    // Host's Mattermost userID
     MeetingID    string   `json:"meeting_id"`    // Cloudflare RTK meeting ID
-    Participants []string `json:"participants"`  // Current participant userIDs (deduplicated)
+    Participants []string `json:"participants"`  // Current participant userIDs (deduplicated). Persisted in rtk_call_participants; populated on read.
     CreateAt     int64    `json:"create_at"`     // Creation Unix timestamp (ms)
     UpdateAt     int64    `json:"update_at"`     // Last update Unix timestamp (ms)
     EndAt        int64    `json:"end_at"`        // End Unix timestamp (ms); 0 = active
@@ -678,7 +696,7 @@ Other user     ChannelHeaderButton/ToastBar   Go Plugin         Cloudflare RTK
     |                    |                        |--POST /participants>|
     |                    |                        |  (participant preset)|
     |                    |                        |<--{JWT token}-------|
-    |                    |                        |--UpdateCallParticipants
+    |                    |                        |--AddCallParticipant (atomic, FOR UPDATE)
     |                    |                        |--PublishWebSocketEvent("user_joined")
     |                    |<--200 {call, token}----|
     |                    |                        |
@@ -694,11 +712,9 @@ FloatingWidget (x button or beforeunload)
   |--POST /api/v1/calls/{id}/leave
   |     |
   |  LeaveCall():
-  |    Remove userID from Participants
-  |    UpdateCallParticipants
+  |    RemoveCallParticipant (atomic; if last participant, sets endat in same tx — BR-13)
   |    PublishWebSocketEvent("user_left")
-  |    If Participants empty -> endCallInternal()
-  |          EndCall in SQL DB
+  |    If endedNow -> emitCallEnded()
   |          UpdatePost (end_at, duration_ms)
   |          PublishWebSocketEvent("call_ended")
 ```
@@ -723,14 +739,21 @@ Cloudflare RTK
     |--POST /api/v1/webhook/rtk
     |
     +-- meeting.participantJoined:
-    |     GetCallByMeetingID
-    |     HandleWebhookParticipantJoined(meetingID, userID, sessionID)
+    |     ParseCustomParticipantID → (callID, userID, ok)
+    |     If !ok: drop (legacy token without callID binding)
+    |     HandleWebhookParticipantJoined(meetingID, callID, userID, sessionID)
+    |       GetCallByMeetingID
+    |       If session.ID != callID: drop (stale event from prior call)
+    |       AddCallParticipant (rescue: idempotent)
     |       If session_id == "" in DB: UpdateCallSessionID (best-effort)
     |
     +-- meeting.participantLeft:
-    |     GetCallByMeetingID
-    |     LeaveCall(session.ID, participant.customParticipantId)
-    |       (LeaveCall acquires callMu internally)
+    |     ParseCustomParticipantID → (callID, userID, ok)
+    |     If !ok: drop (legacy token without callID binding)
+    |     HandleWebhookParticipantLeft(meetingID, callID, userID)
+    |       GetCallByMeetingID
+    |       If session.ID != callID: drop (stale event from prior call)
+    |       LeaveCall(callID, userID)
     |
     +-- meeting.ended:
           GetCallByMeetingID (pre-lock check)

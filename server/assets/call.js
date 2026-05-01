@@ -1129,7 +1129,7 @@ header h3 {
     "description": "Integrates Cloudflare RealtimeKit for video and voice calls within Mattermost channels.",
     "homepage_url": "https://github.com/kondo97/mattermost-plugin-rtk",
     "support_url": "https://github.com/kondo97/mattermost-plugin-rtk/issues",
-    "version": "0.0.0+428146a",
+    "version": "0.0.0+753a89e",
     "min_server_version": "10.11.0",
     "server": {
         "executables": {
@@ -1150,6 +1150,16 @@ header h3 {
                 "display_name": "Cloudflare Account ID",
                 "type": "text",
                 "help_text": "Your Cloudflare Account ID. Found in the Cloudflare dashboard sidebar.",
+                "placeholder": "",
+                "default": null,
+                "hosting": "",
+                "secret": false
+            },
+            {
+                "key": "CloudflareAppID",
+                "display_name": "Cloudflare RealtimeKit App ID",
+                "type": "custom",
+                "help_text": "Optional. When the RTK_APP_ID environment variable is set at startup, the plugin verifies the app exists in your Cloudflare account and uses it as the active app. Leave unset to let the plugin discover or create the app automatically.",
                 "placeholder": "",
                 "default": null,
                 "hosting": "",

@@ -90,17 +90,20 @@ func (c *client) CreateMeeting() (*Meeting, error) {
 }
 
 // GenerateToken adds a participant to the meeting and returns an auth token.
-func (c *client) GenerateToken(meetingID, userID, displayName, preset string) (*Token, error) {
-	return c.generateTokenOnce(meetingID, userID, displayName, preset)
+// callID is embedded into customParticipantId as "callID:userID" so that RTK
+// webhook events can be unambiguously correlated to a specific call session
+// even when the underlying RTK Meeting is reused across calls.
+func (c *client) GenerateToken(meetingID, callID, userID, displayName, preset string) (*Token, error) {
+	return c.generateTokenOnce(meetingID, callID, userID, displayName, preset)
 }
 
 // generateTokenOnce makes a single add-participant API call.
-func (c *client) generateTokenOnce(meetingID, userID, displayName, preset string) (*Token, error) {
+func (c *client) generateTokenOnce(meetingID, callID, userID, displayName, preset string) (*Token, error) {
 	url := fmt.Sprintf("%s/meetings/%s/participants", c.baseURL, meetingID)
 	body, err := json.Marshal(addParticipantRequest{
 		Name:                displayName,
 		PresetName:          preset,
-		CustomParticipantID: userID,
+		CustomParticipantID: BuildCustomParticipantID(callID, userID),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal GenerateToken request")

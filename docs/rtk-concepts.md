@@ -112,7 +112,7 @@ A Session in RTK corresponds 1:1 to a **call** in the Mattermost UI. The plugin'
 | `creator_id` | User who issued `CreateCall` (becomes RTK host). |
 | `meeting_id` | RTK Meeting reused for this Session. |
 | `session_id` | RTK Session UUID. **Empty string until the first `participantJoined` webhook arrives**, then back-filled best-effort by `HandleWebhookParticipantJoined`. |
-| `participants` | JSON array of currently-joined Mattermost user IDs. |
+| `participants` | List of Mattermost user IDs currently in the call. **Stored in the normalized table `rtk_call_participants`**; `CallSession.Participants` is a derived field assembled at read time. Single-row INSERT/DELETE with `SELECT ... FOR UPDATE` prevents lost updates in HA environments. |
 | `post_id` | The `custom_cf_call` post used as the channel-side UI for this call. |
 | `rtk_channel_meeting_id` | Logical FK to `rtk_channel_meetings.id` — the Meeting that owns this Session. (Replaces the previous direct `app_config_id` link, matching the RTK concept "a Session belongs to a Meeting".) |
 | `create_at` / `update_at` | Lifecycle timestamps (Unix ms). |
@@ -188,7 +188,7 @@ Key invariants captured by this flow:
 |---------|-----------------|----------|-----------------|
 | **App** | `POST /apps`, `GET /apps` (account-scoped) | `rtk_app_config` | `server/rtkclient/account_client.go`, configuration plumbing in `server/configuration.go` |
 | **Meeting** | `POST /meetings`, `GET /meetings/{id}`, `POST /meetings/{id}/participants` | `rtk_channel_meetings` | `server/rtkclient/client.go`, `server/app/calls.go` (CreateCall / JoinCall) |
-| **Session** | Inbound webhooks: `meeting.participantJoined`, `meeting.participantLeft`, `meeting.ended` | `rtk_call_sessions` | `server/app/webhook.go`, `server/api/webhook.go`, `server/store/models.go` |
+| **Session** | Inbound webhooks: `meeting.participantJoined`, `meeting.participantLeft`, `meeting.ended` | `rtk_call_sessions`, `rtk_call_participants` | `server/app/webhook.go`, `server/api/webhook.go`, `server/store/models.go` |
 | **Webhook registration** (cross-cutting) | `POST /webhooks`, `GET /webhooks`, `DELETE /webhooks/{id}` | `rtk_webhook_config` | `server/rtkclient/client.go`, `server/app/webhook_manager.go` |
 
 ---

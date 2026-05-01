@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/kondo97/mattermost-plugin-rtk/server/rtkclient"
 )
 
 // rtkWebhookEvent is the top-level RTK webhook payload.
@@ -40,9 +42,21 @@ func (h *API) handleRTKWebhook(w http.ResponseWriter, r *http.Request) {
 
 	switch event.Event {
 	case "meeting.participantJoined":
-		h.app.HandleWebhookParticipantJoined(event.Meeting.ID, event.Participant.CustomParticipantID, event.Meeting.SessionID)
+		callID, userID, ok := rtkclient.ParseCustomParticipantID(event.Participant.CustomParticipantID)
+		if !ok {
+			h.app.LogWarn("handleRTKWebhook: participantJoined with unparseable customParticipantId, ignoring",
+				"meeting_id", event.Meeting.ID, "raw_participant_id", event.Participant.CustomParticipantID)
+		} else {
+			h.app.HandleWebhookParticipantJoined(event.Meeting.ID, callID, userID, event.Meeting.SessionID)
+		}
 	case "meeting.participantLeft":
-		h.app.HandleWebhookParticipantLeft(event.Meeting.ID, event.Participant.CustomParticipantID)
+		callID, userID, ok := rtkclient.ParseCustomParticipantID(event.Participant.CustomParticipantID)
+		if !ok {
+			h.app.LogWarn("handleRTKWebhook: participantLeft with unparseable customParticipantId, ignoring",
+				"meeting_id", event.Meeting.ID, "raw_participant_id", event.Participant.CustomParticipantID)
+		} else {
+			h.app.HandleWebhookParticipantLeft(event.Meeting.ID, callID, userID)
+		}
 	case "meeting.ended":
 		h.app.HandleWebhookMeetingEnded(event.Meeting.ID)
 	default:

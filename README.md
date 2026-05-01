@@ -43,14 +43,16 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 |               LeaveCall / EndCall             |
 |  api_*.go  —  REST endpoints                  |
 |  rtkclient/  —  Cloudflare RTK HTTP client    |
-|  store/kvstore/  —  Store interface + models      |
-|  store/sqlstore/ —  SQL-backed store impl         |
+|  store/         —  Store interface + models      |
+|  store/sqlstore/ —  SQL-backed store impl        |
 +-------------------+---------------------------+
                     |                    ^ Webhook (HMAC-SHA256)
                     v                    |
             Mattermost DB (SQL)   Cloudflare RTK API
-            rtk_call_sessions     api.realtime.cloudflare.com/v2
-            rtk_config
+            rtk_call_sessions / rtk_call_participants
+            rtk_channel_meetings
+            rtk_app_config / rtk_webhook_config
+            (api.realtime.cloudflare.com/v2)
 ```
 
 **Key design decisions:**
@@ -137,8 +139,8 @@ All settings are configurable from the System Console. Each can also be overridd
 |----------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Full implementation guide: system diagram, server/frontend architecture, data flows, API reference, WebSocket events, security design |
 | [docs/mobile-push-notifications.md](./docs/mobile-push-notifications.md) | Mobile push notification design: prerequisites, payload reference for call-started and call-ended, suppression mechanism, and lifecycle flow |
-| [docs/openapi.yaml](./docs/openapi.yaml) | REST API スキーマ定義 (OpenAPI 3.0) |
-| [docs/asyncapi.yaml](./docs/asyncapi.yaml) | WebSocket イベントスキーマ定義 (AsyncAPI) |
+| [docs/openapi.yaml](./docs/openapi.yaml) | REST API schema definition (OpenAPI 3.0) |
+| [docs/asyncapi.yaml](./docs/asyncapi.yaml) | WebSocket event schema definition (AsyncAPI) |
 | [aidlc-docs/](./aidlc-docs/) | AI-DLC design artifacts: requirements, user stories, functional design, NFR design, and code generation plans for each unit |
 
 ---

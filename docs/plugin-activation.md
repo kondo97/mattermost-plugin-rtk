@@ -46,7 +46,7 @@ sequenceDiagram
         P-->>MM: error (activation aborted)
     end
 
-    P->>DB: Store.WithAppLock(appName) — pg_advisory_lock でクラスタ間直列化
+    P->>DB: Store.WithAppLock(appName) — cluster-wide serialization via pg_advisory_lock
     P->>CF: AccountClient.ListApps()
     alt RTK_APP_ID is set (ResolveAppByID)
         alt app with id == RTK_APP_ID exists

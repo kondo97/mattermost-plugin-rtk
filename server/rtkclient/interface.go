@@ -30,7 +30,12 @@ type RTKClient interface {
 	// CreateMeeting creates a new RTK meeting and returns the meeting.
 	CreateMeeting() (*Meeting, error)
 	// GenerateToken adds a participant to a meeting and returns an auth token.
-	GenerateToken(meetingID, userID, displayName, preset string) (*Token, error)
+	// callID identifies the call_session this participant is joining; it is embedded
+	// into the RTK customParticipantId so webhook events can be correlated back to a
+	// specific call (RTK Meetings are permanent and reusable across calls in the same
+	// channel — without this binding, delayed webhooks from an old call could be
+	// misattributed to a new call sharing the same meetingID).
+	GenerateToken(meetingID, callID, userID, displayName, preset string) (*Token, error)
 	// RegisterWebhook registers a webhook endpoint with RTK for the given events.
 	// Returns the webhook ID on success.
 	// Returns ErrWebhookConflict (HTTP 409) if a webhook with the same URL already exists.

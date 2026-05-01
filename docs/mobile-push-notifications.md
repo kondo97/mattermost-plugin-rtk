@@ -132,5 +132,5 @@ User A starts a call (DM/GM)
 | `NotificationWillBePushed` | `server/push.go` | Plugin hook — suppresses default notification for DM/GM call posts |
 | `sendPushNotifications` | `server/push.go` | Sends `SubType=calls` notification on call start |
 | `sendEndCallPushNotifications` | `server/push.go` | Sends `SubType=calls_ended` notification on call end |
-| `CreateCall` | `server/calls.go` | Calls `sendPushNotifications` after post creation |
-| `endCallInternal` | `server/calls.go` | Calls `sendEndCallPushNotifications` after post update |
+| `CreateCall` | `server/app/calls.go` | Calls `sendPushNotifications` after post creation |
+| `endCallInternal` | `server/app/calls.go` | Calls `sendEndCallPushNotifications` after post update |

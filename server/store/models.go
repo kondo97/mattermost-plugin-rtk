@@ -10,7 +10,9 @@ type CallSession struct {
 	CreatorID string `json:"creator_id"`
 	// MeetingID is the Cloudflare RTK meeting identifier.
 	MeetingID string `json:"meeting_id"`
-	// Participants holds the current participant UserIDs.
+	// Participants holds the current participant UserIDs, ordered by join time.
+	// Persisted in the rtk_call_participants table; on read it is populated by the
+	// store, on CreateCallSession the slice is used as the initial participant set.
 	Participants []string `json:"participants"`
 	// CreateAt is the Unix timestamp (ms) when the call was created.
 	CreateAt int64 `json:"create_at"`
