@@ -18,7 +18,7 @@ const channelName = params.get('channel_name') ?? '';
 const embedded = params.get('embedded') === '1';
 const locale = params.get('locale') ?? navigator.language.split('-')[0];
 
-// Set browser tab title (BR-U4-008, US-006)
+// Set browser tab title
 document.title = channelName ? `Call in #${channelName}` : 'RTK Call';
 
 // Mount the call page — error screen rendered inside CallPage if token is missing

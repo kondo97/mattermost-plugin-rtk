@@ -10,7 +10,7 @@ import type {GlobalState} from '@mattermost/types/store';
  * can send a leave beacon on tab close and display the correct browser tab title.
  *
  * Token is JWT-safe and does not need additional encoding.
- * call_id and channel_name are encoded to prevent URL injection (BR-U4-019).
+ * call_id and channel_name are encoded to prevent URL injection.
  */
 export function buildCallTabUrl(
     pluginId: string,

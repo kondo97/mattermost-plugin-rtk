@@ -27,7 +27,7 @@ const IncomingCallNotification = () => {
 
     const [showSwitchModal, setShowSwitchModal] = useState(false);
 
-    // 30-second auto-dismiss timer — cleanup when incomingCall changes (REL-U3-06)
+    // 30-second auto-dismiss timer — cleanup when incomingCall changes
     useEffect(() => {
         if (!incomingCall) {
             return undefined;
@@ -44,7 +44,7 @@ const IncomingCallNotification = () => {
 
     const handleIgnore = () => {
         // Call server to emit custom_cf_notification_dismissed to all user sessions
-        // State cleared when WS event arrives (BR-007) — fire-and-forget
+        // State cleared when WS event arrives — fire-and-forget
         pluginFetch(`/api/v1/calls/${incomingCall.callId}/dismiss`, {method: 'POST'});
     };
 

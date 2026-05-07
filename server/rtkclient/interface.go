@@ -55,7 +55,7 @@ type RTKClient interface {
 	// Note: this endpoint reflects only whether the Meeting resource itself
 	// exists. It says nothing about whether anyone is currently connected
 	// (sessions are a separate concept and may have ended while the Meeting
-	// remains as a permanent reusable room — see BR-27 in app/calls.go).
+	// remains as a permanent reusable room — see app/calls.go).
 	GetMeeting(meetingID string) (*Meeting, error)
 }
 

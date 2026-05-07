@@ -61,7 +61,7 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
         };
     }, [token, attemptInit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Leave on tab close (BR-U4-011, US-013).
+    // Leave on tab close.
     // Uses fetch+keepalive instead of sendBeacon so that auth headers are included.
     // Skip when embedded in iframe — the parent floating widget handles leave.
     useEffect(() => {
@@ -78,10 +78,10 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
             });
         };
         window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler); // REL-U4-04
+        return () => window.removeEventListener('beforeunload', handler);
     }, [callId, embedded]);
 
-    // Missing token — show error screen (BR-U4-007, REL-U4-06)
+    // Missing token — show error screen
     if (!token) {
         return (
             <div
@@ -100,7 +100,7 @@ const CallPage = ({token, callId, embedded = false, locale}: Props) => {
         );
     }
 
-    // SDK initialization error (REL-U4-07)
+    // SDK initialization error
     if (initError) {
         return (
             <div

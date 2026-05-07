@@ -240,7 +240,7 @@ func (s *Store) AddCallParticipant(callID, userID string) ([]string, bool, bool,
 }
 
 // RemoveCallParticipant deletes userID from the participants for callID. If this
-// leaves the call empty (BR-13) the call is atomically marked as ended in the
+// leaves the call empty the call is atomically marked as ended in the
 // same transaction so concurrent JoinCall on other nodes cannot insert a ghost
 // participant. endedNow distinguishes the case where THIS invocation transitioned
 // the call to ended (caller should emit end-side-effects) from the case where

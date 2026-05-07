@@ -78,7 +78,7 @@ The plugin uses these RTK endpoints against Meetings (full request/response deta
 | Aspect | Implementation |
 |--------|----------------|
 | Storage | `rtk_channel_meetings` table — `channel_id` is the primary key, so **one channel always has at most one Meeting**. |
-| Reuse policy | When a new call is started in a channel, the plugin first looks up the existing Meeting for that channel. If `GetMeeting` confirms it still exists on RTK, it is reused; otherwise a fresh `CreateMeeting` is issued and the row is replaced. This is the "stale-check" pattern — see `BR-27` in `server/app/calls.go`. |
+| Reuse policy | When a new call is started in a channel, the plugin first looks up the existing Meeting for that channel. If `GetMeeting` confirms it still exists on RTK, it is reused; otherwise a fresh `CreateMeeting` is issued and the row is replaced. This is the "stale-check" pattern — see `server/app/calls.go`. |
 | Token issuance | Tokens are minted per join (`GenerateToken`) with one of two presets: `group_call_host` for the call creator, `group_call_participant` for everyone else (constants `RTKPresetHost` / `RTKPresetParticipant` in `server/app/calls.go`). |
 | Lifecycle | **`EndMeeting` is intentionally never called.** Ending a call (all participants leaving or the host invoking `EndCall`) ends only the current Session — the Meeting itself remains so the next call in the same channel can reuse it. |
 | Logical link to App | Each `rtk_channel_meetings` row stores `app_config_id`, recording which App owns the Meeting. The surrogate `id` column on this table is what `rtk_call_sessions.rtk_channel_meeting_id` points at. |
