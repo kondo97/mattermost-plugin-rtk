@@ -49,7 +49,7 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 | Backend | Go 1.25 |
 | Frontend | React 18 + TypeScript (Vite build) |
 | Call Engine | Cloudflare RealtimeKit v2 API |
-| Session Persistence | Mattermost DB (PostgreSQL / MySQL) |
+| Session Persistence | Mattermost DB (PostgreSQL) |
 | Real-time Sync | Mattermost WebSocket events + RTK Webhook |
 
 ---
@@ -81,18 +81,24 @@ This plugin adds video and voice calling to Mattermost channels using **Cloudfla
 |  +----------------------------------------------------------------+ |
 |  |  Go Plugin (com.kondo97.mattermost-plugin-rtk)                 | |
 |  |                                                                | |
-|  |  plugin.go          OnActivate / OnDeactivate                  | |
-|  |  configuration.go   Config management + env var overrides      | |
-|  |  calls.go           CreateCall / JoinCall / LeaveCall / End    | |
-|  |  api.go             gorilla/mux router                         | |
-|  |  api_calls.go       POST/GET /calls, /token, /leave, DELETE    | |
-|  |  api_config.go      GET /config/status, /admin-status          | |
-|  |  api_mobile.go      POST /calls/{id}/dismiss                   | |
-|  |  api_static.go      GET /call, /call.js, /worker.js            | |
-|  |  api_webhook.go     POST /api/v1/webhook/rtk                    | |
-|  |  rtkclient/         Cloudflare RTK API client                  | |
-|  |  store/             Store interface + models                    | |
-|  |  store/sqlstore/    SQL-backed store implementation             | |
+|  |  plugin.go                OnActivate / OnDeactivate            | |
+|  |  configuration.go         Config management + env var overrides| |
+|  |  api/api.go               gorilla/mux router                   | |
+|  |  api/calls.go             POST/GET /calls, /token, /leave, DEL | |
+|  |  api/config.go            GET /config/status, /admin-status    | |
+|  |  api/channels.go          GET/PATCH /channels                  | |
+|  |  api/mobile.go            POST /calls/{id}/dismiss             | |
+|  |  api/static.go            GET /call, /call.js, /worker.js      | |
+|  |  api/webhook.go           POST /api/v1/webhook/rtk             | |
+|  |  app/calls.go             CreateCall / JoinCall / LeaveCall /  | |
+|  |                           EndCall (business logic)             | |
+|  |  app/webhook.go           Webhook event handlers               | |
+|  |  app/webhook_manager.go   Webhook registration / verification  | |
+|  |  app/push.go              Mobile push notifications            | |
+|  |  app/channels.go          Channel-related logic                | |
+|  |  rtkclient/               Cloudflare RTK API client            | |
+|  |  store/                   Store interface + models             | |
+|  |  store/sqlstore/          PostgreSQL store implementation      | |
 |  +----------------+----------------------------+------------------+ |
 |                   |                            |                    |
 |         Mattermost DB (SQL)         PublishWebSocketEvent           |
@@ -229,7 +235,7 @@ callMu.Lock()
   1. GetCallByID -> no-op if nil or EndAt != 0 (idempotent)
   2. store.RemoveCallParticipant(callID, userID)
        -> atomic: deletes the participant row and, if it was the last participant,
-          marks endat in the same transaction (BR-13)
+          marks endat in the same transaction
        -> returns (participants, endedNow, endAt)
   3. updatePostParticipants  [best-effort]
   4. PublishWebSocketEvent("user_left", ...)
@@ -330,7 +336,7 @@ type RTKClient interface {
 |-------|---------|-------------|
 | `rtk_db_migrations` | `version INT PK`, `applied_at BIGINT` | Tracks applied migration versions |
 | `rtk_call_sessions` | `id`, `channel_id`, `creator_id`, `meeting_id`, `createat`, `updateat`, `endat`, `post_id`, `rtk_channel_meeting_id`, `session_id` | One row per call (active and historical). `session_id` is populated via webhook when the first participant connects. `rtk_channel_meeting_id` is a logical FK to `rtk_channel_meetings.id` — Sessions belong to Meetings, not directly to App configs. Participants are stored in `rtk_call_participants` (no JSON column). |
-| `rtk_call_participants` | `call_id VARCHAR(26)`, `user_id VARCHAR(26)`, `joined_at BIGINT`, PK `(call_id, user_id)` | Normalized participant list. 1-row INSERT/DELETE plus `SELECT … FOR UPDATE` on the parent `rtk_call_sessions` row prevents lost updates and ghost participants in HA. The transaction that removes the last participant also writes `endat` (BR-13). |
+| `rtk_call_participants` | `call_id VARCHAR(26)`, `user_id VARCHAR(26)`, `joined_at BIGINT`, PK `(call_id, user_id)` | Normalized participant list. 1-row INSERT/DELETE plus `SELECT … FOR UPDATE` on the parent `rtk_call_sessions` row prevents lost updates and ghost participants in HA. The transaction that removes the last participant also writes `endat`. |
 | `rtk_app_config` | `id VARCHAR(26) PK`, `account_id TEXT`, `app_id TEXT UNIQUE`, `status TEXT` (`active`/`inactive`), `createat BIGINT`, `updateat BIGINT` | RTK app credentials. Exactly one row has `status='active'` (enforced by partial UNIQUE INDEX). Switching `app_id` x→y→x reuses the original x row (status flips back to `active`), so existing Meetings keyed by it remain valid. |
 | `rtk_webhook_config` | `id VARCHAR(26) PK`, `webhook_id TEXT`, `webhook_secret TEXT`, `createat BIGINT`, `app_config_id VARCHAR(26)` | RTK webhook registration history |
 | `rtk_channel_meetings` | `channel_id VARCHAR(26) PK`, `id VARCHAR(26) UNIQUE`, `meeting_id TEXT`, `app_config_id VARCHAR(26)`, `createat BIGINT`, `updateat BIGINT` | Per-channel RTK meeting ID. The surrogate `id` column is referenced by `rtk_call_sessions.rtk_channel_meeting_id`. |
@@ -341,7 +347,7 @@ type RTKClient interface {
 
 **Migration system**: `RunMigrations()` is called in `OnActivate()`. The `rtk_db_migrations` table tracks which versions have been applied; each new migration runs exactly once.
 
-**PostgreSQL / MySQL compatibility**: UPSERT uses `ON CONFLICT … DO UPDATE` (PostgreSQL) or `ON DUPLICATE KEY UPDATE` (MySQL). SQL placeholders use `$N` (PostgreSQL) or `?` (MySQL), selected via `driverName`.
+**PostgreSQL only**: As of `db4dd08`, MySQL support was dropped. UPSERT uses `ON CONFLICT … DO UPDATE` and SQL placeholders use `$N` (PostgreSQL-only).
 
 ---
 
@@ -356,24 +362,13 @@ type RTKClient interface {
 
 **Environment variable overrides** (strict precedence via `os.LookupEnv`):
 
-| Environment Variable | Config Field |
-|---------------------|-------------|
-| `RTK_ORG_ID` | CloudflareOrgID |
-| `RTK_API_KEY` | CloudflareAPIKey |
-| `RTK_RECORDING_ENABLED` | RecordingEnabled |
-| `RTK_SCREEN_SHARE_ENABLED` | ScreenShareEnabled |
-| `RTK_POLLS_ENABLED` | PollsEnabled |
-| `RTK_TRANSCRIPTION_ENABLED` | TranscriptionEnabled |
-| `RTK_WAITING_ROOM_ENABLED` | WaitingRoomEnabled |
-| `RTK_VIDEO_ENABLED` | VideoEnabled |
-| `RTK_CHAT_ENABLED` | ChatEnabled |
-| `RTK_PLUGINS_ENABLED` | PluginsEnabled |
-| `RTK_PARTICIPANTS_ENABLED` | ParticipantsEnabled |
-| `RTK_RAISE_HAND_ENABLED` | RaiseHandEnabled |
+| Environment Variable | Config Field | Notes |
+|---------------------|--------------|-------|
+| `RTK_ACCOUNT_ID` | `CloudflareAccountID` | Resolved via `GetEffectiveAccountID()` |
+| `RTK_API_TOKEN` | `CloudflareAPIToken` | Resolved via `GetEffectiveAPIToken()` |
+| `RTK_APP_ID` | (env-only — no settings field) | Resolved via `GetEffectiveAppID()`. When set, plugin activation calls `ResolveAppByID` to verify the app exists in the configured Cloudflare account; when unset, it falls back to discover-or-create via `EnsureApp`. |
 
-**Feature flag defaults**: A `nil` `*bool` field is treated as `true` (enabled). Exception: `WaitingRoomEnabled` defaults to `false` (opt-in).
-
-> For a detailed feature flag management table (SDK support status, unsupported modules, known issues), see [docs/feature-flags.md](../docs/feature-flags.md).
+Feature flags (Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, Raise Hand) are managed entirely on the client side via the Cloudflare RTK SDK preset / UI configuration. There are no server-side environment variables or `plugin.json` settings for them (see commit `a71e205`).
 
 **`OnConfigurationChange` flow**:
 ```
@@ -576,9 +571,9 @@ Shared by ChannelHeaderButton, CallPost, ToastBar, and IncomingCallNotification.
 
 #### EnvVarCredentialSetting (`src/components/admin_config/`)
 
-Replacement renderer for `CloudflareOrgID` and `CloudflareAPIKey` in the Admin Console.
+Replacement renderer for `CloudflareAccountID`, `CloudflareAPIToken`, and `CloudflareAppID` in the Admin Console.
 
-- On mount: calls `GET /api/v1/config/admin-status` to check `org_id_via_env` / `api_key_via_env`
+- On mount: calls `GET /api/v1/config/admin-status` to check `account_id_via_env` / `api_token_via_env` / `app_id_via_env`
 - If set via environment variable: shows read-only text with the env var name, disables the input
 - Otherwise: renders a normal `text` or `password` input field
 
@@ -712,7 +707,7 @@ FloatingWidget (x button or beforeunload)
   |--POST /api/v1/calls/{id}/leave
   |     |
   |  LeaveCall():
-  |    RemoveCallParticipant (atomic; if last participant, sets endat in same tx — BR-13)
+  |    RemoveCallParticipant (atomic; if last participant, sets endat in same tx)
   |    PublishWebSocketEvent("user_left")
   |    If endedNow -> emitCallEnded()
   |          UpdatePost (end_at, duration_ms)
@@ -847,9 +842,10 @@ Cloudflare RTK
 ```json
 {
   "enabled": true,
-  "org_id_via_env": false,
-  "api_key_via_env": true,
-  "cloudflare_org_id": "abc123"
+  "account_id_via_env": false,
+  "api_token_via_env": true,
+  "app_id_via_env": false,
+  "cloudflare_account_id": "abc123"
 }
 ```
 
@@ -935,20 +931,13 @@ Defined in `plugin.json` `settings_schema`. Configurable from the System Console
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `CloudflareOrgID` | text | Cloudflare Organization ID |
-| `CloudflareAPIKey` | text (secret) | Cloudflare API Key |
-| `RecordingEnabled` | bool (default: true) | Allow recording |
-| `ScreenShareEnabled` | bool (default: true) | Allow screen sharing |
-| `PollsEnabled` | bool (default: true) | Enable polls feature |
-| `TranscriptionEnabled` | bool (default: true) | Enable real-time transcription |
-| `WaitingRoomEnabled` | bool (default: true) | Enable waiting room |
-| `VideoEnabled` | bool (default: true) | Allow camera video |
-| `ChatEnabled` | bool (default: true) | Enable in-call chat |
-| `PluginsEnabled` | bool (default: true) | Allow third-party plugins |
-| `ParticipantsEnabled` | bool (default: true) | Show participants panel |
-| `RaiseHandEnabled` | bool (default: true) | Allow raise hand |
+| `CloudflareAccountID` | text | Cloudflare Account ID |
+| `CloudflareAPIToken` | text (secret) | Cloudflare API Token (Realtime / Realtime Admin permissions) |
+| `CloudflareAppID` | custom (env-only display) | Optional; displayed read-only when `RTK_APP_ID` is set. Has no persisted setting value — App ID is resolved exclusively from the `RTK_APP_ID` environment variable. |
 
-Environment variables take **strict precedence** over System Console settings (empty string in env var also overrides).
+Feature flags (Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, Raise Hand) are not exposed through `plugin.json` and are managed entirely on the client side via the Cloudflare RTK SDK preset / UI configuration.
+
+Environment variables (`RTK_ACCOUNT_ID`, `RTK_API_TOKEN`, `RTK_APP_ID`) take **strict precedence** over System Console settings (empty string in env var also overrides).
 
 ---
 
@@ -965,9 +954,9 @@ Environment variables take **strict precedence** over System Console settings (e
 
 ### Credential Protection
 
-- Cloudflare API Key is never returned to the frontend
+- Cloudflare API Token is never returned to the frontend
 - RTK JWT tokens must not be logged (only `len(token)` is logged at debug level)
-- `GetEffectiveAPIKey()` return value is never included in any log output
+- `GetEffectiveAPIToken()` return value is never included in any log output
 
 ### Call Page CSP
 

@@ -18,7 +18,7 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 - **Floating in-call widget** — drag, minimize, and fullscreen while staying in Mattermost
 - **Standalone call page** — opens in a new tab for a full-screen experience
 - **Incoming call notification** — ringing alert for DM and GM channels (30-second auto-dismiss)
-- **10 feature flags** — toggle Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand
+- **Client-side feature toggles** — Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants panel, and Raise Hand are configured via the Cloudflare RTK SDK preset / UI
 - **Admin Console integration** — configure credentials in the System Console or via environment variables
 - **Japanese UI** — full i18n support including RTK SDK UI strings
 
@@ -39,12 +39,13 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
                              v                  |
 +----------------------------+------------------+
 |  Go Plugin                                    |
-|  calls.go  —  CreateCall / JoinCall /         |
-|               LeaveCall / EndCall             |
-|  api_*.go  —  REST endpoints                  |
-|  rtkclient/  —  Cloudflare RTK HTTP client    |
+|  app/         —  CreateCall / JoinCall /      |
+|                  LeaveCall / EndCall (calls,  |
+|                  webhook, push, channels)     |
+|  api/         —  REST endpoints (gorilla/mux) |
+|  rtkclient/   —  Cloudflare RTK HTTP client   |
 |  store/         —  Store interface + models      |
-|  store/sqlstore/ —  SQL-backed store impl        |
+|  store/sqlstore/ —  PostgreSQL-backed store impl |
 +-------------------+---------------------------+
                     |                    ^ Webhook (HMAC-SHA256)
                     v                    |
@@ -64,7 +65,7 @@ A Mattermost plugin that integrates [Cloudflare RealtimeKit](https://developers.
 | Participant cleanup | RTK webhook (`meeting.participantLeft`) triggers `LeaveCall` |
 | Call page auth | JWT token passed as URL parameter; tab close fires `fetch + keepalive` |
 | CSP workaround | Vite build patches `worker-timers` blob URL → static `/worker.js` endpoint |
-| Feature flags | `*bool` fields default to `true` (nil = enabled); overridable via env vars |
+| Feature flags | Client-side only (Cloudflare RTK SDK preset / UI configuration); no server-side env vars |
 
 For a full description of every component, data flow, and API, see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
@@ -84,20 +85,24 @@ For a full description of every component, data flow, and API, see **[ARCHITECTU
 # Server binaries (linux-amd64, linux-arm64)
 make build
 
-# Frontend — main bundle
+# Frontend — builds both bundles (main.js + call.js)
 cd webapp && npm install && npm run build
-
-# Frontend — standalone call page bundle
-cd webapp && VITE_BUILD_TARGET=call npm run build
 ```
+
+> `npm run build` runs `vite build` twice (once with `VITE_BUILD_TARGET=call`) and produces both `webapp/dist/main.js` (Mattermost plugin bundle) and `webapp/dist/call.js` (standalone call page bundle).
 
 ### Configure
 
 Set credentials in **System Console → Plugins → RTK Plugin**, or via environment variables:
 
 ```bash
-RTK_ORG_ID=<your-cloudflare-org-id>
-RTK_API_KEY=<your-cloudflare-api-key>
+RTK_ACCOUNT_ID=<your-cloudflare-account-id>
+RTK_API_TOKEN=<your-cloudflare-api-token>
+
+# Optional: pin a specific Cloudflare RealtimeKit App.
+# When set, the plugin verifies the app exists in your account and uses it as
+# the active app instead of discover-or-create. Env-only (no System Console field).
+RTK_APP_ID=<your-cloudflare-rtk-app-id>
 ```
 
 Environment variables take strict precedence over the System Console values.
@@ -114,22 +119,15 @@ make deploy
 
 ## Configuration
 
-All settings are configurable from the System Console. Each can also be overridden by an environment variable.
+Cloudflare credentials are configurable from the System Console (`CloudflareAccountID`, `CloudflareAPIToken`). Each can also be overridden by an environment variable. The Cloudflare RealtimeKit App ID is **environment-only**.
 
-| Setting | Env Var | Default | Description |
-|---------|---------|---------|-------------|
-| Cloudflare Org ID | `RTK_ORG_ID` | — | Required to enable the plugin |
-| Cloudflare API Key | `RTK_API_KEY` | — | Required to enable the plugin |
-| Recording | `RTK_RECORDING_ENABLED` | `true` | Allow call recording |
-| Screen Share | `RTK_SCREEN_SHARE_ENABLED` | `true` | Allow screen sharing |
-| Polls | `RTK_POLLS_ENABLED` | `true` | In-call polls |
-| Transcription | `RTK_TRANSCRIPTION_ENABLED` | `true` | Real-time transcription |
-| Waiting Room | `RTK_WAITING_ROOM_ENABLED` | `false` | Require host approval to join (opt-in) |
-| Video | `RTK_VIDEO_ENABLED` | `true` | Camera video |
-| Chat | `RTK_CHAT_ENABLED` | `true` | In-call text chat |
-| Plugins | `RTK_PLUGINS_ENABLED` | `true` | Third-party RTK plugins |
-| Participants Panel | `RTK_PARTICIPANTS_ENABLED` | `true` | Participant list UI |
-| Raise Hand | `RTK_RAISE_HAND_ENABLED` | `true` | Raise hand feature |
+| Setting | System Console Key | Env Var | Required | Description |
+|---------|-------------------|---------|----------|-------------|
+| Cloudflare Account ID | `CloudflareAccountID` | `RTK_ACCOUNT_ID` | Yes | Required to enable the plugin |
+| Cloudflare API Token | `CloudflareAPIToken` | `RTK_API_TOKEN` | Yes | Cloudflare API Token with Realtime / Realtime Admin permissions |
+| Cloudflare RTK App ID | (env-only) | `RTK_APP_ID` | No | When set, the plugin verifies the app exists and pins it as the active app. When unset, the plugin discovers or creates the app automatically. |
+
+Feature flags (Recording, Screen Share, Polls, Transcription, Waiting Room, Video, Chat, Plugins, Participants Panel, Raise Hand) are managed entirely on the client side via the Cloudflare RTK SDK preset / UI configuration; there are no server-side environment variables for them.
 
 ---
 
