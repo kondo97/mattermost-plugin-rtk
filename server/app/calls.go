@@ -72,14 +72,24 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		return nil, "", ErrRTKNotConfigured
 	}
 
-	// BR-01: only one active call per channel
+	// Reject when calls are explicitly disabled for this channel. A missing
+	// rtk_calls_channels row is treated as enabled by default (mirrors the
+	// Calls plugin behavior).
+	if ch, err := a.store.GetCallsChannel(channelID); err != nil {
+		a.api.LogError("CreateCall: failed to load channel state", "channel_id", channelID, "err", err.Error())
+		return nil, "", fmt.Errorf("failed to load channel state: %w", err)
+	} else if ch != nil && !ch.Enabled {
+		return nil, "", ErrCallsDisabled
+	}
+
+	// only one active call per channel
 	existing, err := a.store.GetCallByChannel(channelID)
 	if err != nil {
 		a.api.LogError("CreateCall: failed to check existing call", "channel_id", channelID, "err", err.Error())
 		return nil, "", fmt.Errorf("failed to check existing call: %w", err)
 	}
 	if existing != nil {
-		// BR-01: verify the existing call is still alive on the RTK side.
+		// verify the existing call is still alive on the RTK side.
 		// If the meeting no longer exists (404), force-end the stale record and proceed.
 		_, rtkErr := a.rtk.GetMeeting(existing.MeetingID)
 		switch {
@@ -102,7 +112,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		}
 	}
 
-	// BR-02/BR-05: resolve or create RTK meeting for this channel
+	// resolve or create RTK meeting for this channel
 	savedChannelMeetingID, meetingID, savedAppConfigID, err := a.store.GetChannelMeeting(channelID)
 	if err != nil {
 		a.api.LogWarn("CreateCall: GetChannelMeeting failed, will create new meeting", "channel_id", channelID, "err", err.Error())
@@ -163,7 +173,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		}
 	}
 
-	// BR-03: creator is added to participants. Mint session.ID early so it can be
+	// creator is added to participants. Mint session.ID early so it can be
 	// embedded into the RTK customParticipantId before token issuance.
 	session := &store.CallSession{
 		ID:               model.NewId(),
@@ -177,7 +187,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		ChannelMeetingID: savedChannelMeetingID,
 	}
 
-	// BR-08: generate the host token. session.ID is bound into the RTK
+	// generate the host token. session.ID is bound into the RTK
 	// customParticipantId so webhook events can be unambiguously correlated to
 	// this specific call (RTK Meetings are reusable across calls in the same
 	// channel — without this binding, delayed webhooks from a prior call could
@@ -189,7 +199,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// BR-04: create the post BEFORE inserting the call session so the row is
+	// create the post BEFORE inserting the call session so the row is
 	// persisted with its real post_id from the start. Inserting first with
 	// post_id='' would collide with the UNIQUE(post_id) constraint on any
 	// subsequent CreateCall whose CreatePost fails.
@@ -230,7 +240,7 @@ func (a *App) CreateCall(channelID, userID string) (*store.CallSession, string, 
 		a.api.LogWarn("CreateCall: GetUser failed for push notifications (best effort)", "call_id", session.ID, "err", senderErr.Error())
 	}
 
-	// BR-04: emit WebSocket event
+	// emit WebSocket event
 	a.api.PublishWebSocketEvent(WSEventCallStarted, map[string]any{
 		"call_id":      session.ID,
 		"channel_id":   channelID,
@@ -254,7 +264,7 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 		return nil, "", ErrRTKNotConfigured
 	}
 
-	// BR-06: call must be active
+	// call must be active
 	session, err := a.store.GetCallByID(callID)
 	if err != nil {
 		a.api.LogError("JoinCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
@@ -288,7 +298,7 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 			"call_id", callID, "err", rtkErr.Error())
 	}
 
-	// BR-09: idempotent insert in the participants table FIRST so that, if RTK
+	// idempotent insert in the participants table FIRST so that, if RTK
 	// token issuance subsequently fails, no token is ever returned for a user
 	// who is not in the DB. Order: DB add → token; on token failure, compensate.
 	// The store serializes against EndCall and concurrent Add/Remove on other
@@ -305,7 +315,7 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 	}
 	session.Participants = participants
 
-	// BR-08: generate participant token. RTK customParticipantId is bound to the
+	// generate participant token. RTK customParticipantId is bound to the
 	// (callID, userID) pair so webhook events can be unambiguously correlated to
 	// this call (RTK Meetings are reusable across calls in the same channel).
 	displayName := a.getUserDisplayName(userID)
@@ -333,10 +343,10 @@ func (a *App) JoinCall(callID, userID string) (*store.CallSession, string, error
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// BR-10: update post participants — best effort
+	// update post participants — best effort
 	a.updatePostParticipants(session.PostID, session.Participants)
 
-	// BR-10: emit WebSocket event so all clients see the updated participant list immediately.
+	// emit WebSocket event so all clients see the updated participant list immediately.
 	// handleWebhookParticipantJoined will also fire later (when the RTK SDK actually connects)
 	// and performs an idempotent update — this is safe because UpdatePost and PublishWebSocketEvent
 	// with the same data are both no-ops from the client's perspective.
@@ -357,7 +367,7 @@ func (a *App) LeaveCall(callID, userID string) error {
 	a.callMu.Lock()
 	defer a.callMu.Unlock()
 
-	// BR-11: idempotent — if call not found or already ended, no-op
+	// idempotent — if call not found or already ended, no-op
 	session, err := a.store.GetCallByID(callID)
 	if err != nil {
 		a.api.LogError("LeaveCall: GetCallByID failed", "call_id", callID, "user_id", userID, "err", err.Error())
@@ -367,7 +377,7 @@ func (a *App) LeaveCall(callID, userID string) error {
 		return nil
 	}
 
-	// BR-11/BR-13: atomic remove + auto-end. The store transaction holds a row
+	// atomic remove + auto-end. The store transaction holds a row
 	// lock on rtk_call_sessions, so a concurrent JoinCall on another node
 	// cannot insert a participant between the delete and the endat write.
 	updated, endedNow, endAt, err := a.store.RemoveCallParticipant(callID, userID)
@@ -380,7 +390,7 @@ func (a *App) LeaveCall(callID, userID string) error {
 	// Update post participants — best effort
 	a.updatePostParticipants(session.PostID, updated)
 
-	// BR-12: emit WebSocket event
+	// emit WebSocket event
 	a.api.PublishWebSocketEvent(WSEventUserLeft, map[string]any{
 		"call_id":      callID,
 		"channel_id":   session.ChannelID,
@@ -390,7 +400,7 @@ func (a *App) LeaveCall(callID, userID string) error {
 
 	a.api.LogInfo("user left call", "call_id", callID, "user_id", userID, "channel_id", session.ChannelID)
 
-	// BR-13: when this remove transitioned the call to ended, run the side effects.
+	// when this remove transitioned the call to ended, run the side effects.
 	// We only emit when endedNow=true to avoid double-emission if another path
 	// (explicit EndCall, webhook meeting.ended) already ended the call concurrently.
 	if endedNow {
@@ -415,7 +425,7 @@ func (a *App) EndCall(callID, requestingUserID string) error {
 		return ErrCallNotFound
 	}
 
-	// BR-14: only creator may end call
+	// only creator may end call
 	if session.CreatorID != requestingUserID {
 		return ErrUnauthorized
 	}
@@ -427,7 +437,7 @@ func (a *App) EndCall(callID, requestingUserID string) error {
 // on-demand reconciliation, and webhook handlers. It writes endat to the store
 // and runs the side effects.
 //
-// Note: LeaveCall's auto-end (BR-13) does NOT go through here — RemoveCallParticipant
+// Note: LeaveCall's auto-end does NOT go through here — RemoveCallParticipant
 // performs the endat write atomically with the participant delete to prevent ghost
 // participants. The auto-end path calls emitCallEnded directly with the endAt value
 // returned by the store.
@@ -437,7 +447,7 @@ func (a *App) EndCall(callID, requestingUserID string) error {
 func (a *App) endCallInternal(session *store.CallSession, reason string) error {
 	a.api.LogInfo("endCallInternal triggered", "call_id", session.ID, "channel_id", session.ChannelID, "reason", reason)
 
-	// BR-26: set EndAt
+	// set EndAt
 	endAt := nowMs()
 	if err := a.store.EndCall(session.ID, endAt); err != nil {
 		a.api.LogError("endCallInternal: EndCall failed", "call_id", session.ID, "err", err.Error())
@@ -455,10 +465,10 @@ func (a *App) endCallInternal(session *store.CallSession, reason string) error {
 func (a *App) emitCallEnded(session *store.CallSession, endAt int64, reason string) {
 	durationMs := endAt - session.CreateAt
 
-	// BR-27: RTK sessions are auto-ended by Cloudflare when the last participant leaves.
+	// RTK sessions are auto-ended by Cloudflare when the last participant leaves.
 	// Do NOT call EndMeeting — Meeting is a permanent reusable room.
 
-	// BR-28: update post to ended state — best effort
+	// update post to ended state — best effort
 	if session.PostID != "" {
 		post, appErr := a.api.GetPost(session.PostID)
 		if appErr != nil {
@@ -477,7 +487,7 @@ func (a *App) emitCallEnded(session *store.CallSession, endAt int64, reason stri
 		a.sendEndCallPushNotifications(session.ChannelID, session.PostID, session.CreatorID)
 	}
 
-	// BR-29: emit WebSocket event
+	// emit WebSocket event
 	a.api.PublishWebSocketEvent(WSEventCallEnded, map[string]any{
 		"call_id":     session.ID,
 		"channel_id":  session.ChannelID,

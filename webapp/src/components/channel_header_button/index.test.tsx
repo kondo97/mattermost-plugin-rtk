@@ -10,8 +10,16 @@ import ChannelHeaderButton from './index';
 // Mock react-redux hooks
 jest.mock('react-redux', () => ({
     useSelector: jest.fn(),
-    useDispatch: jest.fn(),
+    useDispatch: jest.fn(() => jest.fn()),
 }));
+
+// Mock the channel-enabled hook to bypass the side-effect fetch.
+jest.mock('hooks/use_channel_enabled', () => ({
+    useChannelEnabled: jest.fn(),
+}));
+
+// eslint-disable-next-line import/first, import/order
+import {useChannelEnabled} from 'hooks/use_channel_enabled';
 
 // Mock manifest
 jest.mock('manifest', () => ({id: 'com.kondo97.mattermost-plugin-rtk'}));
@@ -26,30 +34,24 @@ jest.mock('react-intl', () => ({
 const channel = {id: 'channel1'} as never;
 const currentUserId = 'currentUser';
 
-// ChannelHeaderButton reads 4 selectors in order: pluginEnabled, activeCall, isParticipant, callLoading
+// ChannelHeaderButton reads 4 selectors via useSelector in this order:
+// pluginEnabled, activeCall, isParticipant, callLoading.
+// useChannelEnabled is mocked separately and is not counted here.
 const setSelectors = ({
     pluginEnabled = true,
     activeCall = undefined as object | undefined,
     isParticipant = false,
     callLoading = false,
+    channelEnabled = true as boolean | undefined,
 } = {}) => {
+    const values = [pluginEnabled, activeCall, isParticipant, callLoading];
+    let i = 0;
     (useSelector as unknown as jest.Mock).mockImplementation(() => {
-        const callCount = (useSelector as unknown as jest.Mock).mock.calls.length;
-        const idx = (callCount - 1) % 4;
-        if (idx === 0) {
-            return pluginEnabled;
-        }
-        if (idx === 1) {
-            return activeCall;
-        }
-        if (idx === 2) {
-            return isParticipant;
-        }
-        if (idx === 3) {
-            return callLoading;
-        }
-        return undefined;
+        const v = values[i % values.length];
+        i++;
+        return v;
     });
+    (useChannelEnabled as unknown as jest.Mock).mockReturnValue(channelEnabled);
 };
 
 beforeEach(() => {
@@ -59,6 +61,17 @@ beforeEach(() => {
 describe('ChannelHeaderButton visual states', () => {
     it('State 1: Hidden — returns null when pluginEnabled is false', () => {
         setSelectors({pluginEnabled: false});
+        const wrapper = shallow(
+            <ChannelHeaderButton
+                channel={channel}
+                currentUserId={currentUserId}
+            />,
+        );
+        expect(wrapper.isEmptyRender()).toBe(true);
+    });
+
+    it('State 1b: Hidden — returns null when channel calls are explicitly disabled', () => {
+        setSelectors({pluginEnabled: true, channelEnabled: false});
         const wrapper = shallow(
             <ChannelHeaderButton
                 channel={channel}

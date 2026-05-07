@@ -21,6 +21,7 @@ const initialState: CallsPluginState = {
     callLoading: false,
     callError: null,
     pendingSwitchCallId: null,
+    channelEnabledState: {},
 };
 
 const sampleCall = {

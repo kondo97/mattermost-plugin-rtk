@@ -7,6 +7,8 @@
     "plugin.rtk.channel_header.tooltip_join": "Join the active call",
     "plugin.rtk.channel_header.tooltip_in_call": "You are in this call",
     "plugin.rtk.channel_header.in_this_channel": "In this channel",
+    "plugin.rtk.channel_header.disable_calls": "Disable calls (RTK)",
+    "plugin.rtk.channel_header.enable_calls": "Enable calls (RTK)",
     "plugin.rtk.toast_bar.join": "Join",
     "plugin.rtk.toast_bar.dismiss": "Dismiss",
     "plugin.rtk.toast_bar.started_at": "Started {time}",
@@ -40,5 +42,6 @@
     "plugin.rtk.call_post.participants": "{count, plural, one {# participant} other {# participants}}",
     "plugin.rtk.call_post.error_close": "OK",
     "plugin.rtk.admin.credential.loading": "Loading...",
-    "plugin.rtk.admin.credential.env_var_value": "Set via environment variable {envVar}"
+    "plugin.rtk.admin.credential.env_var_value": "Set via environment variable {envVar}",
+    "plugin.rtk.error.calls_disabled": "Calls are disabled in this channel."
 }

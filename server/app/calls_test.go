@@ -62,6 +62,7 @@ func TestCreateCall_Success(t *testing.T) {
 	meetingID := "meeting1"
 	tokenStr := "jwt-token"
 
+	mockStore.EXPECT().GetCallsChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting(channelID).Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -99,6 +100,21 @@ func TestCreateCall_NotChannelMember(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotChannelMember)
 }
 
+func TestCreateCall_DisabledChannel(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
+	a, _ := newTestApp(t, mockRTK, mockStore)
+
+	disabled := false
+	mockStore.EXPECT().GetCallsChannel("ch1").Return(&store.CallsChannel{
+		ChannelID: "ch1", Enabled: disabled,
+	}, nil)
+
+	_, _, err := a.CreateCall("ch1", "user1")
+	assert.ErrorIs(t, err, ErrCallsDisabled)
+}
+
 func TestCreateCall_AlreadyActive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
@@ -106,6 +122,7 @@ func TestCreateCall_AlreadyActive(t *testing.T) {
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
 	existing := &store.CallSession{ID: "call1", ChannelID: "ch1", MeetingID: "mtg1", EndAt: 0}
+	mockStore.EXPECT().GetCallsChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(existing, nil)
 	// Meeting is still alive — return participants without error.
 	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
@@ -123,6 +140,7 @@ func TestCreateCall_AlreadyActive_ZombieCall(t *testing.T) {
 	existing := &store.CallSession{
 		ID: "old-call", ChannelID: "ch1", MeetingID: "old-mtg", CreateAt: 1000,
 	}
+	mockStore.EXPECT().GetCallsChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(existing, nil)
 	// RTK returns 404 — the existing call is stale (zombie).
 	mockRTK.EXPECT().GetMeeting("old-mtg").Return(nil, rtkclient.ErrMeetingNotFound)
@@ -167,6 +185,7 @@ func TestCreateCall_CreateMeetingFails(t *testing.T) {
 	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
+	mockStore.EXPECT().GetCallsChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -182,6 +201,7 @@ func TestCreateCall_CreateMeetingReturnsEmptyID(t *testing.T) {
 	mockStore := storemocks.NewMockStore(ctrl)
 	a, _ := newTestApp(t, mockRTK, mockStore)
 
+	mockStore.EXPECT().GetCallsChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("ch1").Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting("ch1").Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -206,6 +226,7 @@ func TestCreateCall_CreatePostFails(t *testing.T) {
 	userID := "user1"
 	meetingID := "mtg1"
 
+	mockStore.EXPECT().GetCallsChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting(channelID).Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -232,6 +253,7 @@ func TestCreateCall_CreateCallSessionFailsAfterPost(t *testing.T) {
 	meetingID := "mtg1"
 	postID := "post-orphan"
 
+	mockStore.EXPECT().GetCallsChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting(channelID).Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -463,7 +485,7 @@ func TestLeaveCall_LastParticipantAutoEnds(t *testing.T) {
 
 	mockStore.EXPECT().GetCallByID(callID).Return(session, nil)
 	// RemoveCallParticipant returns ended=true with a non-zero endAt so the auto-end
-	// path (BR-13) only runs the side-effects; the store wrote endat atomically.
+	// path only runs the side-effects; the store wrote endat atomically.
 	mockStore.EXPECT().RemoveCallParticipant(callID, "user1").Return([]string{}, true, int64(2000), nil)
 	api.On("PublishWebSocketEvent", WSEventUserLeft,
 		mock.Anything, mock.AnythingOfType("*model.WebsocketBroadcast")).Return()
@@ -558,6 +580,7 @@ func TestCreateCall_ReusesChannelMeeting(t *testing.T) {
 	existingMeetingID := "existing-mtg"
 	tokenStr := "jwt-token"
 
+	mockStore.EXPECT().GetCallsChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting(channelID).Return("cm1", existingMeetingID, "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -591,6 +614,7 @@ func TestCreateCall_ChannelMeetingGone(t *testing.T) {
 	newMeetingID := "new-mtg"
 	tokenStr := "jwt-token"
 
+	mockStore.EXPECT().GetCallsChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel(channelID).Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting(channelID).Return("cm-stale", staleMeetingID, "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)

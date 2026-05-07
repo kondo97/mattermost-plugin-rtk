@@ -86,12 +86,29 @@ func (h *API) initRouter() {
 	// Mobile
 	apiRouter.HandleFunc("/calls/{id}/dismiss", h.handleDismiss).Methods(http.MethodPost)
 
+	// Channels (Calls-plugin compatible)
+	apiRouter.HandleFunc("/channels", h.handleGetAllChannels).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/channels/{channelID}", h.handleGetChannel).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/channels/{channelID}", h.handleUpdateChannel).Methods(http.MethodPut)
+
 	h.router = router
 }
 
 // writeError writes a JSON error response.
 func writeError(w http.ResponseWriter, status int, msg string) {
+	writeErrorWithCode(w, status, "", msg)
+}
+
+// writeErrorWithCode writes a JSON error response that includes a machine-readable
+// `code` field in addition to the human-readable `error` message. Clients can use
+// the code to localise messages without parsing English error strings. When `code`
+// is empty the field is omitted to preserve the wire format produced by writeError.
+func writeErrorWithCode(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	body := map[string]string{"error": msg}
+	if code != "" {
+		body["code"] = code
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }

@@ -11,6 +11,8 @@ import {
     callsReducer,
     setCallError,
     setCallLoading,
+    setChannelEnabled,
+    setChannelEnabledBulk,
     setMyActiveCall,
     setPendingSwitchCallId,
     setPluginEnabled,
@@ -25,9 +27,11 @@ import {
 } from 'redux/websocket_handlers';
 import {
     selectCallByChannel,
+    selectChannelEnabled,
     selectIsCurrentUserParticipant,
     selectMyActiveCall,
 } from 'redux/selectors';
+import {getCallErrorMessage} from 'utils/error_messages';
 import {playJoinSound} from 'utils/sounds';
 
 import type {GlobalState} from '@mattermost/types/store';
@@ -38,6 +42,7 @@ import EnvVarCredentialSetting from 'components/admin_config/EnvVarCredentialSet
 import CallPost from 'components/call_post';
 import ChannelHeaderButton from 'components/channel_header_button';
 import ChannelHeaderDropdownButton from 'components/channel_header_button/DropdownButton';
+import ChannelMenuAction from 'components/channel_menu_action';
 import FloatingWidget from 'components/floating_widget';
 import IncomingCallNotification from 'components/incoming_call_notification';
 import ToastBar from 'components/toast_bar';
@@ -51,12 +56,21 @@ interface ConfigStatusResponse {
     enabled: boolean;
 }
 
+async function fetchAllChannelEnabled(store: Store<GlobalState>) {
+    const result = await pluginFetch<Array<{channel_id: string; enabled?: boolean}>>(
+        '/api/v1/channels',
+    );
+    if ('data' in result) {
+        store.dispatch(setChannelEnabledBulk(result.data));
+    }
+}
+
 async function fetchConfigStatus(store: Store<GlobalState>) {
     const result = await pluginFetch<ConfigStatusResponse>('/api/v1/config/status');
     if ('data' in result) {
         store.dispatch(setPluginEnabled(result.data.enabled));
     } else {
-        // Default to disabled on error (BR-001, REL-U3-03)
+        // Default to disabled on error
         store.dispatch(setPluginEnabled(false));
     }
 }
@@ -78,6 +92,12 @@ export default class Plugin {
 
         // 3. Fetch initial config status
         await fetchConfigStatus(store);
+
+        // 3b. Prefetch enabled state for all user-visible call channels so that
+        // ChannelHeaderButton can render with the correct visibility on the very
+        // first frame (no flicker for disabled channels). Failures are non-fatal:
+        // the per-channel useChannelEnabled hook will fill the gap on demand.
+        await fetchAllChannelEnabled(store);
 
         // 4. Get current user ID for WS handlers
         const state = store.getState();
@@ -106,9 +126,10 @@ export default class Plugin {
             handleNotifDismissed(store as unknown as Store<GlobalState>, currentUserId),
         );
 
-        // 6. Re-fetch config on WebSocket reconnect (BR-014)
+        // 6. Re-fetch config on WebSocket reconnect
         registry.registerReconnectHandler(async () => {
             await fetchConfigStatus(store);
+            await fetchAllChannelEnabled(store);
         });
 
         // 7. Register UI components
@@ -189,7 +210,7 @@ export default class Plugin {
                     );
                     store.dispatch(setCallLoading(false));
                     if ('error' in result) {
-                        store.dispatch(setCallError(result.error));
+                        store.dispatch(setCallError(getCallErrorMessage(result.code, result.error)));
                         return;
                     }
                     const {data: joinData} = result;
@@ -218,7 +239,7 @@ export default class Plugin {
                 });
                 store.dispatch(setCallLoading(false));
                 if ('error' in result) {
-                    store.dispatch(setCallError(result.error));
+                    store.dispatch(setCallError(getCallErrorMessage(result.code, result.error)));
                     return;
                 }
                 const {data} = result;
@@ -236,6 +257,36 @@ export default class Plugin {
                     channelId: data.call.channel_id,
                     token: data.token,
                 }));
+            },
+        );
+
+        // 7b. Register "Disable/Enable calls" in the channel "Other actions" menu.
+        // Only visible to channel admins and system admins (enforced in the component).
+        registry.registerChannelHeaderMenuAction(
+            ChannelMenuAction,
+            async (channelId: string) => {
+                const s = store.getState() as unknown as GlobalState;
+                const currentEnabled = selectChannelEnabled(channelId)(s) ?? true;
+                const newEnabled = !currentEnabled;
+
+                const result = await pluginFetch<{channel_id: string; enabled: boolean}>(
+                    `/api/v1/channels/${channelId}`,
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify({enabled: newEnabled}),
+                    },
+                );
+
+                if ('error' in result) {
+                    return;
+                }
+
+                // Trust the server's reported state (in case of races, future
+                // server-side coercion, or other discrepancies). This update
+                // makes the user's own UI react to their own toggle: the
+                // header "Start Call (RTK)" button hides, and the menu item
+                // label flips between Enable/Disable.
+                store.dispatch(setChannelEnabled(result.data.channel_id, result.data.enabled));
             },
         );
 

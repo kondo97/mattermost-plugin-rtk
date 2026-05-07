@@ -22,6 +22,7 @@ function selectPluginState(state: GlobalState): CallsPluginState {
         callLoading: false,
         callError: null,
         pendingSwitchCallId: null,
+        channelEnabledState: {},
     };
 }
 
@@ -63,4 +64,12 @@ export function selectCallError(state: GlobalState): string | null {
 
 export function selectPendingSwitchCallId(state: GlobalState): string | null {
     return selectPluginState(state).pendingSwitchCallId;
+}
+
+// selectChannelEnabled returns the cached enabled state for a channel.
+// undefined means the state has not been fetched yet (callers should treat
+// undefined as "enabled" for display purposes).
+export function selectChannelEnabled(channelId: string) {
+    return (state: GlobalState): boolean | undefined =>
+        selectPluginState(state).channelEnabledState[channelId];
 }

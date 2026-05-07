@@ -3,13 +3,15 @@
 
 import manifest from 'manifest';
 
-export type FetchResult<T> = {data: T} | {error: string};
+export type FetchResult<T> = {data: T} | {error: string; code?: string};
 
 /**
  * Plugin API fetch helper.
  *
  * - Always resolves (never throws to caller).
- * - Returns { data: T } on success, { error: string } on failure.
+ * - Returns { data: T } on success, { error: string, code?: string } on failure.
+ *   The optional `code` field comes from the server's JSON error body and lets
+ *   callers localise the message (e.g. `code === 'calls_disabled'`).
  * - Generic error messages only — no raw server details surfaced to users (SEC-U3-03).
  * - JWT tokens and credentials MUST NOT be logged (SEC-U3-01).
  */
@@ -30,6 +32,21 @@ export async function pluginFetch<T>(
         if (!resp.ok) {
             // Log status/path only — no response body that might contain sensitive data
             console.error(`[rtk-plugin] API error ${resp.status} on ${path}`); // eslint-disable-line no-console
+
+            // Try to surface the server's `code` so callers can localise the
+            // error message. Fall back to a generic message if the body is
+            // missing or not JSON.
+            try {
+                const body = await resp.json() as {error?: string; code?: string};
+                if (body && (body.code || body.error)) {
+                    return {
+                        error: body.error || 'An error occurred. Please try again.',
+                        code: body.code,
+                    };
+                }
+            } catch {
+                // ignore JSON parse failure — fall through to generic message
+            }
             return {error: 'An error occurred. Please try again.'};
         }
 

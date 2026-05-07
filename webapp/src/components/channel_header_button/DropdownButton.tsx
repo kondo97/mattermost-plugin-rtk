@@ -1,6 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {useChannelEnabled} from 'hooks/use_channel_enabled';
 import React from 'react';
 import {useIntl} from 'react-intl';
 import {useSelector} from 'react-redux';
@@ -28,8 +29,13 @@ const ChannelHeaderDropdownButton = ({channel, currentUserId}: Props) => {
     const pluginEnabled = useSelector(selectPluginEnabled);
     const activeCall = useSelector(selectCallByChannel(channel.id));
     const isParticipant = useSelector(selectIsCurrentUserParticipant(channel.id, currentUserId));
+    const channelEnabled = useChannelEnabled(channel.id);
 
     if (!pluginEnabled) {
+        return null;
+    }
+
+    if (channelEnabled === false) {
         return null;
     }
 

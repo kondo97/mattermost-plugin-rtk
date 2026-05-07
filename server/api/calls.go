@@ -32,6 +32,8 @@ func (h *API) handleCreateCall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusServiceUnavailable, err.Error())
 		case errors.Is(err, app.ErrCallAlreadyActive):
 			writeError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, app.ErrCallsDisabled):
+			writeErrorWithCode(w, http.StatusForbidden, "calls_disabled", err.Error())
 		default:
 			h.app.LogError("handleCreateCall failed", "channel_id", req.ChannelID, "user_id", userID, "error", err.Error())
 			writeError(w, http.StatusInternalServerError, "internal error")

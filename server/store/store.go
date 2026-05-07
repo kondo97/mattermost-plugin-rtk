@@ -30,7 +30,7 @@ type Store interface {
 	// is appropriate when subsequent steps (e.g. RTK token generation) fail.
 	AddCallParticipant(callID, userID string) (participants []string, active bool, added bool, err error)
 	// RemoveCallParticipant deletes userID from the participants for callID. If this leaves
-	// the call with zero participants, it atomically marks the call as ended (BR-13).
+	// the call with zero participants, it atomically marks the call as ended.
 	// Returns the updated participants list, endedNow=true only when this invocation's
 	// transaction transitioned the call from active to ended, and the call's endAt
 	// timestamp (0 when the call is still active). When the call was already ended
@@ -74,4 +74,14 @@ type Store interface {
 	// serialize EnsureApp across HA Mattermost nodes so that ListApps→CreateApp→StoreAppConfig
 	// is not racy.
 	WithAppLock(ctx context.Context, key string, fn func() error) error
+
+	// GetAllCallsChannels returns every row in rtk_calls_channels.
+	// Used by GET /api/v1/channels to enumerate explicitly-registered channels.
+	GetAllCallsChannels() ([]*CallsChannel, error)
+	// GetCallsChannel returns the rtk_calls_channels row for a channel, or nil if none exists.
+	GetCallsChannel(channelID string) (*CallsChannel, error)
+	// UpsertCallsChannel inserts or updates a rtk_calls_channels row.
+	UpsertCallsChannel(channel *CallsChannel) error
+	// GetAllActiveCalls returns every call session with endat = 0.
+	GetAllActiveCalls() ([]*CallSession, error)
 }

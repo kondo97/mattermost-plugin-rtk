@@ -73,6 +73,7 @@ func TestHandleCreateCall_Success(t *testing.T) {
 
 	meetingID := "mtg1"
 	tokenStr := "tok1"
+	mockStore.EXPECT().GetCallsChannel("chan1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(nil, nil)
 	mockStore.EXPECT().GetChannelMeeting("chan1").Return("", "", "", nil)
 	mockStore.EXPECT().GetActiveAppConfigID().Return("cfg1", nil)
@@ -114,6 +115,7 @@ func TestHandleCreateCall_AlreadyActive(t *testing.T) {
 	h, _ := newTestAPI(t, mockRTK, mockStore)
 
 	existing := &store.CallSession{ID: "existing", ChannelID: "chan1", MeetingID: "mtg1"}
+	mockStore.EXPECT().GetCallsChannel("chan1").Return(nil, nil)
 	mockStore.EXPECT().GetCallByChannel("chan1").Return(existing, nil)
 	// Meeting is still alive — normal conflict.
 	mockRTK.EXPECT().GetMeeting("mtg1").Return(&rtkclient.Meeting{ID: "mtg1"}, nil)
@@ -122,6 +124,29 @@ func TestHandleCreateCall_AlreadyActive(t *testing.T) {
 	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls", "user1", body)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestHandleCreateCall_DisabledChannel(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockRTK := rtkmocks.NewMockRTKClient(ctrl)
+	mockStore := storemocks.NewMockStore(ctrl)
+	h, _ := newTestAPI(t, mockRTK, mockStore)
+
+	mockStore.EXPECT().GetCallsChannel("chan1").Return(&store.CallsChannel{
+		ChannelID: "chan1", Enabled: false,
+	}, nil)
+
+	body, _ := json.Marshal(map[string]string{"channel_id": "chan1"})
+	w := serveWithUser(t, h, http.MethodPost, "/api/v1/calls", "user1", body)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	// The response must include a machine-readable code so the webapp can
+	// localise the error message instead of falling back to the generic one.
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "calls_disabled", resp["code"])
+	assert.NotEmpty(t, resp["error"])
 }
 
 func TestHandleCreateCall_NotChannelMember(t *testing.T) {
@@ -216,7 +241,7 @@ func TestHandleLeaveCall_Success(t *testing.T) {
 
 	session := &store.CallSession{ID: "call1", ChannelID: "chan1", MeetingID: "mtg1", Participants: []string{"user1"}}
 	mockStore.EXPECT().GetCallByID("call1").Return(session, nil)
-	// last participant left → store atomically marks the call ended (BR-13)
+	// last participant left → store atomically marks the call ended
 	mockStore.EXPECT().RemoveCallParticipant("call1", "user1").Return([]string{}, true, int64(2000), nil)
 	mmAPI.On("PublishWebSocketEvent", app.WSEventUserLeft, mock.Anything, mock.Anything).Return()
 	mmAPI.On("PublishWebSocketEvent", app.WSEventCallEnded, mock.Anything, mock.Anything).Return()

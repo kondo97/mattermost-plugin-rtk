@@ -29,3 +29,15 @@ type CallSession struct {
 	// Empty string means the webhook has not been received yet.
 	SessionID string `json:"session_id"`
 }
+
+// CallsChannel describes the calls-enablement state for a Mattermost channel.
+//
+// It mirrors the row layout of the Calls plugin's `calls_channels` table so that
+// data can be migrated 1:1 on first activation. Props is opaque JSON used by the
+// Calls plugin (e.g. ringing settings); RTK does not interpret it but preserves
+// it round-trip so that future features can layer on without losing information.
+type CallsChannel struct {
+	ChannelID string `json:"channel_id"`
+	Enabled   bool   `json:"enabled"`
+	Props     []byte `json:"props,omitempty"`
+}

@@ -27,6 +27,8 @@ servers:
 tags:
   - name: Calls
     description: Create, join, leave, and end calls
+  - name: Channels
+    description: Channel call state (Calls-plugin compatible)
   - name: Config
     description: Retrieve plugin configuration status
   - name: Mobile
@@ -65,8 +67,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         "401":
           $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "409":
           $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
         "503":
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -138,8 +144,12 @@ paths:
                 $ref: '#/components/schemas/CallWithToken'
         "401":
           $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
         "503":
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -225,6 +235,93 @@ paths:
         "403":
           $ref: '#/components/responses/Forbidden'
 
+  /api/v1/channels:
+    get:
+      operationId: getAllChannels
+      tags: [Channels]
+      summary: Get all channel call states
+      description: |
+        Returns one entry per channel for which the requesting user has channel membership and either:
+        - A row exists in `rtk_calls_channels` (explicitly registered), or
+        - An active call exists in the channel.
+
+        The response shape mirrors the Calls plugin's `GET /channels` endpoint so existing Calls clients
+        can be repointed at the RTK plugin without changes.
+      security:
+        - MattermostAuth: []
+      responses:
+        "200":
+          description: Array of channel call states
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChannelCallState'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/channels/{channelID}:
+    get:
+      operationId: getChannel
+      tags: [Channels]
+      summary: Get a single channel call state
+      description: |
+        Returns the calls-enabled flag for a single channel.
+        If no row exists in `rtk_calls_channels` for the channel, it is treated as enabled by default.
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelID'
+      responses:
+        "200":
+          description: Channel call state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelStateResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      operationId: updateChannel
+      tags: [Channels]
+      summary: Update channel calls-enabled flag
+      description: |
+        Sets the calls-enabled flag for the channel. Only channel admins, team
+        admins, and system admins may call this endpoint; other users receive 403.
+      security:
+        - MattermostAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChannelRequest'
+            example:
+              enabled: true
+      responses:
+        "200":
+          description: Channel updated. Returns the channel's new calls-enabled state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelStateResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
   /api/v1/webhook/rtk:
     post:
       operationId: handleRTKWebhook
@@ -307,6 +404,14 @@ components:
         type: string
         format: uuid
         example: "550e8400-e29b-41d4-a716-446655440000"
+    ChannelID:
+      name: channelID
+      in: path
+      required: true
+      description: ID of the Mattermost channel
+      schema:
+        type: string
+        example: "abc123def456ghi789"
 
   schemas:
     CreateCallRequest:
@@ -355,9 +460,9 @@ components:
         post_id:
           type: string
           description: ID of the call notification post published to the channel
-        app_config_id:
+        rtk_channel_meeting_id:
           type: string
-          description: ID of the RTK app config row active when the call was created
+          description: ID of the rtk_channel_meetings row this call was created against
         session_id:
           type: string
           description: Cloudflare RTK session UUID. Populated via webhook when the first participant connects; empty string if the webhook has not yet been received.
@@ -371,7 +476,7 @@ components:
         update_at: 1700000001000
         end_at: 0
         post_id: "post001"
-        app_config_id: "cfg001"
+        rtk_channel_meeting_id: "mtg001"
         session_id: "05e57591-d89e-4c2a-b3f1-123456789abc"
 
     CallWithToken:
@@ -397,15 +502,155 @@ components:
         enabled:
           type: boolean
           description: Whether RTK credentials are configured and the plugin is available
-        org_id_via_env:
+        account_id_via_env:
           type: boolean
-          description: Whether the Org ID is configured via environment variable
-        api_key_via_env:
+          description: Whether the Cloudflare Account ID is configured via environment variable
+        api_token_via_env:
           type: boolean
-          description: Whether the API Key is configured via environment variable
-        cloudflare_org_id:
+          description: Whether the Cloudflare API Token is configured via environment variable
+        app_id_via_env:
+          type: boolean
+          description: Whether the RTK App ID is pinned via the RTK_APP_ID environment variable
+        cloudflare_account_id:
           type: string
-          description: Cloudflare Org ID configured in the system console (masked)
+          description: Cloudflare Account ID configured in the system console
+
+    ChannelStateResponse:
+      type: object
+      description: Calls-enabled state for a single channel.
+      required: [channel_id, enabled]
+      properties:
+        channel_id:
+          type: string
+          description: Mattermost channel ID
+        enabled:
+          type: boolean
+          description: |
+            Whether calls are enabled for the channel.
+            Defaults to `true` when no row exists in `rtk_calls_channels`.
+      example:
+        channel_id: "abc123def456ghi789"
+        enabled: true
+
+    UpdateChannelRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: New calls-enabled flag for the channel
+
+    ChannelCallState:
+      type: object
+      description: |
+        One element of the GET /api/v1/channels response array.
+        Mirrors the Calls plugin's channel call state shape for client compatibility.
+      properties:
+        channel_id:
+          type: string
+          description: Mattermost channel ID
+        enabled:
+          type: boolean
+          nullable: true
+          description: Whether calls are explicitly enabled for the channel. Omitted when the entry was synthesised from an active call with no rtk_calls_channels row.
+        call:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CallStateClient'
+          description: Active call state, or null if no call is in progress
+
+    CallStateClient:
+      type: object
+      description: Per-call payload returned inside ChannelCallState. Field names mirror the Calls plugin wire format.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique call identifier
+        start_at:
+          type: integer
+          format: int64
+          description: Call start time (Unix milliseconds)
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSessionClient'
+          description: Per-participant session state
+        thread_id:
+          type: string
+          description: Thread ID (empty — RTK does not use threaded posts)
+        post_id:
+          type: string
+          description: ID of the call notification post
+        screen_sharing_session_id:
+          type: string
+          description: Screen-sharing session ID (empty — not yet supported)
+        owner_id:
+          type: string
+          description: Mattermost User ID of the call creator
+        host_id:
+          type: string
+          description: Mattermost User ID of the current host (same as owner_id)
+        recording:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/JobStateClient'
+          description: Recording job state (always null — not supported)
+        transcription:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/JobStateClient'
+          description: Transcription job state (always null — not supported)
+        live_captions:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/JobStateClient'
+          description: Live captions job state (always null — not supported)
+        dismissed_notification:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: boolean
+          description: Map of user IDs who have dismissed the call notification
+
+    UserSessionClient:
+      type: object
+      description: Per-participant session state. RTK does not track per-session mute/hand/video state; boolean fields are always false and session_id equals user_id.
+      properties:
+        session_id:
+          type: string
+          description: Session identifier (set to user_id as a placeholder)
+        user_id:
+          type: string
+          description: Mattermost User ID
+        unmuted:
+          type: boolean
+          description: Whether the participant is unmuted (always false)
+        raised_hand:
+          type: integer
+          format: int64
+          description: Raised-hand timestamp (always 0)
+        video:
+          type: boolean
+          description: Whether the participant has video enabled (always false)
+
+    JobStateClient:
+      type: object
+      description: State of a background job (recording, transcription, or live captions). RTK does not run these jobs; this type exists solely for Calls-plugin wire compatibility.
+      properties:
+        type:
+          type: string
+        init_at:
+          type: integer
+          format: int64
+        start_at:
+          type: integer
+          format: int64
+        end_at:
+          type: integer
+          format: int64
+        err:
+          type: string
 
     RTKWebhookEvent:
       type: object

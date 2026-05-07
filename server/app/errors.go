@@ -15,4 +15,10 @@ var (
 	ErrRTKNotConfigured = errors.New("cloudflare RTK credentials are not configured")
 	// ErrNotChannelMember is returned when the user is not a member of the channel.
 	ErrNotChannelMember = errors.New("user is not a member of this channel")
+	// errInvalidUser is returned when an API call is made without a user ID.
+	errInvalidUser = errors.New("user ID is required")
+	// ErrForbidden is returned when the user lacks the required permission.
+	ErrForbidden = errors.New("you do not have permission to perform this action")
+	// ErrCallsDisabled is returned when calls are explicitly disabled in the channel.
+	ErrCallsDisabled = errors.New("calls are disabled in this channel")
 )

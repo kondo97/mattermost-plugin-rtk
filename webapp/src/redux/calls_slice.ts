@@ -35,6 +35,7 @@ export interface CallsPluginState {
     callLoading: boolean;
     callError: string | null;
     pendingSwitchCallId: string | null;
+    channelEnabledState: Record<string, boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,8 @@ const CLEAR_INCOMING_CALL = 'rtk-calls/clearIncomingCall' as const;
 const SET_CALL_LOADING = 'rtk-calls/setCallLoading' as const;
 const SET_CALL_ERROR = 'rtk-calls/setCallError' as const;
 const SET_PENDING_SWITCH_CALL_ID = 'rtk-calls/setPendingSwitchCallId' as const;
+const SET_CHANNEL_ENABLED = 'rtk-calls/setChannelEnabled' as const;
+const SET_CHANNEL_ENABLED_BULK = 'rtk-calls/setChannelEnabledBulk' as const;
 
 // ---------------------------------------------------------------------------
 // Action creators
@@ -86,6 +89,13 @@ export const setCallError = (error: string | null) =>
 export const setPendingSwitchCallId = (callId: string | null) =>
     ({type: SET_PENDING_SWITCH_CALL_ID, payload: callId} as const);
 
+export const setChannelEnabled = (channelId: string, enabled: boolean) =>
+    ({type: SET_CHANNEL_ENABLED, payload: {channelId, enabled}} as const);
+
+export const setChannelEnabledBulk = (
+    entries: Array<{channel_id: string; enabled?: boolean}>,
+) => ({type: SET_CHANNEL_ENABLED_BULK, payload: entries} as const);
+
 // ---------------------------------------------------------------------------
 // Action union type
 // ---------------------------------------------------------------------------
@@ -100,7 +110,9 @@ type CallsAction =
     | ReturnType<typeof clearIncomingCall>
     | ReturnType<typeof setCallLoading>
     | ReturnType<typeof setCallError>
-    | ReturnType<typeof setPendingSwitchCallId>;
+    | ReturnType<typeof setPendingSwitchCallId>
+    | ReturnType<typeof setChannelEnabled>
+    | ReturnType<typeof setChannelEnabledBulk>;
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -114,6 +126,7 @@ const initialState: CallsPluginState = {
     callLoading: false,
     callError: null,
     pendingSwitchCallId: null,
+    channelEnabledState: {},
 };
 
 export function callsReducer(
@@ -159,6 +172,25 @@ export function callsReducer(
 
     case SET_PENDING_SWITCH_CALL_ID:
         return {...state, pendingSwitchCallId: action.payload};
+
+    case SET_CHANNEL_ENABLED:
+        return {
+            ...state,
+            channelEnabledState: {
+                ...state.channelEnabledState,
+                [action.payload.channelId]: action.payload.enabled,
+            },
+        };
+
+    case SET_CHANNEL_ENABLED_BULK: {
+        const next = {...state.channelEnabledState};
+        for (const entry of action.payload) {
+            if (typeof entry.enabled === 'boolean') {
+                next[entry.channel_id] = entry.enabled;
+            }
+        }
+        return {...state, channelEnabledState: next};
+    }
 
     default:
         return state;

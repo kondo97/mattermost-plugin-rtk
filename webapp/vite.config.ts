@@ -61,7 +61,7 @@ export default defineConfig({
             // e.g. 'redux/calls_slice' → src/redux/calls_slice.ts
             //      'components/switch_call_modal' → src/components/switch_call_modal/index.tsx
             {
-                find: /^(redux|components|utils|call_page)\/(.+)$/,
+                find: /^(redux|components|utils|call_page|hooks)\/(.+)$/,
                 replacement: `${path.resolve(__dirname, 'src')}/$1/$2`,
             },
             {find: 'client', replacement: path.resolve(__dirname, 'src/client')},

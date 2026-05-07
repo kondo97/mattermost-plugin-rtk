@@ -7,6 +7,8 @@
     "plugin.rtk.channel_header.tooltip_join": "進行中の通話に参加する",
     "plugin.rtk.channel_header.tooltip_in_call": "この通話に参加しています",
     "plugin.rtk.channel_header.in_this_channel": "このチャンネル内",
+    "plugin.rtk.channel_header.disable_calls": "通話を無効にする(RTK)",
+    "plugin.rtk.channel_header.enable_calls": "通話を有効にする(RTK)",
     "plugin.rtk.toast_bar.join": "参加",
     "plugin.rtk.toast_bar.dismiss": "閉じる",
     "plugin.rtk.toast_bar.started_at": "{time} に開始",
@@ -40,5 +42,6 @@
     "plugin.rtk.call_post.participants": "{count}人が参加中",
     "plugin.rtk.call_post.error_close": "OK",
     "plugin.rtk.admin.credential.loading": "読み込み中...",
-    "plugin.rtk.admin.credential.env_var_value": "環境変数 {envVar} で設定済み"
+    "plugin.rtk.admin.credential.env_var_value": "環境変数 {envVar} で設定済み",
+    "plugin.rtk.error.calls_disabled": "このチャネルでは通話が無効です。"
 }
